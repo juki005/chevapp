@@ -1,0 +1,37 @@
+# Product Requirements Document: ChevApp MVP
+
+## 1. Product Overview
+- **App Name:** ChevApp
+- **Tagline:** Tvoj digitalni kompas za savršen griz.
+- **Concept:** A lifestyle-utility platform digitizing the Balkan "Cevapi culture" through discovery, education, and gamification.
+- **Target Language:** Default UI in Croatian (hr). Code architecture ready for i18n (English/German).
+- **Tech Stack:** Next.js (App Router), Supabase (Auth/DB), Tailwind CSS, Vercel.
+
+## 2. Target Audience
+- **Primary Persona:** "Luka the Authentic Foodie" – hates tourist traps, wants local-vetted spots, and likes to cook at home.
+
+## 3. Core Features (MVP)
+
+### A. Ćevap Finder (Interactive Map)
+- **Service:** Foursquare API integration.
+- **Custom Rating:** 1-5 "Lepinjas" instead of stars.
+- **Filters:** By style (Sarajevski, Banjalučki, Travnički).
+- **Vibe Integration:** Spotify playback triggers city-specific playlists (e.g., Sarajevo -> Sevdah/Dino Merlin) while browsing.
+
+### B. Master Kuhinja (Recipe & Tools)
+- **Meal Calculator:** Input number of guests -> output exact meat weight (grams) and bread count.
+- **YouTube Tutorials:** Dynamic embed of top 3 authentic recipes for the selected style (e.g., Almir Muka, Sašina Kuhinja).
+
+### C. Play Zone (Gamification)
+- **Cevap Snake:** A classic Snake game where the "Cevap" grows by eating "Lepinjas."
+- **XP System:** Users earn XP for quizzes and high scores to rank up (Apprentice -> Grill Master).
+- **Storage:** High scores saved to Supabase `scores` table.
+
+## 4. Technical Constraints
+- **Localization:** Use i18n for all text strings (Croatian default).
+- **Mobile-First:** Must be fully responsive and PWA-ready.
+- **Auth:** Supabase Auth (Email). Guest mode enabled for Map/Calculator.
+
+## 5. Design Principles
+- **Vibe:** Traditional, Bold, Industrial.
+- **Palette:** Charcoal Black (Grill), Burnt Orange (Fire), Cream (Lepinja).
