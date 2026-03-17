@@ -129,13 +129,22 @@ const EVENTS = [
   },
 ];
 
-// Leaderboard row shape (from profiles table)
+// Raw row shape returned by Supabase — explicit so TypeScript doesn't infer `never`
+interface Profile {
+  id:         string;
+  username:   string | null;
+  full_name:  string | null;
+  avatar_url: string | null;
+  xp_points:  number | null;
+}
+
+// Transformed display shape stored in component state
 interface LeaderboardEntry {
-  rank:   number;
-  name:   string;
+  rank:    number;
+  name:    string;
   initial: string;
-  xp:     number;
-  badge:  string;
+  xp:      number;
+  badge:   string;
 }
 
 const ALL_CITIES = ["Sve", ...Array.from(new Set(GASTRO_TIPS.map((t) => t.city)))];
@@ -156,9 +165,10 @@ export default function CommunityPage() {
       .order("xp_points", { ascending: false })
       .limit(10)
       .then(({ data }) => {
-        if (data) {
+        const profiles = (data ?? []) as Profile[];
+        if (profiles.length > 0) {
           setLeaderboard(
-            data.map((p, i) => {
+            profiles.map((p, i) => {
               const name    = p.username ?? p.full_name ?? "Korisnik";
               const rank    = getRank(p.xp_points ?? 0);
               return {
