@@ -1,37 +1,93 @@
-# Product Requirements Document: ChevApp MVP
+# PRODUCT REQUIREMENTS DOCUMENT: ChevApp (The Social Grill Network)
+**Version:** 2.0 | **Last Updated:** 2026
 
-## 1. Product Overview
-- **App Name:** ChevApp
+## 1. PRODUCT OVERVIEW
+- **Name:** ChevApp
 - **Tagline:** Tvoj digitalni kompas za savršen griz.
-- **Concept:** A lifestyle-utility platform digitizing the Balkan "Cevapi culture" through discovery, education, and gamification.
-- **Target Language:** Default UI in Croatian (hr). Code architecture ready for i18n (English/German).
-- **Tech Stack:** Next.js (App Router), Supabase (Auth/DB), Tailwind CSS, Vercel.
+- **Concept:** Sveobuhvatna društvena platforma za ljubitelje roštilja koja spaja gastronomiju, putovanja, gejmifikaciju i zdravlje.
+- **Tech Stack:** Next.js (App Router), Supabase (Auth/DB/Storage), Tailwind CSS, Vercel.
+- **Languages:** Multi-language support (hr, en, de, sr, bs, sl). Default: Croatian.
 
-## 2. Target Audience
-- **Primary Persona:** "Luka the Authentic Foodie" – hates tourist traps, wants local-vetted spots, and likes to cook at home.
+## 2. CORE MODULES & FEATURES
 
-## 3. Core Features (MVP)
+### A. Ćevap Finder (Interaktivna Mapa)
+- **Engine:** Foursquare API za bazu restorana + Supabase za verified lokacije.
+- **Ratings:** 1-5 "Lepinjas" vizualni sustav ocjenjivanja.
+- **Quick Filters:** Stilovi (Sarajevski, Banjalučki, Travnički, Leskovački, Sisak style...) i porcije (5, 10, 15 komada).
+- **Deep Linking Navigation:** Gumb "Upute" (Directions) automatski otvara Google Maps ili Waze na korisnikovom uređaju.
+- **Crowdsourced Status:** Korisnički izvještaji u realnom vremenu (npr. "Ponestalo mesa", "Gužva 45 min").
+- **Airport/Border Dash Filter (NEW - Dijaspora):** Specijalni filter koji prikazuje restorane u blizini aerodroma, graničnih prijelaza i autobuskih kolodvora. Namijenjen putnicima dijaspore koji imaju kratko tranzitno vrijeme.
+- **Souvenir Tips (NEW - Dijaspora):** U profilu svakog restorana, sekcija "Ponesi kući" s preporukama lokalnih proizvoda (domaći kajmak, ajvar, suha janjetina) i informacijama gdje ih kupiti u blizini.
 
-### A. Ćevap Finder (Interactive Map)
-- **Service:** Foursquare API integration.
-- **Custom Rating:** 1-5 "Lepinjas" instead of stars.
-- **Filters:** By style (Sarajevski, Banjalučki, Travnički).
-- **Vibe Integration:** Spotify playback triggers city-specific playlists (e.g., Sarajevo -> Sevdah/Dino Merlin) while browsing.
+### B. Gastro Route Planner
+- **Feature:** Planiranje putovanja između dvije točke (A -> B) s prikazom preporučenih "ćevap stanica" duž rute.
+- **Logic (REQUIRED - NOT PLACEHOLDER):**
+  - Geokodiranje gradova pomoću ugrađenog rječnika koordinata + Nominatim fallback.
+  - Haversine formula za izračun udaljenosti svakog restorana od pravca A→B.
+  - Filtriranje po radijusu (5km, 10km, 20km od rute).
+  - Sortiranje po Lepinja ocjeni unutar pronađenih rezultata.
 
-### B. Master Kuhinja (Recipe & Tools)
-- **Meal Calculator:** Input number of guests -> output exact meat weight (grams) and bread count.
-- **YouTube Tutorials:** Dynamic embed of top 3 authentic recipes for the selected style (e.g., Almir Muka, Sašina Kuhinja).
+### C. Master Kuhinja & Akademija
+- **Recipe Hub (REQUIRED - FUNCTIONAL):**
+  - Napredni recepti s modalima koji prikazuju sastojke, korake i dijele recept.
+  - Svaki recept ima interaktivni modal s tabovima (Sastojci / Priprema / Savjeti).
+- **YouTube Hub (REQUIRED - FUNCTIONAL):**
+  - Dinamički video embed preporuke prema odabranom stilu.
+- **Akademija - Quiz Sustav (REQUIRED - FUNCTIONAL):**
+  - Multi-question kviz s višestrukim odgovorom.
+  - Praćenje rezultata, točnih/netočnih odgovora.
+  - Završni zaslon s rezultatom i XP bodovima.
+  - Kategorije: Grill Kultura, Poznate Lokacije, Grill Tehnike.
+- **Grill Math (Burn-off Calculator):** Already implemented.
 
-### C. Play Zone (Gamification)
-- **Cevap Snake:** A classic Snake game where the "Cevap" grows by eating "Lepinjas."
-- **XP System:** Users earn XP for quizzes and high scores to rank up (Apprentice -> Grill Master).
-- **Storage:** High scores saved to Supabase `scores` table.
+### D. Restoran Profil & Smještaj
+- **Profile View:** Prikaz tagova, galerija i recenzije.
+- **Quick Emoji Review:** 🧅 (luk), 🔥 (temperatura), 🥯 (lepinja).
+- **Souvenir Tips:** Sekcija s preporukama lokalnih proizvoda u blizini restorana.
 
-## 4. Technical Constraints
-- **Localization:** Use i18n for all text strings (Croatian default).
-- **Mobile-First:** Must be fully responsive and PWA-ready.
-- **Auth:** Supabase Auth (Email). Guest mode enabled for Map/Calculator.
+### E. Zajednica (Social Feed)
+- **Objave (REQUIRED - FUNCTIONAL):** Interaktivni feed s Like akcijom i formom za novu objavu.
+- **Gastro Dojave (REQUIRED - FUNCTIONAL):** Dedicirani drawer/panel s insider tips, filter prema gradu.
+- **Događaji (REQUIRED - FUNCTIONAL):** Kalendar manifestacija s modal detaljima.
+- **Leaderboard:** Globalni poredak korisnika prema XP bodovima.
 
-## 5. Design Principles
-- **Vibe:** Traditional, Bold, Industrial.
-- **Palette:** Charcoal Black (Grill), Burnt Orange (Fire), Cream (Lepinja).
+### F. Profil & Dnevnik (REQUIRED - FUNCTIONAL)
+- **Dnevnik:** Forma za dodavanje zapisa + lista iz Supabase `journal_entries`.
+- **Taste Profile:** Recharts RadarChart koji vizualizira preferencije po stilu ćevapa.
+- **Ćevap Mapa:** Lista posjećenih gradova s brojem posjeta.
+
+### G. ChevApp Jukebox (Spotify)
+- **Feature:** Floating Jukebox kontroler s playlistama i Vibe Mode.
+
+## 3. ADMINISTRATION (Admin View)
+- **Roles:** `Admin`, `Moderator`, `User`.
+- **Admin Panel:** Upravljanje sadržajem, korisnicima, restoranima.
+- **Seed Endpoint:** `POST /api/seed` — delete-then-insert pattern za pouzdano sijanje podataka.
+
+## 4. DESIGN & UX
+
+### 4.1 Dark Mode — "Ugljen Style" (DEFAULT)
+- Background: #0D0D0D | Surface: #1A1A1A | Border: #2a2a2a
+- Text: #B0B0B0 | Accent: #D35400
+
+### 4.2 Light Mode — "Somun & Wood" (NEW v2.0)
+- **Background:** #F9F7F2 (Topla bijela, boja brašna)
+- **Secondary/Surface:** #E5E1D8 (Topla siva, drvo)
+- **Border:** #D6D0C7 (Hrast)
+- **Text:** #1C1917 (Tamni ugljen)
+- **Accent:** #D97706 (Zapečeni somun narančasta)
+- **Accent hover:** #B45309
+
+### 4.3 General
+- Responsive Mobile-first s PWA podrškom.
+- Fonts: Oswald (naslovi), Inter (tekst).
+
+## 5. TECHNICAL CONSTRAINTS
+- **i18n:** Eksplicitni mapping između CevapStyle vrijednosti i JSON ključeva (ne `.toLowerCase()`).
+- **Security:** Row Level Security (RLS) na svim Supabase tablicama.
+- **Interactive Logic:** SVE stranice moraju imati funkcionalnu logiku — nema placeholder-a u produkciji.
+
+## 6. DIASPORA FEATURES (NEW v2.0)
+- **Airport/Border Dash:** Filter u Finderu za lokacije blizu aerodroma/graničnih prijelaza.
+- **Souvenir Tips:** Preporuke lokalnih proizvoda (kajmak, ajvar, suha janjetina) u profilima restorana.
+- **Diaspora Language Priority:** Automatska sugestija jezika prema browser lokali.

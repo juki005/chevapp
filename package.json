@@ -1,0 +1,39 @@
+{
+  "name": "chevapp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.0",
+    "@vis.gl/react-google-maps": "^1.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.15.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.468.0",
+    "next": "^15.1.0",
+    "next-intl": "^3.26.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-leaflet": "^4.2.1",
+    "recharts": "^2.14.1",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.14",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^9",
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5"
+  }
+}
