@@ -215,7 +215,7 @@ export default function ProfilePage() {
             .sort((a, b) => b.visitedCount - a.visitedCount)
         );
       });
-  }, [userId, cityTotals]);
+  }, [userId, statsByCity]);
 
   // ── Music state ──────────────────────────────────────────────────────────
   const [songUrl,      setSongUrl]      = useState("");
