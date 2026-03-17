@@ -5,10 +5,17 @@
  * All functions accept a Supabase browser client so they can be called
  * from any client component without circular imports.
  */
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 
-export type GameClient = SupabaseClient<Database>;
+/**
+ * GameClient is derived from the return type of createBrowserClient so it is
+ * structurally identical to what createClient() in lib/supabase/client.ts
+ * returns — preventing the SupabaseClient<Database> ↔ BrowserClient type
+ * mismatch that occurs when @supabase/supabase-js and @supabase/ssr resolve
+ * the same generic differently across package boundaries.
+ */
+export type GameClient = ReturnType<typeof createBrowserClient<Database>>;
 
 // ── Rank system ───────────────────────────────────────────────────────────────
 
