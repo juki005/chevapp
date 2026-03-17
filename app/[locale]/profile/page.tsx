@@ -1,3 +1,4 @@
+// DEPLOYMENT_VERSION: 3.0_NUCLEAR_REFRESH_NO_CACHE
 "use client";
 
 import { useState, useEffect } from "react";
@@ -177,13 +178,15 @@ export default function ProfilePage() {
   const deleteEntry = (id: string) => setEntries((p) => p.filter((e) => e.id !== id));
 
   // ── City totals (for progress bar denominator in GastroCityList) ────────
-  const [cityTotals, setCityTotals] = useState<Record<string, number>>({});
+  const [statsByCity, setStatsByCity] = useState<Record<string, number>>({});
   useEffect(() => {
-    supabase.from("restaurants").select("city").then(({ data }) => {
-      if (!data) return;
-      const counts: Record<string, number> = {};
-      for (const r of data as { city: string }[]) { counts[r.city] = (counts[r.city] ?? 0) + 1; }
-      setCityTotals(counts);
+    supabase.from("restaurants").select("city").then(({ data: rawVisitHistory }) => {
+      if (!rawVisitHistory) return;
+      const counts = (rawVisitHistory as { city: string }[]).reduce<Record<string, number>>(
+        (acc, row) => { acc[row.city] = (acc[row.city] ?? 0) + 1; return acc; },
+        {}
+      );
+      setStatsByCity(counts);
     });
   }, []);
 
@@ -207,7 +210,7 @@ export default function ProfilePage() {
             .map(([city, visitedCount]) => ({
               city,
               visitedCount,
-              totalCount: cityTotals[city] ?? Math.max(visitedCount * 2, 5),
+              totalCount: statsByCity[city] ?? Math.max(visitedCount * 2, 5),
             }))
             .sort((a, b) => b.visitedCount - a.visitedCount)
         );
@@ -274,7 +277,7 @@ export default function ProfilePage() {
         city,
         visitedCount,
         // Use DB total if available; otherwise a reasonable bar target
-        totalCount: cityTotals[city] ?? Math.max(visitedCount * 2, 5),
+        totalCount: statsByCity[city] ?? Math.max(visitedCount * 2, 5),
       }))
       .sort((a, b) => b.visitedCount - a.visitedCount);
   })();
