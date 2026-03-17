@@ -198,8 +198,8 @@ export default function ProfilePage() {
       .then(({ data }) => {
         if (!data) return;
         const counts: Record<string, number> = {};
-        for (const row of data) {
-          const city = (row.restaurants as { city: string } | null)?.city;
+        for (const row of data as { restaurant_id: string; restaurants: { city: string } | null }[]) {
+          const city = row.restaurants?.city;
           if (city) counts[city] = (counts[city] ?? 0) + 1;
         }
         setDbCityVisits(
