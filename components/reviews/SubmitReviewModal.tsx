@@ -66,6 +66,7 @@ export function SubmitReviewModal({ isOpen, onClose, restaurant, onSuccess }: Su
     }
 
     // Upsert review (unique per user × restaurant)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: dbError } = await supabase
       .from("reviews")
       .upsert(
@@ -77,7 +78,7 @@ export function SubmitReviewModal({ isOpen, onClose, restaurant, onSuccess }: Su
           with_kajmak:   toggles.with_kajmak,
           with_ajvar:    toggles.with_ajvar,
           comment:       comment.trim() || null,
-        },
+        } as any,
         { onConflict: "user_id,restaurant_id" }
       );
 

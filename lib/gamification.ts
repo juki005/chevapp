@@ -80,7 +80,8 @@ export async function getUserStats(
     .eq("id", userId)
     .single();
 
-  const profileXP = profile?.xp_points ?? 0;
+  const profileTyped = profile as { xp_points: number } | null;
+  const profileXP = profileTyped?.xp_points ?? 0;
 
   // Try user_stats — gracefully degrade if the table is missing or has no row
   const { data: statsData, error: statsError } = await supabase
@@ -99,9 +100,11 @@ export async function getUserStats(
   }
 
   // Prefer profile XP (more up-to-date) but keep the real streak/challenge data
-  const xp = profileXP > 0 ? profileXP : statsData.xp_total;
+  const statsTyped = statsData as Database["public"]["Tables"]["user_stats"]["Row"] | null;
+  if (!statsTyped) return syntheticStats(userId, profileXP);
+  const xp = profileXP > 0 ? profileXP : statsTyped.xp_total;
   return {
-    ...statsData,
+    ...statsTyped,
     xp_total:  xp,
     xp_points: xp,
   };
@@ -130,7 +133,8 @@ export async function awardXP(
   // Try the streak-tracking RPC (may not exist in all envs — always ignore errors)
   let rpcXP: number | null = null;
   try {
-    const { data: rpcData, error: rpcErr } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rpcData, error: rpcErr } = await (supabase as any)
       .rpc("award_xp", { p_user_id: userId, p_points: points })
       .single();
     if (!rpcErr && rpcData) {
@@ -144,8 +148,9 @@ export async function awardXP(
   // Always upsert profiles.xp_points — this is the column the app reads
   await supabase
     .from("profiles")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .upsert(
-      { id: userId, xp_points: newXP, updated_at: new Date().toISOString() },
+      { id: userId, xp_points: newXP, updated_at: new Date().toISOString() } as any,
       { onConflict: "id" }
     );
 
@@ -180,7 +185,8 @@ export async function claimDailyChallenge(
   supabase: GameClient,
   points:   number = 30
 ): Promise<{ success: boolean; alreadyClaimed: boolean }> {
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .rpc("claim_daily_challenge", { p_user_id: userId, p_points: points })
     .single();
 

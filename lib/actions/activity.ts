@@ -54,8 +54,9 @@ export async function recordUserActivity(
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const lastActivity  = stats?.last_activity_date ?? null;
-    const currentStreak = stats?.current_streak ?? 0;
+    const statsTyped    = stats as { current_streak: number; last_activity_date: string | null } | null;
+    const lastActivity  = statsTyped?.last_activity_date ?? null;
+    const currentStreak = statsTyped?.current_streak ?? 0;
 
     // Already active today — nothing to update
     if (lastActivity === today) {
@@ -82,30 +83,33 @@ export async function recordUserActivity(
     // ── Update user_stats ──────────────────────────────────────────────────
     await supabase
       .from("user_stats")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(
         {
           user_id:                    user.id,
           current_streak:             newStreak,
           last_activity_date:         today,
           daily_challenge_claimed_at: today,
-        },
+        } as any,
         { onConflict: "user_id" }
       );
 
     // ── Award daily bonus XP to profiles ──────────────────────────────────
-    const { data: profile } = await supabase
+    const { data: profileRaw } = await supabase
       .from("profiles")
       .select("xp_points")
       .eq("id", user.id)
       .single();
 
-    const currentXP = profile?.xp_points ?? 0;
+    const profileData = profileRaw as { xp_points: number } | null;
+    const currentXP = profileData?.xp_points ?? 0;
     await supabase
       .from("profiles")
       .update({
         xp_points:  currentXP + DAILY_BONUS_XP,
         updated_at: new Date().toISOString(),
-      })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as never)
       .eq("id", user.id);
 
     // Invalidate server-rendered pages that display XP / streak

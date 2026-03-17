@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 
-const LEGENDARY_RESTAURANTS = [
+type RestaurantInsert = Database["public"]["Tables"]["restaurants"]["Insert"];
+
+const LEGENDARY_RESTAURANTS: RestaurantInsert[] = [
   {
     name: "Željo 1",
     style: "Sarajevski" as const,
@@ -100,9 +103,10 @@ export async function POST() {
     }
 
     // Step 2: Fresh insert
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error: insertError } = await supabase
       .from("restaurants")
-      .insert(LEGENDARY_RESTAURANTS)
+      .insert(LEGENDARY_RESTAURANTS as any)
       .select("id, name, city, lepinja_rating");
 
     if (insertError) {

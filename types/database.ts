@@ -61,6 +61,7 @@ export interface Database {
           favorite_style?: CevapStyle | null;
           total_visits?: number;
         };
+        Relationships: [];
       };
       restaurants: {
         Row: {
@@ -120,6 +121,7 @@ export interface Database {
           status_reports?: Json[];
           foursquare_id?: string | null;
         };
+        Relationships: [];
       };
       reviews: {
         Row: {
@@ -150,6 +152,7 @@ export interface Database {
           with_ajvar?: boolean;
           comment?: string | null;
         };
+        Relationships: [];
       };
       scores: {
         Row: {
@@ -182,6 +185,7 @@ export interface Database {
           lepinja_score?: number;
           comment?: string | null;
         };
+        Relationships: [];
       };
       posts: {
         Row: {
@@ -217,6 +221,7 @@ export interface Database {
           likes_count?: number;
           is_hidden?: boolean;
         };
+        Relationships: [];
       };
       user_stats: {
         Row: {
@@ -244,6 +249,7 @@ export interface Database {
           rank_title?: string;
           daily_challenge_claimed_at?: string | null;
         };
+        Relationships: [];
       };
       word_of_the_day: {
         Row: {
@@ -267,6 +273,7 @@ export interface Database {
           tags?: string[];
           display_date?: string | null;
         };
+        Relationships: [];
       };
       recipes: {
         Row: {
@@ -284,9 +291,9 @@ export interface Database {
           cooking_time: number;
           servings: number;
           style: string | null;
-          ingredients: import("./database").Json;
-          steps: import("./database").Json;
-          tips: import("./database").Json;
+          ingredients: Json;
+          steps: Json;
+          tips: Json;
           youtube_query: string | null;
           sort_order: number;
           created_at: string;
@@ -307,9 +314,9 @@ export interface Database {
           cooking_time?: number;
           servings?: number;
           style?: string | null;
-          ingredients?: import("./database").Json;
-          steps?: import("./database").Json;
-          tips?: import("./database").Json;
+          ingredients?: Json;
+          steps?: Json;
+          tips?: Json;
           youtube_query?: string | null;
           sort_order?: number;
         };
@@ -328,12 +335,13 @@ export interface Database {
           cooking_time?: number;
           servings?: number;
           style?: string | null;
-          ingredients?: import("./database").Json;
-          steps?: import("./database").Json;
-          tips?: import("./database").Json;
+          ingredients?: Json;
+          steps?: Json;
+          tips?: Json;
           youtube_query?: string | null;
           sort_order?: number;
         };
+        Relationships: [];
       };
       journal_entries: {
         Row: {
@@ -363,10 +371,20 @@ export interface Database {
           photo_url?: string | null;
           notes?: string | null;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      award_xp: {
+        Args: { p_user_id: string; p_points: number };
+        Returns: unknown;
+      };
+      claim_daily_challenge: {
+        Args: { p_user_id: string; p_points: number };
+        Returns: unknown;
+      };
+    };
     Enums: {
       user_role: UserRole;
       cevap_style: CevapStyle;

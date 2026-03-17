@@ -112,7 +112,8 @@ function RouteMapInner({ searchArgs, onSearchComplete }: Omit<Props, "height">) 
     })
     .then((result) => {
       const routeCount  = result.routes?.length ?? 0;
-      const encoded     = result.routes?.[0]?.overview_polyline?.points;
+      // overview_polyline is a plain string in @types/google.maps (browser API)
+      const encoded     = result.routes?.[0]?.overview_polyline as string | undefined;
       console.log("[RouteMap] DirectionsService OK — routes:", routeCount,
         "| polyline length:", encoded?.length ?? 0);
 
@@ -201,7 +202,7 @@ function RouteMapInner({ searchArgs, onSearchComplete }: Omit<Props, "height">) 
       // Ensure origin + destination are always in frame
       fitBounds.extend({ lat: a[0], lng: a[1] });
       fitBounds.extend({ lat: b[0], lng: b[1] });
-      map.fitBounds(fitBounds, 56);
+      map?.fitBounds(fitBounds, 56);
     }
 
     return () => { polyRef.current?.setMap(null); polyRef.current = null; };

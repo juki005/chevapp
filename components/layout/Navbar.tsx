@@ -55,10 +55,12 @@ export function Navbar({ locale }: NavbarProps) {
         supabase.from("profiles").select("xp_points").eq("id", uid).single(),
         supabase.from("user_stats").select("current_streak, last_activity_date").eq("user_id", uid).maybeSingle(),
       ]);
-      setXp(profileRes.data?.xp_points ?? 0);
+      const profileData = profileRes.data as { xp_points: number } | null;
+      const statsData   = statsRes.data   as { current_streak: number; last_activity_date: string | null } | null;
+      setXp(profileData?.xp_points ?? 0);
       const today = new Date().toISOString().split("T")[0];
-      setStreak(statsRes.data?.current_streak ?? 0);
-      setActiveToday(statsRes.data?.last_activity_date === today);
+      setStreak(statsData?.current_streak ?? 0);
+      setActiveToday(statsData?.last_activity_date === today);
     }
 
     supabase.auth.getUser().then(({ data: { user: u } }) => {
