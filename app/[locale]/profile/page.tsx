@@ -182,7 +182,7 @@ export default function ProfilePage() {
     supabase.from("restaurants").select("city").then(({ data }) => {
       if (!data) return;
       const counts: Record<string, number> = {};
-      for (const r of data) { counts[r.city] = (counts[r.city] ?? 0) + 1; }
+      for (const r of data as { city: string }[]) { counts[r.city] = (counts[r.city] ?? 0) + 1; }
       setCityTotals(counts);
     });
   }, []);
