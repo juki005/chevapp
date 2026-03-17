@@ -37,7 +37,9 @@
       "Bash(find C:UsersimladDesktopGithubchevapp -type f -name *gastro*)",
       "Bash(find C:UsersimladDesktopGithubchevappapp -type f -name *route*)",
       "Bash(grep -r scores C:UsersimladDesktopGithubchevapp --include=*.ts --include=*.tsx)",
-      "Bash(find C:UsersimladDesktopGithubchevappapp[locale] -type f)"
+      "Bash(find C:UsersimladDesktopGithubchevappapp[locale] -type f)",
+      "Bash(npm ls:*)",
+      "Bash(grep -rl \"react-leaflet\\\\|from ''leaflet''\\\\|from \"\"leaflet\"\"\" --include=\"*.tsx\" --include=\"*.ts\" .)"
     ]
   }
 }
