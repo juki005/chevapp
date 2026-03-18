@@ -58,6 +58,10 @@ export default function KitchenPage() {
       .select("*")
       .order("sort_order", { ascending: true })
       .then(({ data, error }) => {
+        if (error) {
+          // Check DevTools console for the actual Supabase error (e.g. RLS blocking anon key)
+          console.error("[Kitchen] Supabase fetch error:", error.message, error);
+        }
         if (!error && data && data.length > 0) {
           setRecipes(data.map((row) => mapDbRecipe(row as unknown as DbRecipe, locale)));
         }
