@@ -42,7 +42,7 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center p-4"
+      style={{ position: "fixed", inset: 0, zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       {/* Backdrop */}
