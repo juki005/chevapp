@@ -163,37 +163,48 @@ export const RECIPES: Recipe[] = [
 ];
 
 // ── Supabase DB row type ───────────────────────────────────────────────────────
+// Matches the actual production table schema (columns added gradually via migrations)
 export interface DbRecipe {
   id: string;
-  slug: string;
-  emoji: string;
+  slug: string | null;
+  // emoji column may be named image_emoji in production
+  emoji: string | null;
+  image_emoji: string | null;
   title_hr: string;
   title_en: string | null;
   description_hr: string;
   description_en: string | null;
-  difficulty: "easy" | "medium" | "hard";
-  category: "Glavno jelo" | "Prilog" | "Dodatak";
-  prep_time: string;
-  cook_time: string;
+  // difficulty may be English ("easy") or Croatian ("Lako") depending on how the row was created
+  difficulty: string;
+  category: string;
+  prep_time: string | null;
+  cook_time: string | null;
   cooking_time: number;
   servings: number;
   style: string | null;
-  ingredients: { amount: string; item: string }[];
-  steps: RecipeStep[];
-  tips: string[];
+  ingredients: { amount: string; item: string }[] | null;
+  steps: RecipeStep[] | null;
+  tips: string[] | null;
   youtube_query: string | null;
   video_url: string | null;
-  sort_order: number;
+  sort_order: number | null;
 }
+
+const DIFFICULTY_MAP: Record<string, Recipe["difficulty"]> = {
+  // English values (from migrations)
+  easy: "easy", medium: "medium", hard: "hard",
+  // Croatian values (manually created rows)
+  "Lako": "easy", "Srednje": "medium", "Teško": "hard",
+};
 
 export function mapDbRecipe(row: DbRecipe, locale: string): Recipe {
   return {
-    id: row.slug,
+    id: row.slug ?? row.id,
     title: locale === "en" && row.title_en ? row.title_en : row.title_hr,
-    emoji: row.emoji,
-    difficulty: row.difficulty,
-    prepTime: row.prep_time,
-    cookTime: row.cook_time,
+    emoji: row.image_emoji ?? row.emoji ?? "🍽️",
+    difficulty: DIFFICULTY_MAP[row.difficulty] ?? "medium",
+    prepTime: row.prep_time ?? "—",
+    cookTime: row.cook_time ?? "—",
     servings: row.servings,
     style: row.style ?? "",
     desc: locale === "en" && row.description_en ? row.description_en : row.description_hr,
