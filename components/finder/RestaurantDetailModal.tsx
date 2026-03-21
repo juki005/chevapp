@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   X, MapPin, BedDouble, ExternalLink, CheckCircle,
-  Navigation, Star, Clock, Globe, Phone, Heart, Bookmark, Sparkles,
+  Navigation, Star, Clock, Globe, Phone, Heart, Bookmark,
 } from "lucide-react";
 import { AccommodationModal } from "@/components/finder/AccommodationModal";
 import { createClient } from "@/lib/supabase/client";
@@ -70,8 +70,6 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   const [isWish,            setIsWish]            = useState(false);
   const [favLoading,        setFavLoading]        = useState(false);
   const [wishLoading,       setWishLoading]       = useState(false);
-  const [showPrompt,        setShowPrompt]        = useState(false);
-  const [copied,            setCopied]            = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -79,7 +77,6 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   useEffect(() => {
     setIsFav(false);
     setIsWish(false);
-    setShowPrompt(false);
     if (!restaurant) return;
 
     // Unique key: DB id if available, otherwise name::city
@@ -172,8 +169,6 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     .filter((t) => !["point_of_interest", "establishment", "food"].includes(t))
     .map((t) => t.replace(/_/g, " "))
     .slice(0, 3);
-
-  const aiPrompt = `A photorealistic cinematic image of a person enjoying cevapi at ${restaurant.name} in ${restaurant.city}, warm Balkan atmosphere, golden hour lighting, food photography style, 8k quality`;
 
   const modal = (
     <>
@@ -329,38 +324,6 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
                   Pogledaj na Google Maps →
                 </a>
               </InfoRow>
-            </div>
-
-            {/* AI prompt */}
-            <div style={{ borderRadius: "16px", border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.05)", padding: "16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-                <Sparkles style={{ width: "18px", height: "18px", color: "#8b5cf6", flexShrink: 0 }} />
-                <p style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "14px", color: "rgb(var(--foreground))", margin: 0 }}>GENERIRAJ AI SLIKU</p>
-              </div>
-              {!showPrompt ? (
-                <button onClick={() => setShowPrompt(true)} style={{ width: "100%", padding: "9px 16px", borderRadius: "10px", background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6", fontWeight: 600, fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                  <Sparkles style={{ width: "14px", height: "14px" }} />
-                  Generiraj AI sliku iz ovog grada
-                </button>
-              ) : (
-                <div>
-                  <p style={{ fontSize: "11px", color: "rgb(var(--muted))", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>AI prompt spreman za kopiranje:</p>
-                  <div style={{ background: "rgb(var(--background))", border: "1px solid rgb(var(--border))", borderRadius: "10px", padding: "12px", fontSize: "12px", color: "rgb(var(--foreground))", lineHeight: 1.6, fontFamily: "monospace" }}>
-                    {aiPrompt}
-                  </div>
-                  <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(aiPrompt); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                      style={{ flex: 1, padding: "8px", borderRadius: "8px", background: copied ? "rgba(34,197,94,0.15)" : "rgba(139,92,246,0.15)", border: `1px solid ${copied ? "rgba(34,197,94,0.3)" : "rgba(139,92,246,0.3)"}`, color: copied ? "#22c55e" : "#8b5cf6", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
-                    >
-                      {copied ? "✓ Kopirano!" : "Kopiraj prompt"}
-                    </button>
-                    <a href="https://replicate.com/stability-ai/sdxl" target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: "8px", borderRadius: "8px", textAlign: "center", background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6", fontSize: "12px", fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      Otvori Replicate →
-                    </a>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Accommodation CTA */}

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   User, BookOpen, Map as MapIcon, Edit3, Plus, Star, Trash2, MapPin,
   Calendar, ChefHat, Flame, Zap, CheckCircle, Trophy, Music2, Award,
-  Lock, ExternalLink, Heart, Bookmark,
+  Lock, ExternalLink, Heart, Bookmark, Sparkles,
 } from "lucide-react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip,
@@ -22,7 +22,7 @@ import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import type { CevapStyle } from "@/types/database";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type ProfileTab = "journal" | "gastro" | "taste" | "badges" | "music" | "favorites";
+type ProfileTab = "journal" | "gastro" | "taste" | "badges" | "music" | "favorites" | "ai";
 
 interface JournalEntry {
   id:         string;
@@ -61,6 +61,28 @@ function buildTasteData(entries: JournalEntry[]) {
       ? Math.round((scores[style].total / scores[style].count) * 20)
       : 0,
   }));
+}
+
+// ── AI Avatar city → landmark mapping ────────────────────────────────────────
+const AI_CITIES: { name: string; landmark: string; vibe: string }[] = [
+  { name: "Sarajevo",   landmark: "Sebilj fontana na Baščaršiji",          vibe: "Ottoman bazaar atmosphere, cobblestone streets, minarets in the background" },
+  { name: "Mostar",     landmark: "Stari Most bridge over the Neretva",    vibe: "Balkan riverside, stone architecture, turquoise river, emerald hills" },
+  { name: "Zagreb",     landmark: "Ban Jelačić trg, Cathedral towers",     vibe: "Central European city square, trams, baroque architecture" },
+  { name: "Banja Luka", landmark: "Kastel fortress on the Vrbas river",    vibe: "riverside fortress, lush green Bosnian scenery" },
+  { name: "Tuzla",      landmark: "Trg slobode, Panonska jezera nearby",   vibe: "Bosnian city square, warm community atmosphere" },
+  { name: "Beograd",    landmark: "Kalemegdan fortress, Sava and Danube",  vibe: "grand riverside fortress, vibrant Balkan capital energy" },
+  { name: "Novi Sad",   landmark: "Petrovaradin tvrđava over the Danube",  vibe: "Baroque riverside city, EXIT festival energy, golden light" },
+  { name: "Skopje",     landmark: "Stone Bridge, Vardar river promenade",  vibe: "Macedonian capital, neoclassical statues, Balkan city life" },
+  { name: "Priština",   landmark: "Mother Teresa Cathedral, Newborn sign", vibe: "young vibrant capital, street art, cultural renaissance" },
+  { name: "Podgorica",  landmark: "Millennium Bridge, Morača river canyon", vibe: "Montenegrin capital, dramatic canyon scenery" },
+];
+
+function buildAiPrompt(city: string, hasPhoto: boolean): string {
+  const entry = AI_CITIES.find((c) => c.name === city) ?? AI_CITIES[0];
+  const photoClause = hasPhoto
+    ? "Insert the provided portrait naturally into the scene — preserve their face and likeness."
+    : "Feature a person (generic silhouette) enjoying the scene.";
+  return `A photorealistic cinematic portrait photo of a food lover enjoying traditional Balkan ćevapi at a charming street restaurant near ${entry.landmark} in ${city}. ${entry.vibe}. ${photoClause} Warm golden-hour lighting, steam rising from the grill, authentic copper džezva of Bosnian coffee on the side, shallow depth of field, 8K food photography style, National Geographic quality.`;
 }
 
 // ── Spotify helpers ───────────────────────────────────────────────────────────
@@ -239,6 +261,13 @@ export default function ProfilePage() {
     setEmbedUrl(parsed);
     localStorage.setItem(SPOTIFY_LS_KEY, trimmed);
   };
+
+  // ── AI Gradski Avatar state ───────────────────────────────────────────────
+  const [aiCity,       setAiCity]       = useState(AI_CITIES[0].name);
+  const [aiPhotoName,  setAiPhotoName]  = useState<string | null>(null);
+  const [aiPromptText, setAiPromptText] = useState<string>("");
+  const [aiCopied,     setAiCopied]     = useState(false);
+  const [aiGenerated,  setAiGenerated]  = useState(false);
 
   // ── Favorites & Wishlist ─────────────────────────────────────────────────
   type PlaceItem = { id: string; name: string; city: string; address: string };
@@ -514,7 +543,8 @@ export default function ProfilePage() {
             { key: "taste"   as ProfileTab, icon: <Star      className="w-4 h-4" />, label: t("tasteProfile") },
             { key: "badges"  as ProfileTab, icon: <Award     className="w-4 h-4" />, label: `Bedževi (${earnedCount}/${BADGES.length})` },
             { key: "music"     as ProfileTab, icon: <Music2    className="w-4 h-4" />, label: "Soundtrack" },
-            { key: "favorites" as ProfileTab, icon: <Heart className="w-4 h-4" />, label: `Favoriti (${favorites.length + localFavs.length})` },
+            { key: "favorites" as ProfileTab, icon: <Heart     className="w-4 h-4" />, label: `Favoriti (${favorites.length + localFavs.length})` },
+            { key: "ai"        as ProfileTab, icon: <Sparkles  className="w-4 h-4" />, label: "AI Avatar" },
           ]).map(({ key, icon, label }) => (
             <button
               key={key}
@@ -1004,6 +1034,213 @@ export default function ProfilePage() {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════ */}
+        {/* ── AI GRADSKI AVATAR TAB ───────────────────────────────────── */}
+        {/* ═══════════════════════════════════════════════════════════════ */}
+        {activeTab === "ai" && (
+          <div className="space-y-5">
+
+            {/* Header card */}
+            <div className="rounded-2xl border border-purple-500/25 bg-purple-500/5 p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <p className="font-bold text-[rgb(var(--foreground))] text-base" style={{ fontFamily: "Oswald, sans-serif" }}>
+                    AI GRADSKI AVATAR
+                  </p>
+                  <p className="text-xs text-[rgb(var(--muted))]">
+                    Generiraj AI prompt za personalnu sliku u tvom omiljenom gradu
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-[rgb(var(--muted))] leading-relaxed mt-2">
+                Odaberi grad, (opcionalno) uploadaj svoju fotku, klikni <span className="text-purple-400 font-semibold">Generiraj prompt</span> — pa kopiraj prompt u <span className="text-purple-400 font-semibold">Midjourney, DALL·E 3 ili Replicate</span>.
+              </p>
+            </div>
+
+            {/* Config card */}
+            <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-5 space-y-4">
+
+              {/* City picker */}
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-2 block">
+                  Odaberi grad
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {AI_CITIES.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => { setAiCity(c.name); setAiGenerated(false); }}
+                      className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                        aiCity === c.name
+                          ? "border-purple-500/50 bg-purple-500/15 text-purple-300"
+                          : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-purple-500/30"
+                      }`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Photo upload */}
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-2 block">
+                  Tvoja fotka <span className="normal-case">(opcionalno — za personaliziran prompt)</span>
+                </label>
+                <label
+                  htmlFor="ai-photo-upload"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-[rgb(var(--border))] cursor-pointer hover:border-purple-500/40 hover:bg-purple-500/5 transition-all"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg">📷</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {aiPhotoName ? (
+                      <p className="text-sm text-purple-300 font-medium truncate">✓ {aiPhotoName}</p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-[rgb(var(--foreground))]">Klikni za upload</p>
+                        <p className="text-xs text-[rgb(var(--muted))]">JPG, PNG, WEBP — max 10 MB</p>
+                      </>
+                    )}
+                  </div>
+                  {aiPhotoName && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); setAiPhotoName(null); setAiGenerated(false); }}
+                      className="text-xs text-[rgb(var(--muted))] hover:text-red-400 transition-colors flex-shrink-0 px-2 py-1 rounded"
+                    >
+                      Ukloni
+                    </button>
+                  )}
+                </label>
+                <input
+                  id="ai-photo-upload"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) { setAiPhotoName(file.name); setAiGenerated(false); }
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+
+              {/* Generate button */}
+              <button
+                onClick={() => {
+                  setAiPromptText(buildAiPrompt(aiCity, !!aiPhotoName));
+                  setAiGenerated(true);
+                  setAiCopied(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white transition-all"
+                style={{
+                  background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                  fontFamily: "Oswald, sans-serif",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                <Sparkles className="w-4 h-4" />
+                GENERIRAJ AI PROMPT
+              </button>
+            </div>
+
+            {/* Generated prompt result */}
+            {aiGenerated && aiPromptText && (
+              <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-5 space-y-3">
+                <p className="text-xs text-purple-300 uppercase tracking-widest font-semibold">
+                  ✨ Prompt spreman — kopiraj u AI generator
+                </p>
+
+                {/* Prompt text box */}
+                <div
+                  className="rounded-xl p-4 text-sm leading-relaxed font-mono"
+                  style={{
+                    background: "rgb(var(--background))",
+                    border: "1px solid rgb(var(--border))",
+                    color: "rgb(var(--foreground))",
+                  }}
+                >
+                  {aiPromptText}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(aiPromptText);
+                      setAiCopied(true);
+                      setTimeout(() => setAiCopied(false), 2500);
+                    }}
+                    className="flex items-center gap-2 flex-1 justify-center py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: aiCopied ? "rgba(34,197,94,0.15)" : "rgba(139,92,246,0.15)",
+                      border: `1px solid ${aiCopied ? "rgba(34,197,94,0.35)" : "rgba(139,92,246,0.35)"}`,
+                      color: aiCopied ? "#22c55e" : "#a78bfa",
+                    }}
+                  >
+                    {aiCopied ? "✓ Kopirano!" : "📋 Kopiraj prompt"}
+                  </button>
+
+                  <a
+                    href="https://replicate.com/stability-ai/sdxl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 flex-1 justify-center py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: "rgba(139,92,246,0.15)",
+                      border: "1px solid rgba(139,92,246,0.35)",
+                      color: "#a78bfa",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Replicate (SDXL)
+                  </a>
+
+                  <a
+                    href={`https://www.bing.com/images/create?q=${encodeURIComponent(aiPromptText.slice(0, 480))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 flex-1 justify-center py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: "rgba(59,130,246,0.12)",
+                      border: "1px solid rgba(59,130,246,0.3)",
+                      color: "#60a5fa",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Bing Image Creator
+                  </a>
+                </div>
+
+                {/* Tips */}
+                <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)] p-4 space-y-1.5">
+                  <p className="text-xs font-semibold text-[rgb(var(--foreground))] uppercase tracking-wide" style={{ fontFamily: "Oswald, sans-serif" }}>
+                    Savjeti za korištenje
+                  </p>
+                  {[
+                    { tool: "Midjourney",       tip: "Zalijepi prompt u Discord, dodaj --ar 4:5 --v 6 na kraju" },
+                    { tool: "DALL·E 3",          tip: "Otvori ChatGPT → Image, zalijepi prompt direktno" },
+                    { tool: "Replicate SDXL",    tip: "Zalijepi prompt, postavi negative prompt: cartoon, anime, blur" },
+                    { tool: "Bing Image Creator", tip: "Besplatno! Klikni gumb iznad — generira odmah" },
+                  ].map(({ tool, tip }) => (
+                    <div key={tool} className="flex items-start gap-2 text-xs">
+                      <span className="text-purple-400 font-semibold flex-shrink-0 w-28">{tool}</span>
+                      <span className="text-[rgb(var(--muted))]">{tip}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
