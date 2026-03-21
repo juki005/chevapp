@@ -654,7 +654,14 @@ export default function FinderPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedRestaurant({ name: r.name, city: r.city, address: r.address });
+                                  setSelectedRestaurant({
+                                    name:     r.name,
+                                    city:     r.city,
+                                    address:  r.address,
+                                    rating:   r.rating,
+                                    open_now: r.open_now,
+                                    types:    r.types,
+                                  });
                                 }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[#4285f4] hover:border-[#4285f4]/40 transition-all"
                                 style={{ fontFamily: "Oswald, sans-serif" }}
