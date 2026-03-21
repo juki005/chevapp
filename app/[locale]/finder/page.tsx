@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   MapPin, Search, Map, List, Loader2, ServerCrash,
-  SlidersHorizontal, CheckCircle, XCircle, RefreshCw, X, ChevronDown,
+  SlidersHorizontal, CheckCircle, XCircle, RefreshCw, X, ChevronDown, Heart,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StyleFilter } from "@/components/finder/StyleFilter";
@@ -99,6 +99,30 @@ export default function FinderPage() {
 
   // ── Profile modal — shared between DB cards and Google Places cards ───────
   const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
+
+  // ── Favorites-only filter ─────────────────────────────────────────────────
+  const [favOnly,       setFavOnly]       = useState(false);
+  const [favPlaceKeys,  setFavPlaceKeys]  = useState<string[]>([]);   // localStorage keys
+  const [favDbIds,      setFavDbIds]      = useState<string[]>([]);   // Supabase DB ids
+
+  // Load favorites on mount so the filter has data
+  useEffect(() => {
+    // localStorage (Google Places)
+    try {
+      const ls = JSON.parse(localStorage.getItem("chevapp:place_favorites") ?? "[]") as string[];
+      setFavPlaceKeys(ls);
+    } catch { /* ignore */ }
+
+    // Supabase (DB restaurants) — only if logged in
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("user_favorites").select("restaurant_id").eq("user_id", user.id)
+        .then(({ data }) => {
+          if (data) setFavDbIds((data as { restaurant_id: string }[]).map((r) => r.restaurant_id));
+        });
+    });
+  }, []);
 
   // ── Map ↔ List selection sync ─────────────────────────────────────────────
   const [selectedMapKey, setSelectedMapKey] = useState<string | null>(null);
@@ -219,12 +243,22 @@ export default function FinderPage() {
   }, [debouncedSearch, searchPlaces]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const hasActiveFilters = !!(searchTerm || selectedCity || activeStyle);
+  const hasActiveFilters = !!(searchTerm || selectedCity || activeStyle || favOnly);
+
+  // Apply favorites filter to DB restaurants and Google Places results
+  const visibleDbRestaurants = favOnly
+    ? dbRestaurants.filter((r) => favDbIds.includes(r.id))
+    : dbRestaurants;
+
+  const visiblePlaceResults = favOnly
+    ? placeResults.filter((r) => favPlaceKeys.includes(`${r.name}::${r.city}`))
+    : placeResults;
 
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedCity("");
     setActiveStyle("");
+    setFavOnly(false);
   };
 
   // Merge DB pins + Google Places pins, deduplicating by proximity
@@ -360,21 +394,36 @@ export default function FinderPage() {
             </div>
           </div>
 
-          {/* Row 2: style filter + clear */}
+          {/* Row 2: style filter + favorites toggle + clear */}
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <StyleFilter
               activeStyle={activeStyle}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
             />
-            {hasActiveFilters && (
+            <div className="flex items-center gap-2 flex-shrink-0 self-start mt-0.5">
+              {/* Favorites-only toggle */}
               <button
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgb(var(--border))] text-xs text-[rgb(var(--muted))] hover:text-red-400 hover:border-red-400/40 transition-colors flex-shrink-0 self-start mt-0.5"
+                onClick={() => setFavOnly((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
+                  favOnly
+                    ? "border-red-400/50 bg-red-400/10 text-red-400"
+                    : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-red-400/40 hover:text-red-400"
+                )}
               >
-                <X className="w-3 h-3" />
-                Obriši filtere
+                <Heart className={cn("w-3 h-3", favOnly && "fill-red-400")} />
+                Samo favoriti
               </button>
-            )}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgb(var(--border))] text-xs text-[rgb(var(--muted))] hover:text-red-400 hover:border-red-400/40 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                  Obriši filtere
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -494,7 +543,7 @@ export default function FinderPage() {
                 <p className="text-sm text-[rgb(var(--muted))]">Učitavanje restorana...</p>
               </div>
 
-            ) : dbRestaurants.length === 0 && !placesSearched && !hasActiveFilters ? (
+            ) : visibleDbRestaurants.length === 0 && !placesSearched && !hasActiveFilters ? (
               /* Empty DB */
               <div className="flex flex-col items-center justify-center py-16 gap-3">
                 <span className="text-6xl">🍖</span>
@@ -520,7 +569,7 @@ export default function FinderPage() {
                 </button>
               </div>
 
-            ) : dbRestaurants.length === 0 && hasActiveFilters && !(placesSearched && placeResults.length > 0) ? (
+            ) : visibleDbRestaurants.length === 0 && hasActiveFilters && !(placesSearched && visiblePlaceResults.length > 0) ? (
               /* No filter results — only shown when Places also returned nothing */
               <div className="flex flex-col items-center justify-center py-16 gap-3">
                 <span className="text-5xl">🔍</span>
@@ -544,14 +593,15 @@ export default function FinderPage() {
             ) : (
               <>
                 {/* ── Verified DB grid ─────────────────────────────────── */}
-                {dbRestaurants.length > 0 && (
+                {visibleDbRestaurants.length > 0 && (
                   <div className="mb-8">
                     <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
                       <SlidersHorizontal className="w-3 h-3" />
-                      Verificirani restorani ({dbRestaurants.length})
+                      Verificirani restorani ({visibleDbRestaurants.length})
+                      {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {dbRestaurants.map((r) => (
+                      {visibleDbRestaurants.map((r) => (
                         <div
                           key={r.id}
                           id={`card-${r.id}`}
@@ -575,14 +625,15 @@ export default function FinderPage() {
                 )}
 
                 {/* ── Google Places grid ───────────────────────────────── */}
-                {placesSearched && placeResults.length > 0 && (
+                {placesSearched && visiblePlaceResults.length > 0 && (
                   <div>
                     <p className="text-xs text-[#4285f4] uppercase tracking-widest font-medium mb-3 flex items-center gap-2">
                       <span className="font-bold">G</span>
-                      Google Places — &ldquo;{searchTerm}&rdquo; ({placeResults.length})
+                      Google Places — &ldquo;{searchTerm}&rdquo; ({visiblePlaceResults.length})
+                      {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {placeResults.map((r) => (
+                      {visiblePlaceResults.map((r) => (
                         <div
                           key={r.place_id}
                           id={`card-${r.place_id}`}
