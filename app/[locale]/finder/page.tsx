@@ -566,7 +566,7 @@ export default function FinderPage() {
                           <RestaurantCard
                             restaurant={r}
                             avgRating={avgRatings[r.id] ?? null}
-                            onProfileClick={() => setSelectedRestaurant({ name: r.name, city: r.city, address: r.address, is_verified: r.is_verified })}
+                            onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified })}
                           />
                         </div>
                       ))}

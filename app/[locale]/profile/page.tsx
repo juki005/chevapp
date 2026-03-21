@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   User, BookOpen, Map as MapIcon, Edit3, Plus, Star, Trash2, MapPin,
   Calendar, ChefHat, Flame, Zap, CheckCircle, Trophy, Music2, Award,
-  Lock, ExternalLink,
+  Lock, ExternalLink, Heart, Bookmark,
 } from "lucide-react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip,
@@ -22,7 +22,7 @@ import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import type { CevapStyle } from "@/types/database";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type ProfileTab = "journal" | "gastro" | "taste" | "badges" | "music";
+type ProfileTab = "journal" | "gastro" | "taste" | "badges" | "music" | "favorites";
 
 interface JournalEntry {
   id:         string;
@@ -239,6 +239,34 @@ export default function ProfilePage() {
     setEmbedUrl(parsed);
     localStorage.setItem(SPOTIFY_LS_KEY, trimmed);
   };
+
+  // ── Favorites & Wishlist ─────────────────────────────────────────────────
+  const [favorites,     setFavorites]     = useState<{ id: string; name: string; city: string; address: string }[]>([]);
+  const [wishlist,      setWishlist]      = useState<{ id: string; name: string; city: string; address: string }[]>([]);
+  const [favsLoading,   setFavsLoading]   = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    setFavsLoading(true);
+    Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("user_favorites") as any).select("restaurant_id, restaurants(id, name, city, address)").eq("user_id", userId).order("created_at", { ascending: false }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("user_wishlist") as any).select("restaurant_id, restaurants(id, name, city, address)").eq("user_id", userId).order("created_at", { ascending: false }),
+    ]).then(([favRes, wishRes]: [any, any]) => {
+      setFavorites(
+        (favRes.data ?? [])
+          .map((r: any) => r.restaurants as { id: string; name: string; city: string; address: string })
+          .filter(Boolean)
+      );
+      setWishlist(
+        (wishRes.data ?? [])
+          .map((r: any) => r.restaurants as { id: string; name: string; city: string; address: string })
+          .filter(Boolean)
+      );
+      setFavsLoading(false);
+    });
+  }, [userId]);
 
   // ── Derived values ───────────────────────────────────────────────────────
   const tasteData    = buildTasteData(entries);
@@ -462,7 +490,8 @@ export default function ProfilePage() {
             { key: "gastro"  as ProfileTab, icon: <MapPin    className="w-4 h-4" />, label: "Gastro Ruta" },
             { key: "taste"   as ProfileTab, icon: <Star      className="w-4 h-4" />, label: t("tasteProfile") },
             { key: "badges"  as ProfileTab, icon: <Award     className="w-4 h-4" />, label: `Bedževi (${earnedCount}/${BADGES.length})` },
-            { key: "music"   as ProfileTab, icon: <Music2    className="w-4 h-4" />, label: "Soundtrack" },
+            { key: "music"     as ProfileTab, icon: <Music2    className="w-4 h-4" />, label: "Soundtrack" },
+            { key: "favorites" as ProfileTab, icon: <Heart     className="w-4 h-4" />, label: `Favoriti (${favorites.length})` },
           ]).map(({ key, icon, label }) => (
             <button
               key={key}
@@ -892,6 +921,69 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* ── FAVORITES & WISHLIST TAB ─────────────────────────────────────── */}
+        {activeTab === "favorites" && (
+          <div className="space-y-6">
+            {favsLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-6 h-6 border-2 border-[rgb(var(--primary))] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                {/* Moji Favoriti */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Heart className="w-4 h-4 text-red-400" fill="#f87171" />
+                    <h3 className="font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
+                      MOJI FAVORITI
+                    </h3>
+                    <span className="text-xs text-[rgb(var(--muted))]">({favorites.length})</span>
+                  </div>
+                  {favorites.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[rgb(var(--border))] p-8 text-center">
+                      <Heart className="w-8 h-8 text-[rgb(var(--muted))] opacity-30 mx-auto mb-2" />
+                      <p className="text-sm text-[rgb(var(--muted))]">
+                        Nemaš još nijedan favorit. Otvori profil restorana i klikni ❤️ Favoriti.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {favorites.map((r) => (
+                        <RestaurantMiniCard key={r.id} restaurant={r} accent="red" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Moja Wishlista */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Bookmark className="w-4 h-4 text-burnt-orange-400" fill="#D35400" />
+                    <h3 className="font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
+                      MOJA WISHLISTA
+                    </h3>
+                    <span className="text-xs text-[rgb(var(--muted))]">({wishlist.length})</span>
+                  </div>
+                  {wishlist.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[rgb(var(--border))] p-8 text-center">
+                      <Bookmark className="w-8 h-8 text-[rgb(var(--muted))] opacity-30 mx-auto mb-2" />
+                      <p className="text-sm text-[rgb(var(--muted))]">
+                        Nema restorana na wishlistu. Otvori profil restorana i klikni 🔖 Želim ići.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {wishlist.map((r) => (
+                        <RestaurantMiniCard key={r.id} restaurant={r} accent="orange" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* ── Edit Profile Modal ───────────────────────────────────────────────── */}
@@ -916,6 +1008,45 @@ export default function ProfilePage() {
           }));
         }}
       />
+    </div>
+  );
+}
+
+// ── Mini restaurant card for favorites / wishlist ─────────────────────────────
+function RestaurantMiniCard({
+  restaurant,
+  accent,
+}: {
+  restaurant: { id: string; name: string; city: string; address: string };
+  accent: "red" | "orange";
+}) {
+  const color = accent === "red" ? "#ef4444" : "#D35400";
+  const bg    = accent === "red" ? "rgba(239,68,68,0.08)" : "rgba(211,84,0,0.08)";
+  const border = accent === "red" ? "rgba(239,68,68,0.2)" : "rgba(211,84,0,0.2)";
+
+  return (
+    <div
+      className="rounded-2xl p-4 flex items-start gap-3 transition-all hover:scale-[1.01]"
+      style={{ background: bg, border: `1px solid ${border}` }}
+    >
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+        style={{ background: `${color}20` }}
+      >
+        🍖
+      </div>
+      <div className="flex-1 min-w-0">
+        <p
+          className="font-bold text-sm leading-snug truncate"
+          style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}
+        >
+          {restaurant.name}
+        </p>
+        <p className="text-xs mt-0.5 truncate" style={{ color: "rgb(var(--muted))" }}>
+          📍 {restaurant.city}
+          {restaurant.address ? ` · ${restaurant.address}` : ""}
+        </p>
+      </div>
     </div>
   );
 }

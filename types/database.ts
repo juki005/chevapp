@@ -123,6 +123,18 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_favorites: {
+        Row:    { id: string; user_id: string; restaurant_id: string; created_at: string };
+        Insert: { id?: string; user_id: string; restaurant_id: string; created_at?: string };
+        Update: { id?: string; user_id?: string; restaurant_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      user_wishlist: {
+        Row:    { id: string; user_id: string; restaurant_id: string; created_at: string };
+        Insert: { id?: string; user_id: string; restaurant_id: string; created_at?: string };
+        Update: { id?: string; user_id?: string; restaurant_id?: string; created_at?: string };
+        Relationships: [];
+      };
       reviews: {
         Row: {
           id: string;
