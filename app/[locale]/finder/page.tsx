@@ -9,6 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { StyleFilter } from "@/components/finder/StyleFilter";
 import { RestaurantCard } from "@/components/finder/RestaurantCard";
+import { RestaurantDetailModal } from "@/components/finder/RestaurantDetailModal";
 import { RestaurantMap, type MapRestaurant } from "@/components/finder/RestaurantMap";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import type { Restaurant, CevapStyle } from "@/types";
@@ -95,6 +96,9 @@ export default function FinderPage() {
   const [placesError,   setPlacesError]   = useState<string | null>(null);
   const [placesSearched, setPlacesSearched] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // ── Profile modal ─────────────────────────────────────────────────────────
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
 
   // ── Map ↔ List selection sync ─────────────────────────────────────────────
   const [selectedMapKey, setSelectedMapKey] = useState<string | null>(null);
@@ -562,6 +566,7 @@ export default function FinderPage() {
                           <RestaurantCard
                             restaurant={r}
                             avgRating={avgRatings[r.id] ?? null}
+                            onProfileClick={() => setSelectedRestaurant(r)}
                           />
                         </div>
                       ))}
@@ -671,6 +676,12 @@ export default function FinderPage() {
           </div>
         )}
       </div>
+
+      {/* ── Restaurant profile modal (single instance for the whole page) ── */}
+      <RestaurantDetailModal
+        restaurant={selectedRestaurant}
+        onClose={() => setSelectedRestaurant(null)}
+      />
     </div>
   );
 }

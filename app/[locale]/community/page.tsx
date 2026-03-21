@@ -93,7 +93,8 @@ const GASTRO_TIPS = [
   },
 ];
 
-const EVENTS = [
+// Fallback events shown before DB loads or if fetch fails
+const FALLBACK_EVENTS = [
   {
     id: "e1",
     title: "Leskovački Grill Festival 2025",
@@ -103,18 +104,16 @@ const EVENTS = [
     desc: "Najveći balkanski festival grilanja s više od 50 natjecatelja. Ćevapi, roštilj, glazba i folklore.",
     tag: "Festival",
     tagColor: "text-red-400 bg-red-400/10 border-red-400/30",
-    notified: false,
   },
   {
     id: "e2",
-    title: "Sarajevo Gastro Dana",
+    title: "Sarajevo Gastro Dani",
     date: "22. – 24. rujna 2025.",
     location: "Baščaršija, Sarajevo",
     emoji: "🕌",
     desc: "Proljetni gastro događaj u srcu Baščaršije. Radionice kuhanja, degustacije kajmaka i somuna.",
     tag: "Gastro",
     tagColor: "text-amber-400 bg-amber-400/10 border-amber-400/30",
-    notified: false,
   },
   {
     id: "e3",
@@ -125,9 +124,19 @@ const EVENTS = [
     desc: "Neformalni meetup zajednice — grilanje uz more. Svaki donosi po nešto. Kapacitet 40 osoba.",
     tag: "Meetup",
     tagColor: "text-blue-400 bg-blue-400/10 border-blue-400/30",
-    notified: false,
   },
 ];
+
+interface EventItem {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  emoji: string;
+  desc: string;
+  tag: string;
+  tagColor: string;
+}
 
 // Raw row shape returned by Supabase — explicit so TypeScript doesn't infer `never`
 interface Profile {
@@ -185,6 +194,39 @@ export default function CommunityPage() {
       });
   }, []);
 
+  // Events — loaded from DB, fallback to static list
+  const [events, setEvents] = useState<EventItem[]>(FALLBACK_EVENTS);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("events")
+      .select("id, title, description, location, date_label, emoji, tag, tag_color, sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .then(({ data }) => {
+        const rows = data as unknown as Array<{
+          id: string; title: string; description: string; location: string;
+          date_label: string; emoji: string; tag: string; tag_color: string;
+        }>;
+        if (rows && rows.length > 0) {
+          setEvents(
+            rows.map((row) => ({
+              id: row.id,
+              title: row.title,
+              date: row.date_label,
+              location: row.location,
+              emoji: row.emoji,
+              desc: row.description,
+              tag: row.tag,
+              tagColor: row.tag_color,
+            }))
+          );
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [likes, setLikes] = useState<Record<string, number>>(
     Object.fromEntries(MOCK_POSTS.map((p) => [p.id, p.likes]))
   );
@@ -195,7 +237,7 @@ export default function CommunityPage() {
   const [votedTips, setVotedTips] = useState<Set<string>>(new Set());
   const [cityFilter, setCityFilter] = useState("Sve");
   const [notifiedEvents, setNotifiedEvents] = useState<Set<string>>(new Set());
-  const [selectedEvent, setSelectedEvent] = useState<typeof EVENTS[0] | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [newPostText, setNewPostText] = useState("");
   const [showPostForm, setShowPostForm] = useState(false);
 
@@ -459,7 +501,7 @@ export default function CommunityPage() {
           {/* =================== EVENTS TAB =================== */}
           {activeTab === "events" && (
             <div className="space-y-4">
-              {EVENTS.map((event) => (
+              {events.map((event) => (
                 <div
                   key={event.id}
                   className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5"

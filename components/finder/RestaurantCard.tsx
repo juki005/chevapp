@@ -1,24 +1,32 @@
-import { MapPin, CheckCircle, AlertCircle } from "lucide-react";
+"use client";
+
+import { MapPin, CheckCircle, AlertCircle, LayoutList } from "lucide-react";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "./DirectionsButton";
 import type { Restaurant } from "@/types";
 import { cn } from "@/lib/utils";
 
 const STYLE_EMOJIS: Record<string, string> = {
-  Sarajevski: "🕌",
+  Sarajevski:   "🕌",
   "Banjalučki": "🌊",
-  "Travnički": "⛰️",
+  "Travnički":  "⛰️",
   "Leskovački": "🌶️",
-  Ostalo: "🔥",
+  Ostalo:       "🔥",
 };
 
 interface RestaurantCardProps {
-  restaurant: Restaurant;
-  avgRating?: number | null;
-  className?: string;
+  restaurant:     Restaurant;
+  avgRating?:     number | null;
+  className?:     string;
+  onProfileClick?: () => void;   // lifted up to the finder page
 }
 
-export function RestaurantCard({ restaurant, avgRating, className }: RestaurantCardProps) {
+export function RestaurantCard({
+  restaurant,
+  avgRating,
+  className,
+  onProfileClick,
+}: RestaurantCardProps) {
   const emoji = STYLE_EMOJIS[restaurant.style] ?? "🔥";
 
   return (
@@ -29,35 +37,39 @@ export function RestaurantCard({ restaurant, avgRating, className }: RestaurantC
         className
       )}
     >
-      {/* Header strip */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-charcoal-700 dark:bg-ugljen-border flex items-center justify-center text-2xl flex-shrink-0">
-            {emoji}
+      {/* ── Clickable header — opens the profile modal ───────────────────── */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation(); // prevent the finder page wrapper's onClick
+          onProfileClick?.();
+        }}
+        className="w-full text-left flex items-center gap-3 px-5 pt-5 pb-3 hover:bg-burnt-orange-500/[0.03] transition-colors"
+      >
+        <div className="w-12 h-12 rounded-xl bg-charcoal-700 dark:bg-ugljen-border flex items-center justify-center text-2xl flex-shrink-0">
+          {emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3
+              className="font-bold text-cream text-base group-hover:text-burnt-orange-400 transition-colors leading-tight"
+              style={{ fontFamily: "Oswald, sans-serif" }}
+            >
+              {restaurant.name}
+            </h3>
+            {restaurant.is_verified && (
+              <CheckCircle className="w-4 h-4 text-burnt-orange-400 flex-shrink-0" />
+            )}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3
-                className="font-bold text-cream text-base group-hover:text-burnt-orange-400 transition-colors leading-tight"
-                style={{ fontFamily: "Oswald, sans-serif" }}
-              >
-                {restaurant.name}
-              </h3>
-              {restaurant.is_verified && (
-                <CheckCircle className="w-4 h-4 text-burnt-orange-400 flex-shrink-0" />
-              )}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-cream/40 mt-0.5">
-              <MapPin className="w-3 h-3" />
-              <span>{restaurant.city} · {restaurant.address}</span>
-            </div>
+          <div className="flex items-center gap-1 text-xs text-cream/40 mt-0.5">
+            <MapPin className="w-3 h-3" />
+            <span className="truncate">{restaurant.city} · {restaurant.address}</span>
           </div>
         </div>
-      </div>
+      </button>
 
-      {/* Middle */}
+      {/* ── Middle ───────────────────────────────────────────────────────── */}
       <div className="px-5 pb-3">
-        {/* Style badge */}
+        {/* Style badge + tags */}
         <div className="flex flex-wrap gap-2 mb-3">
           <span className="text-xs px-2.5 py-1 rounded-full border border-burnt-orange-500/30 bg-burnt-orange-500/10 text-burnt-orange-400 font-medium">
             {restaurant.style}
@@ -91,29 +103,50 @@ export function RestaurantCard({ restaurant, avgRating, className }: RestaurantC
         </div>
       </div>
 
-      {/* Footer actions */}
+      {/* ── Footer actions ────────────────────────────────────────────────── */}
       <div className="px-5 py-3 border-t border-charcoal-700/60 dark:border-ugljen-border/60 flex items-center justify-between gap-3">
-        {/* Quick emoji review */}
+        {/* Quick emoji reactions */}
         <div className="flex gap-1">
-          {["🧅", "🔥", "🥯"].map((emoji) => (
+          {["🧅", "🔥", "🥯"].map((e) => (
             <button
-              key={emoji}
-              className="w-8 h-8 rounded-lg hover:bg-burnt-orange-500/10 transition-colors text-sm flex items-center justify-center hover:scale-110 transition-transform"
+              key={e}
+              onClick={(ev) => ev.stopPropagation()}
+              className="w-8 h-8 rounded-lg hover:bg-burnt-orange-500/10 transition-colors text-sm flex items-center justify-center hover:scale-110"
               title="Brza ocjena"
             >
-              {emoji}
+              {e}
             </button>
           ))}
         </div>
 
-        <DirectionsButton
-          name={restaurant.name}
-          address={restaurant.address}
-          city={restaurant.city}
-          lat={restaurant.latitude}
-          lng={restaurant.longitude}
-          phone={restaurant.phone}
-        />
+        <div className="flex items-center gap-2">
+          {/* PROFIL — triggers the parent modal */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onProfileClick?.();
+            }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold",
+              "border border-charcoal-600 dark:border-ugljen-border",
+              "text-cream/60 hover:text-burnt-orange-400 hover:border-burnt-orange-500/40 transition-all",
+            )}
+            style={{ fontFamily: "Oswald, sans-serif" }}
+          >
+            <LayoutList className="w-3 h-3" />
+            PROFIL
+          </button>
+
+          {/* Directions — completely unchanged */}
+          <DirectionsButton
+            name={restaurant.name}
+            address={restaurant.address}
+            city={restaurant.city}
+            lat={restaurant.latitude}
+            lng={restaurant.longitude}
+            phone={restaurant.phone}
+          />
+        </div>
       </div>
     </div>
   );

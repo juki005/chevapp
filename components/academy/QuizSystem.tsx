@@ -8,6 +8,16 @@ import { awardXP } from "@/lib/gamification";
 import { revalidateXP } from "@/lib/actions/xp";
 import { cn } from "@/lib/utils";
 
+// DB row shape for quiz_questions
+interface DbQuizQuestion {
+  sort_order: number;
+  question_text: string;
+  answers: { id: string; text: string }[];
+  correct_id: string;
+  explanation: string;
+  xp: number;
+}
+
 // ── Daily XP gate ─────────────────────────────────────────────────────────────
 const QUIZ_LS_KEY = `chevapp:quiz_xp:${new Date().toISOString().slice(0, 10)}`;
 function hasQuizXPToday() {
@@ -28,10 +38,55 @@ interface Answer {
   xpEarned: number;
 }
 
-const TOTAL_XP = QUIZ_QUESTIONS.reduce((sum, q) => sum + q.xp, 0);
-
 export function QuizSystem() {
   const supabase = createClient();
+
+  // Questions — loaded from DB, fall back to hardcoded constants
+  const [questions, setQuestions] = useState<QuizQuestion[]>(QUIZ_QUESTIONS);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // First get the quiz id for slug 'cevapi-masterclass'
+        const { data: quizRaw } = await supabase
+          .from("quizzes")
+          .select("id")
+          .eq("slug", "cevapi-masterclass")
+          .single();
+
+        const quiz = quizRaw as unknown as { id: string } | null;
+        if (!quiz) return; // table doesn't exist yet — keep fallback
+
+        const { data: rowsRaw } = await supabase
+          .from("quiz_questions")
+          .select("sort_order, question_text, answers, correct_id, explanation, xp")
+          .eq("quiz_id", quiz.id)
+          .order("sort_order");
+
+        const rows = rowsRaw as unknown as DbQuizQuestion[] | null;
+        if (rows && rows.length > 0) {
+          setQuestions(
+            rows.map((r, i) => ({
+              id: i + 1,
+              question: r.question_text,
+              answers: r.answers,
+              correctId: r.correct_id,
+              explanation: r.explanation,
+              xp: r.xp,
+            }))
+          );
+        }
+      } catch {
+        // DB not ready — keep hardcoded fallback silently
+      } finally {
+        setQuestionsLoading(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const TOTAL_XP = questions.reduce((sum, q) => sum + q.xp, 0);
 
   const [state, setState] = useState<QuizState>("intro");
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -46,8 +101,8 @@ export function QuizSystem() {
   const [levelUpMsg, setLevelUpMsg] = useState("");
   const awardedRef = useRef(false); // prevent double-award if component re-renders
 
-  const currentQuestion = QUIZ_QUESTIONS[currentIndex];
-  const totalQuestions = QUIZ_QUESTIONS.length;
+  const currentQuestion = questions[currentIndex];
+  const totalQuestions = questions.length;
   const progress = ((currentIndex) / totalQuestions) * 100;
 
   const earnedXP = answers.reduce((sum, a) => sum + a.xpEarned, 0);
@@ -155,6 +210,15 @@ export function QuizSystem() {
     }
     return "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)] opacity-50 cursor-default";
   };
+
+  // --- LOADING (questions fetching from DB) ---
+  if (questionsLoading) {
+    return (
+      <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-8 flex items-center justify-center min-h-[200px]">
+        <div className="text-[rgb(var(--muted))] text-sm animate-pulse">Učitavanje kviza…</div>
+      </div>
+    );
+  }
 
   // --- INTRO ---
   if (state === "intro") {
@@ -268,7 +332,7 @@ export function QuizSystem() {
         {/* Answer review */}
         <div className="space-y-2 mb-6">
           <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3">Pregled odgovora</p>
-          {QUIZ_QUESTIONS.map((q, i) => {
+          {questions.map((q, i) => {
             const ans = answers.find((a) => a.questionId === q.id);
             const correct = ans?.correct ?? false;
             return (

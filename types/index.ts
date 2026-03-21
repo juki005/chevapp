@@ -13,6 +13,25 @@ export interface Restaurant {
   is_verified: boolean;
   phone?: string | null;
   website?: string | null;
+  // Profile upgrade (migration 008)
+  slug?: string | null;
+  rating?: number | null;
+  review_count?: number | null;
+  description?: string | null;
+  tags_style?: string[];
+  tags_meat?: string[];
+}
+
+export interface RestaurantReview {
+  id: string;
+  restaurant_id: string;
+  user_id: string | null;
+  user_name: string;
+  user_avatar_url: string | null;
+  reviewer_tag: string | null;
+  review_text: string;
+  rating: number;
+  created_at: string;
 }
 
 export interface UserProfile {
