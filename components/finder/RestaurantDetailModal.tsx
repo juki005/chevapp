@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, MapPin, BedDouble, ExternalLink, CheckCircle } from "lucide-react";
+import { X, MapPin, BedDouble, ExternalLink, CheckCircle, Navigation } from "lucide-react";
 import { AccommodationModal } from "@/components/finder/AccommodationModal";
 // Minimal shape — works for both DB Restaurant rows and Google Places results
 export interface ProfileTarget {
@@ -42,10 +42,9 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
   if (!restaurant || !mounted) return null;
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-  const embedSrc = apiKey
-    ? `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(`${restaurant.name}, ${restaurant.city}`)}&language=hr`
-    : "";
+  // Free Google Maps embed — no API key required.
+  // Opens the full Google Business card (photos, reviews, hours) inside the iframe.
+  const embedSrc = `https://maps.google.com/maps?q=${encodeURIComponent(`${restaurant.name} ${restaurant.city}`)}&output=embed&hl=hr`;
 
   const modal = (
     <>
@@ -108,9 +107,27 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
             <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
               <MapPin style={{ width: "12px", height: "12px", color: "rgb(var(--muted))", flexShrink: 0 }} />
               <span style={{ fontSize: "12px", color: "rgb(var(--muted))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {restaurant.city} · {restaurant.address}
+                {restaurant.city}{restaurant.address ? ` · ${restaurant.address}` : ""}
               </span>
             </div>
+            {/* Quick link to full Google Maps page */}
+            <a
+              href={`https://www.google.com/maps/search/${encodeURIComponent(`${restaurant.name} ${restaurant.city}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                marginTop: "6px",
+                fontSize: "11px",
+                color: "#4285f4",
+                textDecoration: "none",
+              }}
+            >
+              <Navigation style={{ width: "10px", height: "10px" }} />
+              Otvori u Google Maps
+            </a>
           </div>
           <button
             onClick={onClose}
@@ -135,50 +152,16 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
 
-          {/* Google Maps embed */}
-          <div style={{ width: "100%", aspectRatio: "16/9", background: "rgb(var(--border))", position: "relative" }}>
-            {embedSrc ? (
-              <iframe
-                src={embedSrc}
-                title={`${restaurant.name} na Google Maps`}
-                style={{ width: "100%", height: "100%", border: "none" }}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
-            ) : (
-              <div style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "12px",
-                minHeight: "200px",
-              }}>
-                <MapPin style={{ width: "32px", height: "32px", color: "rgb(var(--muted))" }} />
-                <p style={{ fontSize: "13px", color: "rgb(var(--muted))", margin: 0 }}>
-                  Google Maps embed nedostupan
-                </p>
-                <a
-                  href={`https://www.google.com/maps/search/${encodeURIComponent(`${restaurant.name} ${restaurant.city}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "#D35400",
-                    fontSize: "12px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    textDecoration: "none",
-                  }}
-                >
-                  <ExternalLink style={{ width: "12px", height: "12px" }} />
-                  Otvori u Google Maps
-                </a>
-              </div>
-            )}
+          {/* Free Google Maps embed — no API key needed */}
+          <div style={{ width: "100%", aspectRatio: "16/9", background: "rgb(var(--border))", position: "relative", minHeight: "260px" }}>
+            <iframe
+              src={embedSrc}
+              title={`${restaurant.name} na Google Maps`}
+              style={{ width: "100%", height: "100%", border: "none" }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
           </div>
 
           {/* Accommodation CTA */}
