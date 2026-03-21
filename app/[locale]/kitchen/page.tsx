@@ -17,7 +17,7 @@ export default async function KitchenPage() {
   const { data, error, count } = await supabase
     .from("recipes")
     .select("*", { count: "exact" })
-    .order("sort_order", { ascending: true });
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("❌ SUPABASE KITCHEN ERROR:", error.message, error.details, error.hint);
@@ -29,7 +29,7 @@ export default async function KitchenPage() {
   const initialRecipes =
     !error && data && data.length > 0
       ? data.map((row) => mapDbRecipe(row as unknown as DbRecipe, locale))
-      : RECIPES;
+      : [];
 
   return <KitchenPageClient initialRecipes={initialRecipes} />;
 }
