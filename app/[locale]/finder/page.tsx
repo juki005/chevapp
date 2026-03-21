@@ -813,6 +813,7 @@ export default function FinderPage() {
         isOpen={ruletOpen}
         onClose={() => setRuletOpen(false)}
         currentCity={selectedCity}
+        searchTerm={searchTerm}
         userId={userId}
       />
     </div>

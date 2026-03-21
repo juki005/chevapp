@@ -21,6 +21,7 @@ interface Props {
   isOpen:      boolean;
   onClose:     () => void;
   currentCity: string;   // city dropdown value from finder (may be "")
+  searchTerm:  string;   // text search box value — often a city name
   userId:      string | null;
 }
 
@@ -31,11 +32,13 @@ const SEGMENT_COLORS = [
 ];
 
 const MODES: { key: RuletMode; emoji: string; label: string; desc: string }[] = [
-  { key: "grad",     emoji: "🏙️", label: "Gradski Rulet",   desc: "Iz trenutno pretraženog grada" },
-  { key: "blizu",    emoji: "📍", label: "Blizu Mene",      desc: "GPS · restorani u krugu 100km" },
+  { key: "grad",     emoji: "🏙️", label: "Gradski Rulet",   desc: "Google Places · odabrani grad" },
+  { key: "blizu",    emoji: "📍", label: "Blizu Mene",      desc: "GPS + Google · okolica 100km" },
   { key: "wishlist", emoji: "🔖", label: "Moja Wishlista",  desc: "Samo s tvoje wishlist" },
-  { key: "avantura", emoji: "🎲", label: "Avantura!",       desc: "Mjesta koja još nisi označio/la" },
+  { key: "avantura", emoji: "🎲", label: "Avantura!",       desc: "Google · nasumičan grad regije" },
 ];
+
+const ADVENTURE_CITIES = ["Sarajevo", "Mostar", "Zagreb", "Beograd", "Banja Luka", "Split", "Ljubljana", "Skopje", "Tuzla", "Novi Sad"];
 
 const MAX_SEGMENTS = 8;
 const SPIN_DURATION = 3800; // ms
@@ -232,46 +235,26 @@ async function fireConfetti() {
 // ── Component
 // ─────────────────────────────────────────────────────────────────────────────
 export function CevapRuletModal({
-  isOpen, onClose, currentCity, userId,
+  isOpen, onClose, currentCity, searchTerm, userId,
 }: Props) {
   const supabase = createClient();
 
-  const canvasRef     = useRef<HTMLCanvasElement>(null);
-  const tickTimerRef  = useRef<NodeJS.Timeout | null>(null);
-  const mountedRef    = useRef(false);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const tickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef   = useRef(false);
 
   const [mode,        setMode]        = useState<RuletMode>("grad");
   const [segments,    setSegments]    = useState<RouletteItem[]>([]);
   const [poolLoading, setPoolLoading] = useState(false);
   const [poolError,   setPoolError]   = useState<string | null>(null);
+  const [statusMsg,   setStatusMsg]   = useState<string>("");   // "Tražim restorane u Sarajevu…"
   const [rotation,    setRotation]    = useState(0);
   const [isSpinning,  setIsSpinning]  = useState(false);
   const [winner,      setWinner]      = useState<RouletteItem | null>(null);
   const [winnerIdx,   setWinnerIdx]   = useState<number>(-1);
   const [mounted,     setMounted]     = useState(false);
 
-  // ── All restaurants fetched fresh from Supabase (ignores finder filters) ─
-  const [allRestaurants, setAllRestaurants] = useState<RouletteItem[]>([]);
-
   useEffect(() => { setMounted(true); mountedRef.current = true; }, []);
-
-  // ── Fetch the full unfiltered restaurant list when modal opens ───────────
-  useEffect(() => {
-    if (!isOpen) return;
-    supabase
-      .from("restaurants")
-      .select("id, name, city, address, latitude, longitude")
-      .order("lepinja_rating", { ascending: false })
-      .then(({ data }) => {
-        if (data) {
-          setAllRestaurants(
-            (data as { id: string; name: string; city: string; address: string; latitude: number | null; longitude: number | null }[])
-              .map((r) => ({ key: r.id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude }))
-          );
-        }
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
 
   // ── Re-draw canvas whenever segments change ───────────────────────────────
   useEffect(() => {
@@ -280,59 +263,79 @@ export function CevapRuletModal({
     }
   }, [segments]);
 
+  // ── Google Places fetch helper ────────────────────────────────────────────
+  const fetchPlaces = useCallback(async (city: string): Promise<RouletteItem[]> => {
+    const params = new URLSearchParams({ near: city, query: "cevapi rostilj grill", limit: "20" });
+    const res  = await fetch(`/api/places?${params.toString()}`);
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.hint ?? json?.error ?? `Greška pri Google pretraživanju (${res.status})`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (json.results as any[]).map((r) => ({
+      key:       r.place_id,
+      name:      r.name,
+      city:      r.city ?? city,
+      address:   r.address,
+      latitude:  r.latitude,
+      longitude: r.longitude,
+    }));
+  }, []);
+
   // ── Build pool for selected mode ─────────────────────────────────────────
   const buildPool = useCallback(async (): Promise<RouletteItem[]> => {
     setPoolError(null);
 
+    // ── Gradski Rulet ─────────────────────────────────────────────────────
     if (mode === "grad") {
-      const city = currentCity.trim();
-      // Filter by city if one is selected in the finder dropdown, else show all
-      const filtered = city
-        ? allRestaurants.filter((r) => r.city.toLowerCase() === city.toLowerCase())
-        : allRestaurants;
-      if (filtered.length === 0) throw new Error(
-        allRestaurants.length === 0
-          ? "Baza restorana je prazna. Dodaj verificirane restorane u Supabase."
-          : city
-            ? `Nema verificiranih restorana za "${city}". Pokušaj odabrati drugi grad u filteru ili koristi "Avantura" mode.`
-            : "Nema restorana u bazi. Dodaj restorane ili pokušaj Google pretragu."
+      const city = (currentCity || searchTerm).trim();
+      if (!city) throw new Error(
+        "Upiši naziv grada u pretraživač ili odaberi grad iz padajućeg izbornika, pa ponovo otvori Rulet."
       );
-      return filtered;
+      setStatusMsg(`Tražim restorane u ${city}…`);
+      const places = await fetchPlaces(city);
+      if (places.length === 0) throw new Error(`Google nije pronašao ćevabdžinice za "${city}". Pokušaj drugi grad.`);
+      return places;
     }
 
+    // ── Blizu Mene — GPS + reverse geocode + Google Places ────────────────
     if (mode === "blizu") {
-      return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject(new Error("GPS nije dostupan u ovom pregledniku."));
-          return;
-        }
+      setStatusMsg("Čekam dozvolu za lokaciju…");
+      const coords = await new Promise<GeolocationCoordinates>((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error("GPS nije dostupan u ovom pregledniku.")); return; }
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const { latitude: uLat, longitude: uLon } = pos.coords;
-            const nearby = allRestaurants.filter((r) =>
-              r.latitude != null && r.longitude != null &&
-              haversine(uLat, uLon, r.latitude!, r.longitude!) <= 100
-            );
-            if (nearby.length === 0) {
-              reject(new Error(
-                allRestaurants.length === 0
-                  ? "Baza restorana je prazna. Dodaj verificirane restorane u Supabase."
-                  : "Nema verificiranih restorana unutar 100km od tvoje lokacije."
-              ));
-              return;
-            }
-            resolve(nearby);
-          },
-          () => reject(new Error("Dozvola za lokaciju odbijena. Provjeri postavke preglednika.")),
-          { timeout: 8000 }
+          (pos) => resolve(pos.coords),
+          ()    => reject(new Error("Dozvola za lokaciju odbijena. Provjeri postavke preglednika.")),
+          { timeout: 10000 }
         );
       });
+
+      // Reverse-geocode with Nominatim (free, no key)
+      setStatusMsg("Pronašao sam te! Tražim grad…");
+      const geoRes  = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=hr`,
+        { headers: { "User-Agent": "ChevApp/1.0 contact@chevapp.com" } }
+      );
+      const geoData = await geoRes.json() as { address?: { city?: string; town?: string; village?: string; county?: string } };
+      const city    = geoData.address?.city ?? geoData.address?.town ?? geoData.address?.village ?? geoData.address?.county ?? "";
+      if (!city) throw new Error("Nije moguće odrediti grad iz GPS koordinata. Pokušaj ručno unijeti grad.");
+
+      setStatusMsg(`GPS lokacija: ${city} · Tražim restorane…`);
+      const places = await fetchPlaces(city);
+      if (places.length === 0) throw new Error(`Nema ćevabdžinica na Google Mapsu za "${city}".`);
+
+      // Optional: further filter by actual distance from user
+      return places.filter((p) =>
+        p.latitude == null || p.longitude == null ||
+        haversine(coords.latitude, coords.longitude, p.latitude!, p.longitude!) <= 100
+      ).concat(
+        places.filter((p) => p.latitude == null || p.longitude == null)
+      ).slice(0, 20);
     }
 
+    // ── Moja Wishlista ────────────────────────────────────────────────────
     if (mode === "wishlist") {
       const items: RouletteItem[] = [];
 
-      // localStorage Google Places wishlist
+      // localStorage (Google Places saved as "Name::City")
       try {
         const lsKeys = JSON.parse(localStorage.getItem("chevapp:place_wishlist") ?? "[]") as string[];
         for (const k of lsKeys) {
@@ -343,17 +346,17 @@ export function CevapRuletModal({
         }
       } catch { /* ignore */ }
 
-      // Supabase wishlist
+      // Supabase DB wishlist
       if (userId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data } = await (supabase.from("user_wishlist") as any)
           .select("restaurants(id, name, city, address, latitude, longitude)")
           .eq("user_id", userId);
         if (data) {
-          for (const row of data as { restaurants: RouletteItem | null }[]) {
+          for (const row of data as { restaurants: { id: string; name: string; city: string; address: string; latitude: number | null; longitude: number | null } | null }[]) {
             const r = row.restaurants;
-            if (r && !items.find((i) => i.key === r.key)) {
-              items.push(r);
+            if (r && !items.find((i) => i.key === r.id)) {
+              items.push({ key: r.id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude });
             }
           }
         }
@@ -363,58 +366,52 @@ export function CevapRuletModal({
       return items;
     }
 
+    // ── Avantura — random Balkan city, exclude already-favourited ─────────
     if (mode === "avantura") {
-      // Collect ALL fav + wishlist IDs to exclude
+      // Exclude everything already on fav/wishlist (by name::city key)
       const excluded = new Set<string>();
       try {
         const lsFavs = JSON.parse(localStorage.getItem("chevapp:place_favorites") ?? "[]") as string[];
         const lsWish = JSON.parse(localStorage.getItem("chevapp:place_wishlist")  ?? "[]") as string[];
-        [...lsFavs, ...lsWish].forEach((k) => excluded.add(k));
+        [...lsFavs, ...lsWish].forEach((k) => excluded.add(k.toLowerCase()));
       } catch { /* ignore */ }
 
-      if (userId) {
-        const [{ data: fData }, { data: wData }] = await Promise.all([
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase.from("user_favorites") as any).select("restaurant_id").eq("user_id", userId),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase.from("user_wishlist")  as any).select("restaurant_id").eq("user_id", userId),
-        ]);
-        if (fData) (fData as { restaurant_id: string }[]).forEach((r) => excluded.add(r.restaurant_id));
-        if (wData) (wData as { restaurant_id: string }[]).forEach((r) => excluded.add(r.restaurant_id));
-      }
+      // Pick random city from the adventure list
+      const adventureCity = ADVENTURE_CITIES[Math.floor(Math.random() * ADVENTURE_CITIES.length)];
+      setStatusMsg(`Avantura te vodi u ${adventureCity}…`);
+      const places = await fetchPlaces(adventureCity);
+      if (places.length === 0) throw new Error(`Nema rezultata za "${adventureCity}". Pokušaj ponovno!`);
 
-      const pool = allRestaurants.filter((r) => !excluded.has(r.key));
-      if (pool.length === 0) throw new Error(
-        allRestaurants.length === 0
-          ? "Baza restorana je prazna. Dodaj verificirane restorane u Supabase."
-          : "Svi restorani su već na tvojoj listi! Pravi istraživač 🎖️"
-      );
-      return pool;
+      const pool = places.filter((p) => !excluded.has(`${p.name}::${p.city}`.toLowerCase()));
+      return pool.length > 0 ? pool : places; // fallback to all if everything excluded
     }
 
     return [];
-  }, [mode, currentCity, allRestaurants, userId, supabase]);
+  }, [mode, currentCity, searchTerm, fetchPlaces, userId, supabase]);
 
-  // ── Prepare segments whenever mode or allRestaurants changes ─────────────
+  // ── Reload pool whenever mode changes or modal opens ─────────────────────
   useEffect(() => {
     if (!isOpen) return;
     setWinner(null);
     setWinnerIdx(-1);
     setPoolError(null);
+    setStatusMsg("");
     setPoolLoading(true);
 
     buildPool()
       .then((pool) => {
         const shuffled = shuffle(pool).slice(0, MAX_SEGMENTS);
         setSegments(shuffled);
+        setStatusMsg("");
       })
       .catch((err: Error) => {
         setPoolError(err.message);
         setSegments([]);
+        setStatusMsg("");
       })
       .finally(() => setPoolLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mode, allRestaurants]);
+  }, [isOpen, mode]);
 
   // ── Spin logic ────────────────────────────────────────────────────────────
   const handleSpin = useCallback(() => {
@@ -598,7 +595,9 @@ export function CevapRuletModal({
                 {poolLoading ? (
                   <div style={{ width: 300, height: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
                     <Loader2 style={{ width: 40, height: 40, color: "#F97316", animation: "spin 1s linear infinite" }} />
-                    <p style={{ fontSize: 13, color: "rgb(var(--muted))" }}>Pripremam restorane…</p>
+                    <p style={{ fontSize: 13, color: "rgb(var(--muted))", textAlign: "center", maxWidth: 240 }}>
+                      {statusMsg || "Tražim restorane na Google Mapsu…"}
+                    </p>
                   </div>
                 ) : poolError ? (
                   <div style={{ width: "100%", padding: "32px 20px", textAlign: "center", borderRadius: 16, border: "1px dashed rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.05)" }}>
