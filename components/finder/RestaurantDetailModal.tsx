@@ -92,24 +92,28 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       />
 
       {/* ── Panel ────────────────────────────────────────────────────────── */}
+      {/* Mobile: full-width drawer from bottom                            */}
+      {/* Desktop (sm+): centered floating card, max 520px wide            */}
       <div
+        className={[
+          "fixed flex flex-col overflow-hidden",
+          // Mobile drawer
+          "inset-x-0 bottom-0 rounded-t-3xl max-h-[92dvh]",
+          // Desktop modal
+          "sm:inset-auto sm:bottom-auto",
+          "sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
+          "sm:w-full sm:max-w-[520px] sm:rounded-2xl sm:max-h-[85vh]",
+        ].join(" ")}
         style={{
-          position: "fixed",
           zIndex: 9999,
-          left: 0, right: 0, bottom: 0,
-          maxHeight: "92dvh",
-          borderRadius: "24px 24px 0 0",
-          display: "flex",
-          flexDirection: "column",
           background: "rgb(var(--surface))",
           border: "1px solid rgb(var(--border))",
-          boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
-          overflow: "hidden",
+          boxShadow: "0 8px 48px rgba(0,0,0,0.5)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", paddingTop: "12px", paddingBottom: "4px", flexShrink: 0 }}>
+        {/* Drag handle — mobile only */}
+        <div className="flex sm:hidden justify-center pt-3 pb-1 flex-shrink-0">
           <div style={{ width: "40px", height: "4px", borderRadius: "9999px", background: "rgb(var(--border))" }} />
         </div>
 
