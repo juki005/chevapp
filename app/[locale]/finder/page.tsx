@@ -430,7 +430,30 @@ export default function FinderPage() {
               activeStyle={activeStyle}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
             />
-            <div className="flex items-center gap-2 flex-shrink-0 self-start mt-0.5">
+            <div className="flex items-center gap-2 flex-shrink-0 self-start mt-0.5 flex-wrap">
+              {/* 🎡 Rulet button */}
+              <motion.button
+                onClick={() => setRuletOpen(true)}
+                animate={{
+                  boxShadow: [
+                    "0 2px 10px rgba(232,78,15,0.25)",
+                    "0 2px 18px rgba(232,78,15,0.55)",
+                    "0 2px 10px rgba(232,78,15,0.25)",
+                  ],
+                }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgba(232,78,15,0.5)] text-xs font-bold transition-all text-white"
+                style={{
+                  background: "linear-gradient(135deg, #E84E0F 0%, #F97316 100%)",
+                  fontFamily: "Oswald, sans-serif",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                🎡 RULET
+              </motion.button>
+
               {/* Favorites-only toggle */}
               <button
                 onClick={() => setFavOnly((v) => !v)}
@@ -784,44 +807,6 @@ export default function FinderPage() {
         restaurant={selectedRestaurant}
         onClose={() => setSelectedRestaurant(null)}
       />
-
-      {/* ── Ćevap-Rulet FAB ─────────────────────────────────────────────── */}
-      <motion.button
-        onClick={() => setRuletOpen(true)}
-        animate={{
-          scale:     [1, 1.06, 1],
-          boxShadow: [
-            "0 4px 20px rgba(232,78,15,0.35)",
-            "0 4px 32px rgba(232,78,15,0.65)",
-            "0 4px 20px rgba(232,78,15,0.35)",
-          ],
-        }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{   scale: 0.95 }}
-        style={{
-          position: "fixed",
-          bottom: 28,
-          right: 24,
-          zIndex: 9990,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "12px 20px",
-          borderRadius: 20,
-          border: "1px solid rgba(255,255,255,0.15)",
-          background: "linear-gradient(135deg, #E84E0F 0%, #F97316 100%)",
-          color: "white",
-          fontFamily: "Oswald, sans-serif",
-          fontWeight: 800,
-          fontSize: 15,
-          letterSpacing: "0.06em",
-          cursor: "pointer",
-        }}
-      >
-        <span style={{ fontSize: 18 }}>🎡</span>
-        RULET
-      </motion.button>
 
       {/* ── Ćevap-Rulet modal ──────────────────────────────────────────────── */}
       <CevapRuletModal
