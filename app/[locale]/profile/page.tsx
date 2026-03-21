@@ -241,10 +241,33 @@ export default function ProfilePage() {
   };
 
   // ── Favorites & Wishlist ─────────────────────────────────────────────────
-  const [favorites,     setFavorites]     = useState<{ id: string; name: string; city: string; address: string }[]>([]);
-  const [wishlist,      setWishlist]      = useState<{ id: string; name: string; city: string; address: string }[]>([]);
+  type PlaceItem = { id: string; name: string; city: string; address: string };
+  const [favorites,     setFavorites]     = useState<PlaceItem[]>([]);
+  const [wishlist,      setWishlist]      = useState<PlaceItem[]>([]);
+  const [localFavs,     setLocalFavs]     = useState<PlaceItem[]>([]);
+  const [localWish,     setLocalWish]     = useState<PlaceItem[]>([]);
   const [favsLoading,   setFavsLoading]   = useState(false);
 
+  // Parse localStorage key "Name::City" → PlaceItem
+  function parseLsKeys(lsKey: string): PlaceItem[] {
+    try {
+      const keys = JSON.parse(localStorage.getItem(lsKey) ?? "[]") as string[];
+      return keys.map((k) => {
+        const sep = k.indexOf("::");
+        const name = sep >= 0 ? k.slice(0, sep) : k;
+        const city = sep >= 0 ? k.slice(sep + 2) : "";
+        return { id: k, name, city, address: "" };
+      });
+    } catch { return []; }
+  }
+
+  // Load localStorage favorites immediately on mount (no userId needed)
+  useEffect(() => {
+    setLocalFavs(parseLsKeys("chevapp:place_favorites"));
+    setLocalWish(parseLsKeys("chevapp:place_wishlist"));
+  }, []);
+
+  // Load Supabase favorites once userId is known
   useEffect(() => {
     if (!userId) return;
     setFavsLoading(true);
@@ -256,12 +279,12 @@ export default function ProfilePage() {
     ]).then(([favRes, wishRes]: [any, any]) => {
       setFavorites(
         (favRes.data ?? [])
-          .map((r: any) => r.restaurants as { id: string; name: string; city: string; address: string })
+          .map((r: any) => r.restaurants as PlaceItem)
           .filter(Boolean)
       );
       setWishlist(
         (wishRes.data ?? [])
-          .map((r: any) => r.restaurants as { id: string; name: string; city: string; address: string })
+          .map((r: any) => r.restaurants as PlaceItem)
           .filter(Boolean)
       );
       setFavsLoading(false);
@@ -491,7 +514,7 @@ export default function ProfilePage() {
             { key: "taste"   as ProfileTab, icon: <Star      className="w-4 h-4" />, label: t("tasteProfile") },
             { key: "badges"  as ProfileTab, icon: <Award     className="w-4 h-4" />, label: `Bedževi (${earnedCount}/${BADGES.length})` },
             { key: "music"     as ProfileTab, icon: <Music2    className="w-4 h-4" />, label: "Soundtrack" },
-            { key: "favorites" as ProfileTab, icon: <Heart     className="w-4 h-4" />, label: `Favoriti (${favorites.length})` },
+            { key: "favorites" as ProfileTab, icon: <Heart className="w-4 h-4" />, label: `Favoriti (${favorites.length + localFavs.length})` },
           ]).map(({ key, icon, label }) => (
             <button
               key={key}
@@ -930,16 +953,16 @@ export default function ProfilePage() {
               </div>
             ) : (
               <>
-                {/* Moji Favoriti */}
+                {/* Moji Favoriti — Supabase DB + localStorage Google Places */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Heart className="w-4 h-4 text-red-400" fill="#f87171" />
                     <h3 className="font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
                       MOJI FAVORITI
                     </h3>
-                    <span className="text-xs text-[rgb(var(--muted))]">({favorites.length})</span>
+                    <span className="text-xs text-[rgb(var(--muted))]">({favorites.length + localFavs.length})</span>
                   </div>
-                  {favorites.length === 0 ? (
+                  {favorites.length === 0 && localFavs.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-[rgb(var(--border))] p-8 text-center">
                       <Heart className="w-8 h-8 text-[rgb(var(--muted))] opacity-30 mx-auto mb-2" />
                       <p className="text-sm text-[rgb(var(--muted))]">
@@ -948,23 +971,23 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {favorites.map((r) => (
+                      {[...favorites, ...localFavs].map((r) => (
                         <RestaurantMiniCard key={r.id} restaurant={r} accent="red" />
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Moja Wishlista */}
+                {/* Moja Wishlista — Supabase DB + localStorage Google Places */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Bookmark className="w-4 h-4 text-burnt-orange-400" fill="#D35400" />
                     <h3 className="font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
                       MOJA WISHLISTA
                     </h3>
-                    <span className="text-xs text-[rgb(var(--muted))]">({wishlist.length})</span>
+                    <span className="text-xs text-[rgb(var(--muted))]">({wishlist.length + localWish.length})</span>
                   </div>
-                  {wishlist.length === 0 ? (
+                  {wishlist.length === 0 && localWish.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-[rgb(var(--border))] p-8 text-center">
                       <Bookmark className="w-8 h-8 text-[rgb(var(--muted))] opacity-30 mx-auto mb-2" />
                       <p className="text-sm text-[rgb(var(--muted))]">
@@ -973,7 +996,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {wishlist.map((r) => (
+                      {[...wishlist, ...localWish].map((r) => (
                         <RestaurantMiniCard key={r.id} restaurant={r} accent="orange" />
                       ))}
                     </div>

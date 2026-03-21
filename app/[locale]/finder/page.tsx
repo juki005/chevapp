@@ -79,11 +79,29 @@ export default function FinderPage() {
   const [dbLoading,     setDbLoading]     = useState(true);
   const [dbError,       setDbError]       = useState<string | null>(null);
 
-  // ── Filters ───────────────────────────────────────────────────────────────
+  // ── Filters — restored from localStorage so search survives page changes ──
   const [searchTerm,      setSearchTerm]      = useState("");
   const [selectedCity,    setSelectedCity]    = useState("");
   const [activeStyle,     setActiveStyle]     = useState<CevapStyle | "">("");
   const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [filtersRestored, setFiltersRestored] = useState(false);
+
+  // Restore on first mount
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("chevapp:finder_state") ?? "{}");
+      if (saved.searchTerm)   setSearchTerm(saved.searchTerm);
+      if (saved.selectedCity) setSelectedCity(saved.selectedCity);
+      if (saved.activeStyle)  setActiveStyle(saved.activeStyle as CevapStyle);
+    } catch { /* ignore */ }
+    setFiltersRestored(true);
+  }, []);
+
+  // Persist on every change (but only after initial restore to avoid overwriting)
+  useEffect(() => {
+    if (!filtersRestored) return;
+    localStorage.setItem("chevapp:finder_state", JSON.stringify({ searchTerm, selectedCity, activeStyle }));
+  }, [searchTerm, selectedCity, activeStyle, filtersRestored]);
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
@@ -259,6 +277,7 @@ export default function FinderPage() {
     setSelectedCity("");
     setActiveStyle("");
     setFavOnly(false);
+    localStorage.removeItem("chevapp:finder_state");
   };
 
   // Merge DB pins + Google Places pins, deduplicating by proximity
