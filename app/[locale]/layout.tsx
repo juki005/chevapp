@@ -78,14 +78,18 @@ export default async function LocaleLayout({
           rel="stylesheet"
         />
       </head>
-      <body suppressHydrationWarning className="bg-charcoal dark:bg-ugljen-bg min-h-screen antialiased">
+      {/* bg-background uses the CSS-var system → adapts to light/dark automatically */}
+      <body suppressHydrationWarning className="bg-background text-foreground min-h-screen antialiased">
         <ThemeProvider>
           <NextIntlClientProvider messages={messages}>
             {/* Desktop + mobile top nav */}
             <Navbar locale={locale} />
 
-            {/* Main content */}
-            <main className="min-h-[calc(100dvh-64px)] pb-20 md:pb-0">
+            {/* Main content
+                pb-20 = clears the 64px bottom nav + a little breathing room on mobile
+                pb-safe adds extra padding for notch/home-indicator devices      */}
+            <main className="min-h-[calc(100dvh-64px)] pb-20 md:pb-0" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }}>
+              <style>{`@media (min-width: 768px) { main { padding-bottom: 0 !important; } }`}</style>
               {children}
             </main>
 

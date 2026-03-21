@@ -129,6 +129,25 @@ export default function FinderPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null));
   }, []);
 
+  // Open rulet via custom event (from MobileBottomNav) or ?rulet=1 URL param
+  useEffect(() => {
+    const handler = () => setRuletOpen(true);
+    window.addEventListener("chevapp:open_rulet", handler);
+
+    // Also handle ?rulet=1 from the bottom nav deep-link
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("rulet") === "1") {
+        setRuletOpen(true);
+        // Clean up the URL without triggering a navigation
+        const clean = window.location.pathname;
+        window.history.replaceState({}, "", clean);
+      }
+    }
+
+    return () => window.removeEventListener("chevapp:open_rulet", handler);
+  }, []);
+
   // ── Favorites-only filter ─────────────────────────────────────────────────
   const [favOnly,       setFavOnly]       = useState(false);
   const [favPlaceKeys,  setFavPlaceKeys]  = useState<string[]>([]);   // localStorage keys

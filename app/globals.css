@@ -78,10 +78,11 @@
   }
 
   /* ---- CTA Button Primary ---- */
+  /* min-h-[48px] ensures WCAG 2.5.5 / Apple HIG touch target on mobile */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-lg
-           transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
-           shadow-lg font-sans tracking-wide;
+    @apply inline-flex items-center gap-2 px-6 py-3 min-h-[48px] font-semibold
+           rounded-xl transition-all duration-200 hover:scale-[1.02]
+           active:scale-[0.97] shadow-lg font-sans tracking-wide;
     background-color: rgb(var(--primary));
     color: rgb(var(--primary-foreground));
     box-shadow: 0 4px 14px rgb(var(--primary) / 0.3);
@@ -90,8 +91,8 @@
 
   /* ---- CTA Button Secondary ---- */
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-6 py-3 bg-transparent font-semibold
-           rounded-lg transition-all duration-200;
+    @apply inline-flex items-center gap-2 px-6 py-3 min-h-[48px] bg-transparent
+           font-semibold rounded-xl transition-all duration-200 active:scale-[0.97];
     border: 1px solid rgb(var(--border));
     color: rgb(var(--foreground) / 0.8);
   }
@@ -186,4 +187,25 @@
   .bg-surface    { background-color: rgb(var(--surface)); }
   .bg-app        { background-color: rgb(var(--background)); }
   .border-app    { border-color: rgb(var(--border)); }
+
+  /* ---- Touch target helper — ensures 48px minimum tappable area ---- */
+  /* Usage: add class "touch-target" to any small interactive element     */
+  .touch-target {
+    position: relative;
+  }
+  .touch-target::after {
+    content: "";
+    position: absolute;
+    inset: 50% 50%;
+    transform: translate(-50%, -50%);
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  /* ---- Safe-area padding utilities ---- */
+  .pb-safe    { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe    { padding-top:    env(safe-area-inset-top); }
+  .pl-safe    { padding-left:   env(safe-area-inset-left); }
+  .pr-safe    { padding-right:  env(safe-area-inset-right); }
+  .mb-safe    { margin-bottom:  env(safe-area-inset-bottom); }
 }

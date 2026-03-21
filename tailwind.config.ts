@@ -52,11 +52,15 @@ const config: Config = {
           900: "#33330a",
         },
         // --- Semantic CSS-variable tokens (matches :root / .dark vars) ---
-        border: "rgb(var(--border) / <alpha-value>)",
+        // Usage: bg-background, text-foreground, bg-surface, border-border,
+        //        text-muted, bg-primary, text-primary, text-primary-fg
+        primary:    "rgb(var(--primary)    / <alpha-value>)",
+        "primary-fg": "rgb(var(--primary-foreground) / <alpha-value>)",
+        border:     "rgb(var(--border)     / <alpha-value>)",
         background: "rgb(var(--background) / <alpha-value>)",
         foreground: "rgb(var(--foreground) / <alpha-value>)",
-        muted: "rgb(var(--muted) / <alpha-value>)",
-        surface: "rgb(var(--surface) / <alpha-value>)",
+        muted:      "rgb(var(--muted)      / <alpha-value>)",
+        surface:    "rgb(var(--surface)    / <alpha-value>)",
 
         // --- Ugljen Dark Mode Palette ---
         ugljen: {
@@ -90,6 +94,26 @@ const config: Config = {
           "radial-gradient(ellipse at top, #1A1A1A 0%, #0D0D0D 100%)",
         "ember-glow":
           "radial-gradient(circle at 50% 80%, rgba(211,84,0,0.15) 0%, transparent 60%)",
+      },
+      // Extended z-index scale (Tailwind's default stops at 50)
+      zIndex: {
+        "60":  "60",
+        "70":  "70",
+        "80":  "80",
+        "90":  "90",
+        "100": "100",
+      },
+      // Minimum touch-target height (WCAG 2.5.5 / Apple HIG recommend 44–48px)
+      minHeight: {
+        touch: "48px",
+        "touch-sm": "44px",
+      },
+      // Safe-area spacing tokens — use pb-safe, pt-safe, etc.
+      spacing: {
+        safe: "env(safe-area-inset-bottom)",
+        "safe-top": "env(safe-area-inset-top)",
+        "safe-left": "env(safe-area-inset-left)",
+        "safe-right": "env(safe-area-inset-right)",
       },
       animation: {
         "ember-pulse": "ember-pulse 3s ease-in-out infinite",
