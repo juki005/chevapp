@@ -5,8 +5,6 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Navigation, RefreshCw, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Restaurant } from "@/types";
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface RouletteItem {
   key:       string;
@@ -20,11 +18,10 @@ export interface RouletteItem {
 type RuletMode = "grad" | "blizu" | "wishlist" | "avantura";
 
 interface Props {
-  isOpen:        boolean;
-  onClose:       () => void;
-  currentCity:   string;          // for "Gradski" mode
-  dbRestaurants: Restaurant[];    // full current DB list
-  userId:        string | null;
+  isOpen:      boolean;
+  onClose:     () => void;
+  currentCity: string;   // city dropdown value from finder (may be "")
+  userId:      string | null;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -235,7 +232,7 @@ async function fireConfetti() {
 // ── Component
 // ─────────────────────────────────────────────────────────────────────────────
 export function CevapRuletModal({
-  isOpen, onClose, currentCity, dbRestaurants, userId,
+  isOpen, onClose, currentCity, userId,
 }: Props) {
   const supabase = createClient();
 
@@ -247,15 +244,36 @@ export function CevapRuletModal({
   const [segments,    setSegments]    = useState<RouletteItem[]>([]);
   const [poolLoading, setPoolLoading] = useState(false);
   const [poolError,   setPoolError]   = useState<string | null>(null);
-  const [rotation,    setRotation]    = useState(0);          // accumulated deg
+  const [rotation,    setRotation]    = useState(0);
   const [isSpinning,  setIsSpinning]  = useState(false);
   const [winner,      setWinner]      = useState<RouletteItem | null>(null);
-  const [winnerIdx,   setWinnerIdx]   = useState<number>(-1); // highlight slice
+  const [winnerIdx,   setWinnerIdx]   = useState<number>(-1);
   const [mounted,     setMounted]     = useState(false);
+
+  // ── All restaurants fetched fresh from Supabase (ignores finder filters) ─
+  const [allRestaurants, setAllRestaurants] = useState<RouletteItem[]>([]);
 
   useEffect(() => { setMounted(true); mountedRef.current = true; }, []);
 
-  // ── Re-draw canvas whenever segments or winner changes ───────────────────
+  // ── Fetch the full unfiltered restaurant list when modal opens ───────────
+  useEffect(() => {
+    if (!isOpen) return;
+    supabase
+      .from("restaurants")
+      .select("id, name, city, address, latitude, longitude")
+      .order("lepinja_rating", { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          setAllRestaurants(
+            (data as { id: string; name: string; city: string; address: string; latitude: number | null; longitude: number | null }[])
+              .map((r) => ({ key: r.id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude }))
+          );
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // ── Re-draw canvas whenever segments change ───────────────────────────────
   useEffect(() => {
     if (canvasRef.current && segments.length > 0) {
       drawWheel(canvasRef.current, segments);
@@ -268,14 +286,18 @@ export function CevapRuletModal({
 
     if (mode === "grad") {
       const city = currentCity.trim();
+      // Filter by city if one is selected in the finder dropdown, else show all
       const filtered = city
-        ? dbRestaurants.filter((r) => r.city.toLowerCase() === city.toLowerCase())
-        : dbRestaurants;
+        ? allRestaurants.filter((r) => r.city.toLowerCase() === city.toLowerCase())
+        : allRestaurants;
       if (filtered.length === 0) throw new Error(
-        city ? `Nema restorana u bazi za "${city}". Pokušaj drugi grad.`
-             : "Baza restorana je prazna. Dodaj restorane ili pokušaj Google pretragu."
+        allRestaurants.length === 0
+          ? "Baza restorana je prazna. Dodaj verificirane restorane u Supabase."
+          : city
+            ? `Nema verificiranih restorana za "${city}". Pokušaj odabrati drugi grad u filteru ili koristi "Avantura" mode.`
+            : "Nema restorana u bazi. Dodaj restorane ili pokušaj Google pretragu."
       );
-      return filtered.map((r) => ({ key: r.id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude }));
+      return filtered;
     }
 
     if (mode === "blizu") {
@@ -287,15 +309,19 @@ export function CevapRuletModal({
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             const { latitude: uLat, longitude: uLon } = pos.coords;
-            const nearby = dbRestaurants.filter((r) =>
+            const nearby = allRestaurants.filter((r) =>
               r.latitude != null && r.longitude != null &&
               haversine(uLat, uLon, r.latitude!, r.longitude!) <= 100
             );
             if (nearby.length === 0) {
-              reject(new Error("Nema restorana u bazi unutar 100km od tvoje lokacije."));
+              reject(new Error(
+                allRestaurants.length === 0
+                  ? "Baza restorana je prazna. Dodaj verificirane restorane u Supabase."
+                  : "Nema verificiranih restorana unutar 100km od tvoje lokacije."
+              ));
               return;
             }
-            resolve(nearby.map((r) => ({ key: r.id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude })));
+            resolve(nearby);
           },
           () => reject(new Error("Dozvola za lokaciju odbijena. Provjeri postavke preglednika.")),
           { timeout: 8000 }
@@ -324,10 +350,10 @@ export function CevapRuletModal({
           .select("restaurants(id, name, city, address, latitude, longitude)")
           .eq("user_id", userId);
         if (data) {
-          for (const row of data as { restaurants: Restaurant | null }[]) {
+          for (const row of data as { restaurants: RouletteItem | null }[]) {
             const r = row.restaurants;
-            if (r && !items.find((i) => i.key === r.id)) {
-              items.push({ key: r.id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude });
+            if (r && !items.find((i) => i.key === r.key)) {
+              items.push(r);
             }
           }
         }
@@ -357,15 +383,19 @@ export function CevapRuletModal({
         if (wData) (wData as { restaurant_id: string }[]).forEach((r) => excluded.add(r.restaurant_id));
       }
 
-      const pool = dbRestaurants.filter((r) => !excluded.has(r.id));
-      if (pool.length === 0) throw new Error("Svi restorani su već na tvojoj listi! Pravi istraživač 🎖️");
-      return pool.map((r) => ({ key: r.id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude }));
+      const pool = allRestaurants.filter((r) => !excluded.has(r.key));
+      if (pool.length === 0) throw new Error(
+        allRestaurants.length === 0
+          ? "Baza restorana je prazna. Dodaj verificirane restorane u Supabase."
+          : "Svi restorani su već na tvojoj listi! Pravi istraživač 🎖️"
+      );
+      return pool;
     }
 
     return [];
-  }, [mode, currentCity, dbRestaurants, userId, supabase]);
+  }, [mode, currentCity, allRestaurants, userId, supabase]);
 
-  // ── Prepare segments whenever mode or isOpen changes ─────────────────────
+  // ── Prepare segments whenever mode or allRestaurants changes ─────────────
   useEffect(() => {
     if (!isOpen) return;
     setWinner(null);
@@ -384,7 +414,7 @@ export function CevapRuletModal({
       })
       .finally(() => setPoolLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mode]);
+  }, [isOpen, mode, allRestaurants]);
 
   // ── Spin logic ────────────────────────────────────────────────────────────
   const handleSpin = useCallback(() => {
