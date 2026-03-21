@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
   MapPin, Search, Map, List, Loader2, ServerCrash,
@@ -10,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { StyleFilter } from "@/components/finder/StyleFilter";
 import { RestaurantCard } from "@/components/finder/RestaurantCard";
 import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/RestaurantDetailModal";
+import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
 import { RestaurantMap, type MapRestaurant } from "@/components/finder/RestaurantMap";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import type { Restaurant, CevapStyle } from "@/types";
@@ -117,6 +119,15 @@ export default function FinderPage() {
 
   // ── Profile modal — shared between DB cards and Google Places cards ───────
   const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
+
+  // ── Ćevap-Rulet ───────────────────────────────────────────────────────────
+  const [ruletOpen, setRuletOpen] = useState(false);
+  const [userId,    setUserId]    = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null));
+  }, []);
 
   // ── Favorites-only filter ─────────────────────────────────────────────────
   const [favOnly,       setFavOnly]       = useState(false);
@@ -772,6 +783,53 @@ export default function FinderPage() {
       <RestaurantDetailModal
         restaurant={selectedRestaurant}
         onClose={() => setSelectedRestaurant(null)}
+      />
+
+      {/* ── Ćevap-Rulet FAB ─────────────────────────────────────────────── */}
+      <motion.button
+        onClick={() => setRuletOpen(true)}
+        animate={{
+          scale:     [1, 1.06, 1],
+          boxShadow: [
+            "0 4px 20px rgba(232,78,15,0.35)",
+            "0 4px 32px rgba(232,78,15,0.65)",
+            "0 4px 20px rgba(232,78,15,0.35)",
+          ],
+        }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{   scale: 0.95 }}
+        style={{
+          position: "fixed",
+          bottom: 28,
+          right: 24,
+          zIndex: 9990,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "12px 20px",
+          borderRadius: 20,
+          border: "1px solid rgba(255,255,255,0.15)",
+          background: "linear-gradient(135deg, #E84E0F 0%, #F97316 100%)",
+          color: "white",
+          fontFamily: "Oswald, sans-serif",
+          fontWeight: 800,
+          fontSize: 15,
+          letterSpacing: "0.06em",
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ fontSize: 18 }}>🎡</span>
+        RULET
+      </motion.button>
+
+      {/* ── Ćevap-Rulet modal ──────────────────────────────────────────────── */}
+      <CevapRuletModal
+        isOpen={ruletOpen}
+        onClose={() => setRuletOpen(false)}
+        currentCity={selectedCity}
+        dbRestaurants={dbRestaurants}
+        userId={userId}
       />
     </div>
   );
