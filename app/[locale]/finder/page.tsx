@@ -9,7 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { StyleFilter } from "@/components/finder/StyleFilter";
 import { RestaurantCard } from "@/components/finder/RestaurantCard";
-import { RestaurantDetailModal } from "@/components/finder/RestaurantDetailModal";
+import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/RestaurantDetailModal";
 import { RestaurantMap, type MapRestaurant } from "@/components/finder/RestaurantMap";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import type { Restaurant, CevapStyle } from "@/types";
@@ -97,8 +97,8 @@ export default function FinderPage() {
   const [placesSearched, setPlacesSearched] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  // ── Profile modal ─────────────────────────────────────────────────────────
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  // ── Profile modal — shared between DB cards and Google Places cards ───────
+  const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
 
   // ── Map ↔ List selection sync ─────────────────────────────────────────────
   const [selectedMapKey, setSelectedMapKey] = useState<string | null>(null);
@@ -566,7 +566,7 @@ export default function FinderPage() {
                           <RestaurantCard
                             restaurant={r}
                             avgRating={avgRatings[r.id] ?? null}
-                            onProfileClick={() => setSelectedRestaurant(r)}
+                            onProfileClick={() => setSelectedRestaurant({ name: r.name, city: r.city, address: r.address, is_verified: r.is_verified })}
                           />
                         </div>
                       ))}
@@ -649,13 +649,27 @@ export default function FinderPage() {
                               <span />
                             )}
 
-                            <DirectionsButton
-                              name={r.name}
-                              address={r.address}
-                              city={r.city}
-                              lat={r.latitude}
-                              lng={r.longitude}
-                            />
+                            <div className="flex items-center gap-2">
+                              {/* PROFIL — opens the Google Maps embed modal */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRestaurant({ name: r.name, city: r.city, address: r.address });
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[#4285f4] hover:border-[#4285f4]/40 transition-all"
+                                style={{ fontFamily: "Oswald, sans-serif" }}
+                              >
+                                🔍 PROFIL
+                              </button>
+
+                              <DirectionsButton
+                                name={r.name}
+                                address={r.address}
+                                city={r.city}
+                                lat={r.latitude}
+                                lng={r.longitude}
+                              />
+                            </div>
                           </div>
                         </div>
                       ))}

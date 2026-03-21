@@ -4,10 +4,16 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, MapPin, BedDouble, ExternalLink, CheckCircle } from "lucide-react";
 import { AccommodationModal } from "@/components/finder/AccommodationModal";
-import type { Restaurant } from "@/types";
+// Minimal shape — works for both DB Restaurant rows and Google Places results
+export interface ProfileTarget {
+  name: string;
+  city: string;
+  address?: string | null;
+  is_verified?: boolean;
+}
 
 interface Props {
-  restaurant: Restaurant | null;
+  restaurant: ProfileTarget | null;
   onClose: () => void;
 }
 
