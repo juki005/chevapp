@@ -48,8 +48,10 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
 
       if (cancelled) return;
 
+      // Default to TRUE (done) — only show onboarding when explicitly false.
+      // Covers: migration not yet run, column missing, or existing users.
       const completed = (profile as { onboarding_completed?: boolean } | null)
-        ?.onboarding_completed ?? false;
+        ?.onboarding_completed ?? true;
 
       setStatus(completed ? "done" : "needed");
     }
