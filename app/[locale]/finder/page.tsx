@@ -293,14 +293,63 @@ export default function FinderPage() {
   // ── Derived ───────────────────────────────────────────────────────────────
   const hasActiveFilters = !!(searchTerm || selectedCity || activeStyle || favOnly);
 
-  // Apply favorites filter to DB restaurants and Google Places results
+  // ── Tagged place IDs per style (for crowdsourced finder sync) ──────────────
+  const [taggedPlaceIds, setTaggedPlaceIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!activeStyle || placeResults.length === 0) {
+      setTaggedPlaceIds(new Set());
+      return;
+    }
+    const supabase = createClient();
+    supabase
+      .from("restaurants")
+      .select("google_place_id")
+      .eq("style", activeStyle)
+      .not("google_place_id", "is", null)
+      .then(({ data }) => {
+        const ids = new Set(
+          (data ?? []).map((r: { google_place_id: string | null }) => r.google_place_id ?? "").filter(Boolean)
+        );
+        setTaggedPlaceIds(ids);
+      });
+  }, [activeStyle, placeResults.length]);
+
+  // Re-fetch tagged IDs when user tags a new restaurant
+  useEffect(() => {
+    const handler = () => {
+      if (!activeStyle) return;
+      const supabase = createClient();
+      supabase
+        .from("restaurants")
+        .select("google_place_id")
+        .eq("style", activeStyle)
+        .not("google_place_id", "is", null)
+        .then(({ data }) => {
+          setTaggedPlaceIds(new Set(
+            (data ?? []).map((r: { google_place_id: string | null }) => r.google_place_id ?? "").filter(Boolean)
+          ));
+        });
+    };
+    window.addEventListener("chevapp:restaurant_tagged", handler);
+    return () => window.removeEventListener("chevapp:restaurant_tagged", handler);
+  }, [activeStyle]);
+
+  // Apply favorites filter + style tag filter to DB and Google Places results
   const visibleDbRestaurants = favOnly
     ? dbRestaurants.filter((r) => favDbIds.includes(r.id))
     : dbRestaurants;
 
-  const visiblePlaceResults = favOnly
-    ? placeResults.filter((r) => favPlaceKeys.includes(`${r.name}::${r.city}`))
-    : placeResults;
+  const visiblePlaceResults = (() => {
+    let results = favOnly
+      ? placeResults.filter((r) => favPlaceKeys.includes(`${r.name}::${r.city}`))
+      : placeResults;
+    // When a style filter is active and we have tagged results, show only tagged places
+    if (activeStyle && taggedPlaceIds.size > 0) {
+      results = results.filter((r) => taggedPlaceIds.has(r.place_id));
+    }
+    return results;
+  })();
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -778,12 +827,15 @@ export default function FinderPage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedRestaurant({
-                                    name:     r.name,
-                                    city:     r.city,
-                                    address:  r.address,
-                                    rating:   r.rating,
-                                    open_now: r.open_now,
-                                    types:    r.types,
+                                    google_place_id: r.place_id,
+                                    name:            r.name,
+                                    city:            r.city,
+                                    address:         r.address,
+                                    lat:             r.latitude,
+                                    lng:             r.longitude,
+                                    rating:          r.rating,
+                                    open_now:        r.open_now,
+                                    types:           r.types,
                                   });
                                 }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[#4285f4] hover:border-[#4285f4]/40 transition-all"
