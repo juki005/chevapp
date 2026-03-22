@@ -141,8 +141,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
     // Load existing style tag if this is a Google Places restaurant
     if (restaurant.google_place_id) {
-      supabase
-        .from("restaurants")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("restaurants") as any)
         .select("id, style")
         .eq("google_place_id", restaurant.google_place_id)
         .maybeSingle()
@@ -272,8 +272,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     const placeId = restaurant.google_place_id;
     if (!placeId) { setTagLoading(false); return; }
 
-    const { data: existing } = await supabase
-      .from("restaurants")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (supabase.from("restaurants") as any)
       .select("id, style")
       .eq("google_place_id", placeId)
       .maybeSingle();
@@ -292,8 +292,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       }
     } else {
       // New row — insert community-contributed restaurant
-      const { data: newRow } = await supabase
-        .from("restaurants")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newRow } = await (supabase.from("restaurants") as any)
         .insert({
           name:             restaurant.name,
           city:             restaurant.city,
