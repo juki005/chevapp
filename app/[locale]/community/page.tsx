@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getRank } from "@/lib/gamification";
 import { Users, Rss, Lightbulb, Calendar, Trophy, Plus, X, MapPin, Bell, Heart, MessageCircle, Share2, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CommunityNews } from "@/components/community/CommunityNews";
 
 type CommunityTab = "feed" | "tips" | "events";
 
@@ -612,6 +613,11 @@ export default function CommunityPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* News / Novosti */}
+          <div className="mt-5 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-5">
+            <CommunityNews />
           </div>
         </div>
       </div>

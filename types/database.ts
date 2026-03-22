@@ -35,6 +35,8 @@ export interface Database {
           onboarding_completed: boolean;
           condiment_pref:       "kajmak" | "ajvar" | null;
           home_city:            string | null;
+          weight_kg:            number | null;
+          is_admin:             boolean;
         };
         Insert: {
           id: string;
@@ -52,6 +54,8 @@ export interface Database {
           onboarding_completed?: boolean;
           condiment_pref?: "kajmak" | "ajvar" | null;
           home_city?: string | null;
+          weight_kg?: number | null;
+          is_admin?: boolean;
         };
         Update: {
           id?: string;
@@ -69,6 +73,8 @@ export interface Database {
           onboarding_completed?: boolean;
           condiment_pref?: "kajmak" | "ajvar" | null;
           home_city?: string | null;
+          weight_kg?: number | null;
+          is_admin?: boolean;
         };
         Relationships: [];
       };
