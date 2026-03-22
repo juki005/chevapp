@@ -207,10 +207,10 @@ export function CommunityNews() {
           <p className="text-sm" style={{ color: "rgb(var(--muted))" }}>Nema novosti za sada.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {posts.map((post) => (
             <div key={post.id}
-              className="rounded-2xl overflow-hidden transition-all hover:scale-[1.005]"
+              className="rounded-2xl overflow-hidden transition-all hover:scale-[1.005] flex flex-col"
               style={{ background: "rgb(var(--surface)/0.5)", border: "1px solid rgb(var(--border))" }}>
 
               {/* Image */}
@@ -226,7 +226,7 @@ export function CommunityNews() {
                 </div>
               )}
 
-              <div className="p-4">
+              <div className="p-4 flex-1 flex flex-col">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <h4 className="font-bold text-base leading-snug"
                     style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
