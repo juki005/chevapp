@@ -243,7 +243,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       const supabase = createClient();
       const targetId = dbRestaurantId ?? restaurant.id;
       if (targetId) {
-        await supabase.from("restaurants").update({ style: null }).eq("id", targetId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("restaurants") as any).update({ style: null }).eq("id", targetId);
         setDbStyleTag(null);
       }
       setTagLoading(false);
@@ -256,7 +257,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     // ── Case A: existing DB restaurant (has id) ────────────────────────────
     if (restaurant.id) {
       const hadNoStyle = !dbStyleTag;
-      await supabase.from("restaurants").update({ style }).eq("id", restaurant.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("restaurants") as any).update({ style }).eq("id", restaurant.id);
       setDbStyleTag(style);
       if (hadNoStyle) {
         await awardXP(userId, 15);
@@ -280,7 +282,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       // Row exists — update style
       const row      = existing as { id: string; style: string | null };
       const hadNoStyle = !row.style;
-      await supabase.from("restaurants").update({ style }).eq("id", row.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("restaurants") as any).update({ style }).eq("id", row.id);
       setDbRestaurantId(row.id);
       setDbStyleTag(style);
       if (hadNoStyle) {
