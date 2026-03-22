@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { JukeboxWidget } from "@/components/jukebox/JukeboxWidget";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
+import { OnboardingGuard } from "@/components/auth/OnboardingGuard";
 
 export async function generateMetadata({
   params,
@@ -90,7 +91,9 @@ export default async function LocaleLayout({
                 pb-safe adds extra padding for notch/home-indicator devices      */}
             <main className="min-h-[calc(100dvh-64px)] pb-20 md:pb-0" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }}>
               <style>{`@media (min-width: 768px) { main { padding-bottom: 0 !important; } }`}</style>
-              {children}
+              <OnboardingGuard>
+                {children}
+              </OnboardingGuard>
             </main>
 
             {/* Mobile bottom navigation */}

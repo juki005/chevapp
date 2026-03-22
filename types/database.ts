@@ -30,8 +30,11 @@ export interface Database {
           role: UserRole;
           xp_points: number;
           rank: string | null;
-          favorite_style: CevapStyle | null;
-          total_visits: number;
+          favorite_style:       CevapStyle | null;
+          total_visits:         number;
+          onboarding_completed: boolean;
+          condiment_pref:       "kajmak" | "ajvar" | null;
+          home_city:            string | null;
         };
         Insert: {
           id: string;
@@ -46,6 +49,9 @@ export interface Database {
           rank?: string | null;
           favorite_style?: CevapStyle | null;
           total_visits?: number;
+          onboarding_completed?: boolean;
+          condiment_pref?: "kajmak" | "ajvar" | null;
+          home_city?: string | null;
         };
         Update: {
           id?: string;
@@ -60,6 +66,9 @@ export interface Database {
           rank?: string | null;
           favorite_style?: CevapStyle | null;
           total_visits?: number;
+          onboarding_completed?: boolean;
+          condiment_pref?: "kajmak" | "ajvar" | null;
+          home_city?: string | null;
         };
         Relationships: [];
       };
