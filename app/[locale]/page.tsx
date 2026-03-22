@@ -1,32 +1,25 @@
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
-  MapPin,
-  ChefHat,
-  Users,
-  Music,
-  ArrowRight,
-  Flame,
-  Star,
-  TrendingUp,
+  MapPin, ChefHat, Users, Music, ArrowRight,
+  Flame, Star, TrendingUp,
 } from "lucide-react";
 import { MerakCorner } from "@/components/home/MerakCorner";
 
 export default function LandingPage() {
-  const t = useTranslations("landing");
+  const t    = useTranslations("landing");
   const tNav = useTranslations("nav");
 
   return (
-    <div className="min-h-screen bg-charcoal dark:bg-ugljen-bg text-cream">
-      {/* ============================
-          HERO SECTION
-          ============================ */}
-      <section className="relative overflow-hidden min-h-[92vh] flex items-center">
-        {/* Background ember glow */}
+    <div className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
+
+      {/* ═══════════════════════════════════════════════════════════════
+          HERO — intentionally always dark (brand identity)
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden min-h-[92vh] flex items-center bg-[#0d0d0d]">
+        {/* Background layers */}
         <div className="absolute inset-0 bg-hero-pattern" />
         <div className="absolute inset-0 bg-ember-glow pointer-events-none" />
-
-        {/* Decorative grid lines */}
         <div
           className="absolute inset-0 opacity-[0.04]"
           style={{
@@ -39,54 +32,75 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 py-24 md:py-32">
           <div className="max-w-3xl">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-burnt-orange-500/30 bg-burnt-orange-500/10 text-burnt-orange-400 text-sm font-medium mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#D35400]/30 bg-[#D35400]/10 text-[#ed7a30] text-sm font-medium mb-8">
               <Flame className="w-4 h-4 animate-ember-pulse" />
               <span>Tvoj digitalni kompas za savršen griz</span>
             </div>
 
-            {/* Main heading */}
+            {/* Heading — always light text on dark hero */}
             <h1
               className="text-5xl md:text-7xl lg:text-8xl font-bold uppercase leading-none tracking-tight mb-6"
               style={{ fontFamily: "Oswald, sans-serif" }}
             >
-              <span className="block text-cream">{t("heroTitle").split(" ").slice(0, -2).join(" ")}</span>
-              <span className="block text-gradient-fire">{t("heroTitle").split(" ").slice(-2).join(" ")}</span>
+              <span className="block text-[#F5F5DC]">
+                {t("heroTitle").split(" ").slice(0, -2).join(" ")}
+              </span>
+              <span className="block text-gradient-fire">
+                {t("heroTitle").split(" ").slice(-2).join(" ")}
+              </span>
             </h1>
 
-            <p className="text-lg md:text-xl text-cream/60 mb-10 max-w-xl leading-relaxed">
+            <p className="text-lg md:text-xl text-[#F5F5DC]/60 mb-10 max-w-xl leading-relaxed">
               {t("heroSubtitle")}
             </p>
 
-            {/* CTA Buttons */}
+            {/* CTA — hero always dark, so force light text on both buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/finder" className="btn-primary text-base glow-orange">
                 <MapPin className="w-5 h-5" />
                 {t("ctaFinder")}
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Link>
-              <Link href="/kitchen" className="btn-secondary text-base">
+              {/* Secondary button — explicit light styling since hero is always dark */}
+              <Link
+                href="/kitchen"
+                className="inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-all duration-200 text-base"
+                style={{
+                  border: "1px solid rgba(245,245,220,0.25)",
+                  color: "rgba(245,245,220,0.8)",
+                  background: "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(245,245,220,0.6)";
+                  (e.currentTarget as HTMLAnchorElement).style.color = "#F5F5DC";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(245,245,220,0.25)";
+                  (e.currentTarget as HTMLAnchorElement).style.color = "rgba(245,245,220,0.8)";
+                }}
+              >
                 <ChefHat className="w-5 h-5" />
                 {t("ctaKitchen")}
               </Link>
             </div>
 
-            {/* Stats row */}
+            {/* Stats */}
             <div className="mt-16 flex flex-wrap gap-8">
               {[
                 { value: "120+", label: t("statsRestaurants"), icon: "🍖" },
-                { value: "8.4k", label: t("statsUsers"), icon: "👥" },
-                { value: "24", label: t("statsCities"), icon: "🏙️" },
+                { value: "8.4k", label: t("statsUsers"),       icon: "👥" },
+                { value: "24",   label: t("statsCities"),      icon: "🏙️" },
               ].map(({ value, label, icon }) => (
                 <div key={label} className="flex items-center gap-3">
                   <span className="text-2xl">{icon}</span>
                   <div>
                     <div
-                      className="text-2xl font-bold text-burnt-orange-400"
+                      className="text-2xl font-bold text-[#ed7a30]"
                       style={{ fontFamily: "Oswald, sans-serif" }}
                     >
                       {value}
                     </div>
-                    <div className="text-xs text-cream/40 tracking-wide uppercase">
+                    <div className="text-xs text-[#F5F5DC]/40 tracking-wide uppercase">
                       {label}
                     </div>
                   </div>
@@ -96,138 +110,100 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Decorative right panel (desktop) */}
+        {/* Decorative spinning ring */}
         <div className="hidden lg:flex absolute right-0 top-0 bottom-0 w-[40%] items-center justify-center pointer-events-none">
           <div className="relative w-80 h-80">
-            <div className="absolute inset-0 rounded-full border border-burnt-orange-500/20 animate-[spin_20s_linear_infinite]" />
-            <div className="absolute inset-8 rounded-full border border-burnt-orange-500/10 animate-[spin_15s_linear_infinite_reverse]" />
-            <div className="absolute inset-16 rounded-full bg-burnt-orange-500/5 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full border border-[#D35400]/20 animate-[spin_20s_linear_infinite]" />
+            <div className="absolute inset-8 rounded-full border border-[#D35400]/10 animate-[spin_15s_linear_infinite_reverse]" />
+            <div className="absolute inset-16 rounded-full bg-[#D35400]/5 flex items-center justify-center">
               <span className="text-8xl animate-ember-pulse">🥩</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ============================
-          FEATURES SECTION
-          ============================ */}
-      <section className="py-24 px-6 bg-charcoal-900 dark:bg-ugljen-surface/50">
+      {/* ═══════════════════════════════════════════════════════════════
+          FEATURES — theme-aware
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="py-24 px-6 bg-[rgb(var(--surface)/0.5)]">
         <div className="max-w-7xl mx-auto">
-          {/* Section header */}
           <div className="text-center mb-16">
             <div className="ember-divider mx-auto" />
-            <h2 className="section-title mt-4">{t("features")}</h2>
+            <h2 className="section-title mt-4" style={{ color: "rgb(var(--foreground))" }}>
+              {t("features")}
+            </h2>
           </div>
 
-          {/* Feature cards grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Ćevap Finder — highlighted */}
-            <FeatureCard
-              href="/finder"
-              icon={<MapPin className="w-7 h-7" />}
-              title={t("finderTitle")}
-              description={t("finderDesc")}
-              badge="🥯🥯🥯🥯🥯"
-              highlight
-              cta={t("ctaFinder")}
-            />
-
-            {/* Master Kuhinja — highlighted */}
-            <FeatureCard
-              href="/kitchen"
-              icon={<ChefHat className="w-7 h-7" />}
-              title={t("kitchenTitle")}
-              description={t("kitchenDesc")}
-              badge="🔥 Recepti"
-              highlight
-              cta={t("ctaKitchen")}
-            />
-
-            {/* Community */}
-            <FeatureCard
-              href="/community"
-              icon={<Users className="w-7 h-7" />}
-              title={t("communityTitle")}
-              description={t("communityDesc")}
-              badge="👥 Zajednica"
-            />
-
-            {/* Jukebox */}
-            <FeatureCard
-              href="/jukebox"
-              icon={<Music className="w-7 h-7" />}
-              title={t("jukeboxTitle")}
-              description={t("jukeboxDesc")}
-              badge="🎵 3 playliste"
-            />
+            <FeatureCard href="/finder"    icon={<MapPin   className="w-7 h-7" />} title={t("finderTitle")}    description={t("finderDesc")}    badge="🥯🥯🥯🥯🥯"       highlight cta={t("ctaFinder")} />
+            <FeatureCard href="/kitchen"   icon={<ChefHat  className="w-7 h-7" />} title={t("kitchenTitle")}   description={t("kitchenDesc")}   badge="🔥 Recepti"        highlight cta={t("ctaKitchen")} />
+            <FeatureCard href="/community" icon={<Users    className="w-7 h-7" />} title={t("communityTitle")} description={t("communityDesc")} badge="👥 Zajednica" />
+            <FeatureCard href="/jukebox"   icon={<Music    className="w-7 h-7" />} title={t("jukeboxTitle")}   description={t("jukeboxDesc")}   badge="🎵 3 playliste" />
           </div>
         </div>
       </section>
 
-      {/* ============================
-          HOW IT WORKS
-          ============================ */}
-      <section className="py-24 px-6">
+      {/* ═══════════════════════════════════════════════════════════════
+          HOW IT WORKS — theme-aware
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="py-24 px-6 bg-[rgb(var(--background))]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <div className="ember-divider mx-auto" />
-            <h2 className="section-title mt-4">Kako funkcionira?</h2>
+            <h2 className="section-title mt-4" style={{ color: "rgb(var(--foreground))" }}>
+              Kako funkcionira?
+            </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              {
-                step: "01",
-                icon: "📍",
-                title: "Pronađi",
-                desc: "Otvori Ćevap Finder, filtriraj po stilu i gradu, pogledaj Lepinja ocjene.",
-              },
-              {
-                step: "02",
-                icon: "⭐",
-                title: "Ocijeni",
-                desc: "Ostavi brzopletnu recenziju s 🧅🔥🥯 emojijima i skupljaj XP bodove.",
-              },
-              {
-                step: "03",
-                icon: "🏆",
-                title: "Osvoji",
-                desc: "Penjaj se na Leaderboard, otključaj bedževe i postani Maestro Roštilja.",
-              },
+              { step: "01", icon: "📍", title: "Pronađi", desc: "Otvori Ćevap Finder, filtriraj po stilu i gradu, pogledaj Lepinja ocjene." },
+              { step: "02", icon: "⭐", title: "Ocijeni",  desc: "Ostavi brzopletnu recenziju s 🧅🔥🥯 emojijima i skupljaj XP bodove." },
+              { step: "03", icon: "🏆", title: "Osvoji",   desc: "Penjaj se na Leaderboard, otključaj bedževe i postani Maestro Roštilja." },
             ].map(({ step, icon, title, desc }) => (
               <div
                 key={step}
-                className="relative flex flex-col items-center text-center p-6 rounded-2xl border border-charcoal-700 dark:border-ugljen-border bg-charcoal-800/40 dark:bg-ugljen-surface/40 group hover:border-burnt-orange-500/40 transition-colors"
+                className="relative flex flex-col items-center text-center p-6 rounded-2xl border transition-colors group"
+                style={{
+                  borderColor: "rgb(var(--border))",
+                  background:  "rgb(var(--surface) / 0.4)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.borderColor = "rgb(var(--primary) / 0.4)"}
+                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.borderColor = "rgb(var(--border))"}
               >
                 <div className="text-5xl mb-4">{icon}</div>
                 <div
-                  className="text-burnt-orange-500/30 text-6xl font-bold absolute top-4 right-4 leading-none select-none"
-                  style={{ fontFamily: "Oswald, sans-serif" }}
+                  className="absolute top-4 right-4 text-6xl font-bold leading-none select-none"
+                  style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--primary) / 0.2)" }}
                 >
                   {step}
                 </div>
                 <h3
-                  className="text-xl font-semibold text-cream mb-2"
-                  style={{ fontFamily: "Oswald, sans-serif" }}
+                  className="text-xl font-semibold mb-2"
+                  style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}
                 >
                   {title}
                 </h3>
-                <p className="text-cream/50 text-sm leading-relaxed">{desc}</p>
+                <p className="text-sm leading-relaxed" style={{ color: "rgb(var(--muted))" }}>
+                  {desc}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ============================
-          MERAK CORNER
-          ============================ */}
-      <section className="py-24 px-6">
+      {/* ═══════════════════════════════════════════════════════════════
+          MERAK RJEČNIK — theme-aware
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="py-24 px-6 bg-[rgb(var(--surface)/0.3)]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <div className="ember-divider mx-auto" />
-            <h2 className="section-title mt-4">Merak Rječnik</h2>
-            <p className="text-cream/40 text-sm mt-2 max-w-md mx-auto">
+            <h2 className="section-title mt-4" style={{ color: "rgb(var(--foreground))" }}>
+              Merak Rječnik
+            </h2>
+            <p className="text-sm mt-2 max-w-md mx-auto" style={{ color: "rgb(var(--muted))" }}>
               Svaki dan nova riječ iz duše balkanske kulture i kuhinje. Pređi kroz rječnik i otkrij zaboravljene pojmove.
             </p>
           </div>
@@ -235,54 +211,64 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ============================
-          CTA BANNER
-          ============================ */}
-      <section className="py-20 px-6 bg-burnt-orange-500 relative overflow-hidden">
+      {/* ═══════════════════════════════════════════════════════════════
+          CTA BANNER — orange, works in both modes
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="py-20 px-6 bg-[#D35400] relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.08]"
           style={{
-            backgroundImage:
-              "repeating-linear-gradient(45deg, #000 0, #000 1px, transparent 0, transparent 50%)",
+            backgroundImage: "repeating-linear-gradient(45deg, #000 0, #000 1px, transparent 0, transparent 50%)",
             backgroundSize: "10px 10px",
           }}
         />
         <div className="relative max-w-3xl mx-auto text-center">
           <h2
-            className="text-4xl md:text-5xl font-bold text-cream uppercase mb-4"
+            className="text-4xl md:text-5xl font-bold text-[#F5F5DC] uppercase mb-4"
             style={{ fontFamily: "Oswald, sans-serif" }}
           >
             Spreman si na Savršen Griz?
           </h2>
-          <p className="text-cream/80 text-lg mb-8">
+          <p className="text-[#F5F5DC]/80 text-lg mb-8">
             Registriraj se besplatno i postani dio ChevApp zajednice.
           </p>
-          <Link href="/community" className="btn-secondary border-cream/50 text-cream hover:border-cream text-base">
+          <Link
+            href="/community"
+            className="inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-lg transition-all duration-200 text-base"
+            style={{ border: "1px solid rgba(245,245,220,0.5)", color: "#F5F5DC" }}
+          >
             {t("ctaSecondary")} <ArrowRight className="w-4 h-4 ml-1" />
           </Link>
         </div>
       </section>
 
-      {/* ============================
-          FOOTER
-          ============================ */}
-      <footer className="bg-charcoal-900 dark:bg-ugljen-bg border-t border-charcoal-700 dark:border-ugljen-border py-12 px-6">
+      {/* ═══════════════════════════════════════════════════════════════
+          FOOTER — theme-aware
+          ═══════════════════════════════════════════════════════════════ */}
+      <footer
+        className="border-t py-12 px-6"
+        style={{
+          borderColor:     "rgb(var(--border))",
+          backgroundColor: "rgb(var(--surface) / 0.6)",
+        }}
+      >
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between gap-8">
+
             {/* Brand */}
             <div className="max-w-xs">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-burnt-orange-500 flex items-center justify-center">
-                  <Flame className="w-4 h-4 text-cream" />
+                <div className="w-7 h-7 rounded-lg bg-[#D35400] flex items-center justify-center">
+                  <Flame className="w-4 h-4 text-[#F5F5DC]" />
                 </div>
                 <span
-                  className="text-lg font-bold text-cream tracking-widest uppercase"
-                  style={{ fontFamily: "Oswald, sans-serif" }}
+                  className="text-lg font-bold tracking-widest uppercase"
+                  style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}
                 >
-                  Chev<span className="text-burnt-orange-400">App</span>
+                  Chev<span style={{ color: "rgb(var(--primary))" }}>App</span>
                 </span>
               </div>
-              <p className="text-cream/40 text-sm leading-relaxed">
+              <p className="text-sm leading-relaxed" style={{ color: "rgb(var(--muted))" }}>
                 {t("footerTagline")}
               </p>
             </div>
@@ -294,24 +280,27 @@ export default function LandingPage() {
                 { href: "/route-planner", label: "Gastro Ruta" },
               ]} />
               <FooterColumn title={tNav("kitchen")} links={[
-                { href: "/kitchen", label: "Recepti" },
-                { href: "/academy", label: "Akademija" },
-                { href: "/academy#burnoff", label: "Burn-off Calc" },
+                { href: "/kitchen",          label: "Recepti"      },
+                { href: "/academy",          label: "Akademija"    },
+                { href: "/academy#burnoff",  label: "Burn-off Calc" },
               ]} />
               <FooterColumn title={t("footerLegal")} links={[
                 { href: "#", label: t("footerPrivacy") },
-                { href: "#", label: t("footerTerms") },
+                { href: "#", label: t("footerTerms")   },
               ]} />
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-charcoal-700 dark:border-ugljen-border flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-cream/30 text-xs">
+          <div
+            className="mt-10 pt-6 border-t flex flex-col sm:flex-row justify-between items-center gap-3"
+            style={{ borderColor: "rgb(var(--border))" }}
+          >
+            <p className="text-xs" style={{ color: "rgb(var(--muted))" }}>
               © {new Date().getFullYear()} ChevApp. Sva prava pridržana.
             </p>
-            <div className="flex items-center gap-1 text-cream/30 text-xs">
-              <Star className="w-3 h-3 text-burnt-orange-500" />
-              <TrendingUp className="w-3 h-3 text-burnt-orange-500" />
+            <div className="flex items-center gap-1 text-xs" style={{ color: "rgb(var(--muted))" }}>
+              <Star className="w-3 h-3" style={{ color: "rgb(var(--primary))" }} />
+              <TrendingUp className="w-3 h-3" style={{ color: "rgb(var(--primary))" }} />
               <span>Made with 🔥 on the Balkan</span>
             </div>
           </div>
@@ -321,62 +310,69 @@ export default function LandingPage() {
   );
 }
 
-// ---- Sub-components ----
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function FeatureCard({
-  href,
-  icon,
-  title,
-  description,
-  badge,
-  highlight = false,
-  cta,
+  href, icon, title, description, badge, highlight = false, cta,
 }: {
-  href: string;
-  icon: React.ReactNode;
-  title: string;
+  href:        string;
+  icon:        React.ReactNode;
+  title:       string;
   description: string;
-  badge: string;
-  highlight?: boolean;
-  cta?: string;
+  badge:       string;
+  highlight?:  boolean;
+  cta?:        string;
 }) {
   return (
     <Link
       href={href}
-      className={`group relative flex flex-col gap-4 p-6 md:p-8 rounded-2xl border transition-all duration-300 hover:scale-[1.01] ${
-        highlight
-          ? "border-burnt-orange-500/40 bg-burnt-orange-500/5 hover:border-burnt-orange-500/70 hover:bg-burnt-orange-500/10"
-          : "border-charcoal-700 dark:border-ugljen-border bg-charcoal-800/40 dark:bg-ugljen-surface/30 hover:border-charcoal-600"
-      }`}
+      className="group relative flex flex-col gap-4 p-6 md:p-8 rounded-2xl border transition-all duration-300 hover:scale-[1.01]"
+      style={{
+        borderColor: highlight ? "rgba(211,84,0,0.4)" : "rgb(var(--border))",
+        background:  highlight ? "rgba(211,84,0,0.05)" : "rgb(var(--surface) / 0.4)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLAnchorElement).style.borderColor =
+          highlight ? "rgba(211,84,0,0.7)" : "rgb(var(--primary) / 0.3)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLAnchorElement).style.borderColor =
+          highlight ? "rgba(211,84,0,0.4)" : "rgb(var(--border))";
+      }}
     >
       {/* Icon + badge */}
       <div className="flex items-start justify-between">
         <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-            highlight
-              ? "bg-burnt-orange-500/20 text-burnt-orange-400"
-              : "bg-charcoal-700 dark:bg-ugljen-border text-cream/60"
-          }`}
+          className="w-12 h-12 rounded-xl flex items-center justify-center"
+          style={{
+            background: highlight ? "rgba(211,84,0,0.15)" : "rgb(var(--border) / 0.5)",
+            color:      highlight ? "rgb(var(--primary))" : "rgb(var(--muted))",
+          }}
         >
           {icon}
         </div>
-        <span className="text-sm font-medium text-cream/50 lepinja-badge">{badge}</span>
+        <span className="text-sm font-medium lepinja-badge">{badge}</span>
       </div>
 
       {/* Text */}
       <div>
         <h3
-          className="text-2xl font-bold text-cream mb-2 group-hover:text-burnt-orange-400 transition-colors"
-          style={{ fontFamily: "Oswald, sans-serif" }}
+          className="text-2xl font-bold mb-2 transition-colors"
+          style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}
         >
           {title}
         </h3>
-        <p className="text-cream/50 text-sm leading-relaxed">{description}</p>
+        <p className="text-sm leading-relaxed" style={{ color: "rgb(var(--muted))" }}>
+          {description}
+        </p>
       </div>
 
-      {/* CTA arrow */}
+      {/* CTA */}
       {cta && (
-        <div className="flex items-center gap-2 text-burnt-orange-400 text-sm font-semibold mt-auto">
+        <div
+          className="flex items-center gap-2 text-sm font-semibold mt-auto"
+          style={{ color: "rgb(var(--primary))" }}
+        >
           <span>{cta}</span>
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </div>
@@ -385,24 +381,22 @@ function FeatureCard({
   );
 }
 
-function FooterColumn({
-  title,
-  links,
-}: {
-  title: string;
-  links: { href: string; label: string }[];
-}) {
+function FooterColumn({ title, links }: { title: string; links: { href: string; label: string }[] }) {
   return (
     <div>
-      <h4 className="text-cream/70 font-semibold text-xs uppercase tracking-widest mb-3">
+      <h4
+        className="font-semibold text-xs uppercase tracking-widest mb-3"
+        style={{ color: "rgb(var(--muted))" }}
+      >
         {title}
       </h4>
       <ul className="space-y-2">
-        {links.map(({ href, label }, index) => (
-          <li key={`${label}-${index}`}>
+        {links.map(({ href, label }, i) => (
+          <li key={`${label}-${i}`}>
             <Link
               href={href}
-              className="text-cream/40 hover:text-burnt-orange-400 transition-colors text-sm"
+              className="text-sm transition-colors hover:text-[rgb(var(--primary))]"
+              style={{ color: "rgb(var(--muted))" }}
             >
               {label}
             </Link>
