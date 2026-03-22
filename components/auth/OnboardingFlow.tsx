@@ -87,8 +87,8 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
       .eq("id", userId)
       .single();
     const currentXP = (prof as { xp_points: number } | null)?.xp_points ?? 0;
-    await supabase
-      .from("profiles")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("profiles") as any)
       .update({ xp_points: currentXP + 50 })
       .eq("id", userId);
 
