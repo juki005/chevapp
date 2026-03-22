@@ -146,11 +146,10 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         .select("id, style")
         .eq("google_place_id", restaurant.google_place_id)
         .maybeSingle()
-        .then(({ data }) => {
+        .then(({ data }: { data: { id: string; style: string | null } | null }) => {
           if (data) {
-            const row = data as { id: string; style: string | null };
-            setDbRestaurantId(row.id);
-            setDbStyleTag((row.style as CevapStyle) ?? null);
+            setDbRestaurantId(data.id);
+            setDbStyleTag((data.style as CevapStyle) ?? null);
           }
         });
     }
@@ -162,8 +161,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         .select("style")
         .eq("id", restaurant.id)
         .maybeSingle()
-        .then(({ data }) => {
-          if (data) setDbStyleTag(((data as { style: string | null }).style as CevapStyle) ?? null);
+        .then(({ data }: { data: { style: string | null } | null }) => {
+          if (data) setDbStyleTag((data.style as CevapStyle) ?? null);
         });
     }
   }, [restaurant?.id, restaurant?.name, restaurant?.city, restaurant?.google_place_id]);
@@ -276,11 +275,11 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     const { data: existing } = await (supabase.from("restaurants") as any)
       .select("id, style")
       .eq("google_place_id", placeId)
-      .maybeSingle();
+      .maybeSingle() as { data: { id: string; style: string | null } | null };
 
     if (existing) {
       // Row exists — update style
-      const row      = existing as { id: string; style: string | null };
+      const row = existing;
       const hadNoStyle = !row.style;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from("restaurants") as any).update({ style }).eq("id", row.id);
