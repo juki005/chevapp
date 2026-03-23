@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveCityCoords } from "@/constants/cities";
-import { filterByRoute, distanceToSegmentKm } from "@/lib/geo";
+import { filterByRoute, distanceToSegmentKm, haversineKm } from "@/lib/geo";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import type { Restaurant } from "@/types";
@@ -35,7 +35,7 @@ type RadiusKm = (typeof RADIUS_OPTIONS)[number];
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 // Extend RouteRestaurant with an optional source tag
-type AnyRouteRestaurant = RouteRestaurant & { source?: "db" | "places" };
+type AnyRouteRestaurant = RouteRestaurant & { source?: "db" | "places" | "waypoint" };
 
 /** Fetch ćevapi from Google Places for a city, return as RouteRestaurant rows */
 async function fetchPlacesForCity(
@@ -85,6 +85,92 @@ async function fetchPlacesForCity(
   } catch {
     return [];
   }
+}
+
+/**
+ * Fetch ćevapi near a single lat/lng waypoint (coordinate-based Places search).
+ * Returns up to `cap` closest results within the route corridor.
+ */
+async function fetchPlacesForWaypoint(
+  lat: number,
+  lng: number,
+  coordsA: [number, number],
+  coordsB: [number, number],
+  corridorKm: number,
+  cap = 3,
+): Promise<AnyRouteRestaurant[]> {
+  try {
+    const res = await fetch(
+      `/api/places?lat=${lat}&lng=${lng}&query=cevapi+rostilj+grill&limit=10`,
+    );
+    if (!res.ok) return [];
+    const json = await res.json() as { results?: PlaceResult[] };
+    return (json.results ?? [])
+      .filter((p) => p.latitude != null && p.longitude != null)
+      .map((p) => {
+        const distKm = distanceToSegmentKm(
+          p.latitude!, p.longitude!,
+          coordsA[0], coordsA[1],
+          coordsB[0], coordsB[1],
+        );
+        return {
+          id:              p.place_id,
+          name:            p.name,
+          city:            p.city,
+          address:         p.address,
+          latitude:        p.latitude,
+          longitude:       p.longitude,
+          lepinja_rating:  p.rating ? Math.round(p.rating * 10) / 10 : 0,
+          is_verified:     false,
+          style:           null,
+          distanceKm:      distKm,
+          source:          "waypoint" as const,
+          google_place_id: p.place_id,
+          phone:           null,
+          website:         null,
+          image_url:       null,
+          open_now:        p.open_now,
+          types:           p.types,
+          created_at:      "",
+          updated_at:      "",
+        } as unknown as AnyRouteRestaurant;
+      })
+      .filter((r) => r.distanceKm <= corridorKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, cap);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Generate intermediate waypoints along A→B straight line.
+ * Skips waypoints within `edgeKm` of either endpoint to avoid overlap with
+ * city searches. Returns empty array when the route is too short.
+ */
+function buildWaypoints(
+  coordsA: [number, number],
+  coordsB: [number, number],
+  edgeKm = 30,
+): Array<[number, number]> {
+  const totalKm = haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
+  if (totalKm < edgeKm * 2 + 20) return []; // route too short for waypoints
+
+  // Evenly-spaced fractions, clamped to the non-edge zone
+  const tMin = edgeKm / totalKm;
+  const tMax = 1 - edgeKm / totalKm;
+
+  const steps = totalKm > 300 ? 5 : totalKm > 150 ? 3 : 1;
+  const results: Array<[number, number]> = [];
+
+  for (let i = 1; i <= steps; i++) {
+    const t = tMin + ((tMax - tMin) * i) / (steps + 1);
+    results.push([
+      coordsA[0] + (coordsB[0] - coordsA[0]) * t,
+      coordsA[1] + (coordsB[1] - coordsA[1]) * t,
+    ]);
+  }
+  return results;
 }
 
 /** Merge DB results (priority) with Places results, deduplicate by name+city. */
@@ -143,12 +229,18 @@ export default function RoutePlannerPage() {
     setLoading(true);
 
     try {
-      // Fetch Supabase DB + Google Places for both cities in parallel
+      // Compute intermediate waypoints (skips short routes automatically)
+      const waypoints = buildWaypoints(coordsA, coordsB);
+
+      // Fetch Supabase DB + Google Places for both cities + waypoints — all in parallel
       const supabase = createClient();
-      const [dbRes, placesA, placesB] = await Promise.all([
+      const [dbRes, placesA, placesB, ...waypointResults] = await Promise.all([
         supabase.from("restaurants").select("*").order("lepinja_rating", { ascending: false }),
         fetchPlacesForCity(cityA, coordsA, coordsB, activeRadius),
         fetchPlacesForCity(cityB, coordsA, coordsB, activeRadius),
+        ...waypoints.map((wp) =>
+          fetchPlacesForWaypoint(wp[0], wp[1], coordsA, coordsB, activeRadius),
+        ),
       ]);
 
       if (dbRes.error) throw dbRes.error;
@@ -156,8 +248,9 @@ export default function RoutePlannerPage() {
       const all = (dbRes.data ?? []) as Restaurant[];
       setCachedRestaurants(all);
 
-      // Merge & deduplicate Google Places results (by name+city)
-      const placesMerged = [...placesA, ...placesB].filter(
+      // Merge & deduplicate all Places results (city + waypoints) by name+city
+      const allPlaces = [...placesA, ...placesB, ...waypointResults.flat()];
+      const placesMerged = allPlaces.filter(
         (r, i, arr) =>
           arr.findIndex((x) => x.name.toLowerCase() === r.name.toLowerCase() && x.city === r.city) === i,
       );
@@ -422,7 +515,9 @@ const STYLE_EMOJIS: Record<string, string> = {
 };
 
 function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant; index: number }) {
-  const isPlaces = restaurant.source === "places";
+  const isPlaces   = restaurant.source === "places";
+  const isWaypoint = restaurant.source === "waypoint";
+  const isGoogle   = isPlaces || isWaypoint;
   return (
     <div className="card p-4 flex items-center gap-4">
       <div
@@ -443,6 +538,11 @@ function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant;
             {restaurant.name}
           </h3>
           {restaurant.is_verified && <CheckCircle className="w-3.5 h-3.5 text-accent flex-shrink-0" />}
+          {isWaypoint && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-green-500/30 bg-green-500/10 text-green-400 flex-shrink-0">
+              🚗 Na ruti
+            </span>
+          )}
           {isPlaces && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-blue-500/30 bg-blue-500/10 text-blue-400 flex-shrink-0">
               <Globe className="w-2.5 h-2.5" /> Google
@@ -450,7 +550,7 @@ function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant;
           )}
         </div>
         <p className="text-xs text-fg-muted truncate">{restaurant.city} · {restaurant.address}</p>
-        {isPlaces
+        {isGoogle
           ? restaurant.lepinja_rating > 0 && (
               <p className="text-xs text-amber-400 mt-1">⭐ {restaurant.lepinja_rating.toFixed(1)} / 5</p>
             )

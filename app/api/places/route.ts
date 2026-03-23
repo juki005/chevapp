@@ -45,29 +45,42 @@ export async function GET(req: NextRequest) {
 
   // ── 2. Query params ────────────────────────────────────────────────────────
   const { searchParams } = new URL(req.url);
-  const near  = searchParams.get("near")?.trim()  ?? "";
-  const query = searchParams.get("query")?.trim() || "cevapi rostilj grill";
-  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "20") || 20, 1), 20);
+  const near   = searchParams.get("near")?.trim()  ?? "";
+  const query  = searchParams.get("query")?.trim() || "cevapi rostilj grill";
+  const limit  = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "20") || 20, 1), 20);
+  // Coordinate mode — used by waypoint searches along a route
+  const latStr = searchParams.get("lat")?.trim() ?? "";
+  const lngStr = searchParams.get("lng")?.trim() ?? "";
+  const coordMode = latStr !== "" && lngStr !== "";
 
-  if (!near) {
+  if (!near && !coordMode) {
     return NextResponse.json(
-      { error: "Missing `near` query parameter (e.g. ?near=Sarajevo)" },
+      { error: "Missing `near` OR `lat`+`lng` query parameters" },
       { status: 400 }
     );
   }
 
-  // Combine the text query with the city name for a focused local search.
-  const fullQuery = `${query} ${near}`;
+  // Combine the text query with the city name (or omit if using coords).
+  const fullQuery = coordMode ? query : `${query} ${near}`;
 
   // ── 3. Fetch with timeout ──────────────────────────────────────────────────
   try {
-    const params = new URLSearchParams({
+    const baseParams: Record<string, string> = {
       query:    fullQuery,
       key:      apiKey,
       type:     "restaurant",
       language: "bs",
       region:   "ba",
-    });
+    };
+
+    // When coordinates are supplied, bias results to a 15 km radius around
+    // the waypoint — keeps results relevant to that stretch of road.
+    if (coordMode) {
+      baseParams.location = `${latStr},${lngStr}`;
+      baseParams.radius   = "15000"; // 15 km
+    }
+
+    const params = new URLSearchParams(baseParams);
 
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
@@ -126,8 +139,8 @@ export async function GET(req: NextRequest) {
       name:      place.name,
       address:   place.formatted_address ?? "",
       // Extract the locality from formatted_address ("…, City ZIP, Country")
-      // as a best-effort city name; fall back to the `near` param.
-      city:      extractCity(place.formatted_address ?? "", near),
+      // as a best-effort city name; fall back to near or coord label.
+      city:      extractCity(place.formatted_address ?? "", near || `${latStr},${lngStr}`),
       latitude:  place.geometry?.location?.lat ?? null,
       longitude: place.geometry?.location?.lng ?? null,
       rating:    place.rating     ?? null,
