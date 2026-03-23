@@ -315,7 +315,7 @@ function SnakeGame({ onWin }: SnakeGameProps) {
   const [seconds,  setSeconds]  = useState(0);
 
   const rafRef     = useRef(0);
-  const timerRef   = useRef<ReturnType<typeof setInterval>>();
+  const timerRef   = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   // Load hi-score + spawn first food
   useEffect(() => {
