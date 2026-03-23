@@ -4,15 +4,16 @@ import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
-  Route, MapPin, Navigation, Loader2, AlertCircle, CheckCircle,
+  Route, MapPin, Navigation, Loader2, AlertCircle, CheckCircle, Globe,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveCityCoords } from "@/constants/cities";
-import { filterByRoute } from "@/lib/geo";
+import { filterByRoute, distanceToSegmentKm } from "@/lib/geo";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import type { Restaurant } from "@/types";
 import type { RouteRestaurant, SearchArgs } from "@/components/finder/RouteMapClient";
+import type { PlaceResult } from "@/app/api/places/route";
 
 // ── Map loaded client-side only (uses window / Google Maps JS API) ─────────────
 const RouteMap = dynamic(() => import("@/components/finder/RouteMapClient"), {
@@ -33,6 +34,71 @@ type RadiusKm = (typeof RADIUS_OPTIONS)[number];
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
+// Extend RouteRestaurant with an optional source tag
+type AnyRouteRestaurant = RouteRestaurant & { source?: "db" | "places" };
+
+/** Fetch ćevapi from Google Places for a city, return as RouteRestaurant rows */
+async function fetchPlacesForCity(
+  city: string,
+  coordsA: [number, number],
+  coordsB: [number, number],
+  radiusKm: number,
+): Promise<AnyRouteRestaurant[]> {
+  try {
+    const res = await fetch(
+      `/api/places?near=${encodeURIComponent(city)}&query=cevapi+rostilj+grill&limit=20`,
+    );
+    if (!res.ok) return [];
+    const json = await res.json() as { results?: PlaceResult[] };
+    return (json.results ?? [])
+      .filter((p) => p.latitude != null && p.longitude != null)
+      .map((p) => {
+        const distKm = distanceToSegmentKm(
+          p.latitude!, p.longitude!,
+          coordsA[0], coordsA[1],
+          coordsB[0], coordsB[1],
+        );
+        return {
+          id:             p.place_id,
+          name:           p.name,
+          city:           p.city,
+          address:        p.address,
+          latitude:       p.latitude,
+          longitude:      p.longitude,
+          lepinja_rating: p.rating ? Math.round(p.rating * 10) / 10 : 0,
+          is_verified:    false,
+          style:          null,
+          distanceKm:     distKm,
+          source:         "places" as const,
+          // Required Restaurant fields with sensible defaults
+          google_place_id: p.place_id,
+          phone:           null,
+          website:         null,
+          image_url:       null,
+          open_now:        p.open_now,
+          types:           p.types,
+          created_at:      "",
+          updated_at:      "",
+        } as unknown as AnyRouteRestaurant;
+      })
+      .filter((r) => r.distanceKm <= radiusKm);
+  } catch {
+    return [];
+  }
+}
+
+/** Merge DB results (priority) with Places results, deduplicate by name+city. */
+function mergeResults(
+  db:     AnyRouteRestaurant[],
+  places: AnyRouteRestaurant[],
+): AnyRouteRestaurant[] {
+  const seen = new Set(db.map((r) => `${r.name.toLowerCase()}::${r.city.toLowerCase()}`));
+  const unique = places.filter(
+    (p) => !seen.has(`${p.name.toLowerCase()}::${p.city.toLowerCase()}`),
+  );
+  return [...db, ...unique].sort((a, b) => a.distanceKm - b.distanceKm);
+}
+
 export default function RoutePlannerPage() {
   const tNav = useTranslations("nav");
 
@@ -40,7 +106,7 @@ export default function RoutePlannerPage() {
   const [cityB,      setCityB]      = useState("");
   const [radius,     setRadius]     = useState<RadiusKm>(10);
   const [loading,    setLoading]    = useState(false);
-  const [results,    setResults]    = useState<RouteRestaurant[] | null>(null);
+  const [results,    setResults]    = useState<AnyRouteRestaurant[] | null>(null);
   const [error,      setError]      = useState<string | null>(null);
   const [resolvedA,  setResolvedA]  = useState<string | null>(null);
   const [resolvedB,  setResolvedB]  = useState<string | null>(null);
@@ -49,6 +115,7 @@ export default function RoutePlannerPage() {
   // Cached restaurants from the last Supabase fetch (avoid re-fetching when
   // the user just changes the radius on an existing route).
   const [cachedRestaurants, setCachedRestaurants] = useState<Restaurant[]>([]);
+  const [cachedPlaces,      setCachedPlaces]      = useState<AnyRouteRestaurant[]>([]);
 
   // ── Search handler ────────────────────────────────────────────────────────
   const handleSearch = useCallback(async (overrideRadius?: RadiusKm) => {
@@ -76,28 +143,41 @@ export default function RoutePlannerPage() {
     setLoading(true);
 
     try {
+      // Fetch Supabase DB + Google Places for both cities in parallel
       const supabase = createClient();
-      const { data, error: dbError } = await supabase
-        .from("restaurants")
-        .select("*")
-        .order("lepinja_rating", { ascending: false });
+      const [dbRes, placesA, placesB] = await Promise.all([
+        supabase.from("restaurants").select("*").order("lepinja_rating", { ascending: false }),
+        fetchPlacesForCity(cityA, coordsA, coordsB, activeRadius),
+        fetchPlacesForCity(cityB, coordsA, coordsB, activeRadius),
+      ]);
 
-      if (dbError) throw dbError;
+      if (dbRes.error) throw dbRes.error;
 
-      const all = (data ?? []) as Restaurant[];
+      const all = (dbRes.data ?? []) as Restaurant[];
       setCachedRestaurants(all);
 
+      // Merge & deduplicate Google Places results (by name+city)
+      const placesMerged = [...placesA, ...placesB].filter(
+        (r, i, arr) =>
+          arr.findIndex((x) => x.name.toLowerCase() === r.name.toLowerCase() && x.city === r.city) === i,
+      );
+
       if (!API_KEY) {
-        // No Maps key → straight-line Haversine search (immediate, no map callback)
-        const filtered = filterByRoute(all, coordsA[0], coordsA[1], coordsB[0], coordsB[1], activeRadius) as RouteRestaurant[];
-        setResults(filtered);
+        // No Maps key → straight-line Haversine filter for DB rows
+        const dbFiltered = filterByRoute(
+          all, coordsA[0], coordsA[1], coordsB[0], coordsB[1], activeRadius,
+        ) as RouteRestaurant[];
+
+        // Merge DB + Places (DB rows take priority if same name)
+        const combined = mergeResults(dbFiltered, placesMerged);
+        setResults(combined);
         setLoading(false);
         return;
       }
 
-      // With Maps key: hand off to the map component which will call the
-      // Directions API, sample the polyline, and return filtered results
-      // via onSearchComplete — loading stays true until that callback fires.
+      // With Maps key: hand off route filtering to RouteMapClient, but we
+      // already have Places results — store them and merge after map callback.
+      setCachedPlaces(placesMerged);
       setSearchArgs({ coordsA, coordsB, radiusKm: activeRadius, allRestaurants: all });
     } catch (err) {
       setError("Greška pri dohvatu restorana: " + String(err));
@@ -107,9 +187,12 @@ export default function RoutePlannerPage() {
 
   // ── Callback from RouteMapClient once Directions + filtering is done ────────
   const handleSearchComplete = useCallback((restaurants: RouteRestaurant[]) => {
-    setResults(restaurants);
+    setResults((prev) => {
+      void prev; // discard old value — merge DB route results with cached Places
+      return mergeResults(restaurants as AnyRouteRestaurant[], cachedPlaces);
+    });
     setLoading(false);
-  }, []);
+  }, [cachedPlaces]);
 
   // ── Increase-radius re-search ─────────────────────────────────────────────
   // If we already have a route (searchArgs set), just rebuild searchArgs with
@@ -236,7 +319,7 @@ export default function RoutePlannerPage() {
             className="btn-primary w-full justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Tražim ćevap stanice…</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> Pretražujem rutu i Google Places…</>
             ) : (
               <><Navigation className="w-4 h-4" /> Pronađi Ćevap Stanice</>
             )}
@@ -322,7 +405,7 @@ export default function RoutePlannerPage() {
             ) : (
               <div className="space-y-3">
                 {results.map((r, i) => (
-                  <RouteResultRow key={r.id} restaurant={r} index={i + 1} />
+                  <RouteResultRow key={`${r.id}-${i}`} restaurant={r} index={i + 1} />
                 ))}
               </div>
             )}
@@ -338,7 +421,8 @@ const STYLE_EMOJIS: Record<string, string> = {
   Sarajevski: "🕌", "Banjalučki": "🌊", "Travnički": "⛰️", "Leskovački": "🌶️", Ostalo: "🔥",
 };
 
-function RouteResultRow({ restaurant, index }: { restaurant: RouteRestaurant; index: number }) {
+function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant; index: number }) {
+  const isPlaces = restaurant.source === "places";
   return (
     <div className="card p-4 flex items-center gap-4">
       <div
@@ -351,17 +435,27 @@ function RouteResultRow({ restaurant, index }: { restaurant: RouteRestaurant; in
         className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
         style={{ background: "rgb(var(--surface))" }}
       >
-        {STYLE_EMOJIS[restaurant.style] ?? "🔥"}
+        {STYLE_EMOJIS[restaurant.style ?? ""] ?? "🔥"}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h3 className="font-bold text-fg text-sm truncate" style={{ fontFamily: "Oswald,sans-serif" }}>
             {restaurant.name}
           </h3>
           {restaurant.is_verified && <CheckCircle className="w-3.5 h-3.5 text-accent flex-shrink-0" />}
+          {isPlaces && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-blue-500/30 bg-blue-500/10 text-blue-400 flex-shrink-0">
+              <Globe className="w-2.5 h-2.5" /> Google
+            </span>
+          )}
         </div>
         <p className="text-xs text-fg-muted truncate">{restaurant.city} · {restaurant.address}</p>
-        <LepinjaRating rating={restaurant.lepinja_rating} size="sm" className="mt-1" />
+        {isPlaces
+          ? restaurant.lepinja_rating > 0 && (
+              <p className="text-xs text-amber-400 mt-1">⭐ {restaurant.lepinja_rating.toFixed(1)} / 5</p>
+            )
+          : <LepinjaRating rating={restaurant.lepinja_rating} size="sm" className="mt-1" />
+        }
       </div>
       <div className="text-right flex-shrink-0">
         <div className="text-sm font-bold text-accent" style={{ fontFamily: "Oswald,sans-serif" }}>
