@@ -6,7 +6,7 @@
 // Features:
 //   - Calls google.maps.DirectionsService when searchArgs change
 //   - Draws the actual road route as an orange polyline
-//   - Decodes the overview_polyline, samples every ~7 km
+//   - Decodes the overview_polyline, samples every ~5 km (high-density)
 //   - Finds restaurants within the user's radius of any sample point
 //   - Drops green (origin), red (destination), and orange (restaurant) markers
 //   - Auto-zooms to fit the full route + all found restaurants
@@ -185,7 +185,7 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
       allRests:    typeof allRestaurants,
       radius:      number,
     ) {
-      const samples  = samplePolyline(path, 7);
+      const samples  = samplePolyline(path, 5);
       const filtered = filterByPolylineSamples(allRests, samples, radius);
 
       console.log("[RouteMap] Sampled", samples.length, "points →", filtered.length, "restaurants within", radius, "km");

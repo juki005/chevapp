@@ -11,6 +11,7 @@ import { resolveCityCoords, resolveExpectedCountries } from "@/constants/cities"
 import { filterByRoute, distanceToSegmentKm, haversineKm } from "@/lib/geo";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
+import CityAutocomplete from "@/components/finder/CityAutocomplete";
 import type { Restaurant } from "@/types";
 import type { RouteRestaurant, SearchArgs } from "@/components/finder/RouteMapClient";
 import type { PlaceResult } from "@/app/api/places/route";
@@ -116,6 +117,10 @@ function isCrossBorder(address: string, expected: Set<string>): boolean {
  * Fetch ćevapi near a single lat/lng waypoint (coordinate-based Places search).
  * Uses the user's full selected radius (no hard cap).
  * If primary search returns 0 results, retries once at +50% radius ("deep search").
+ *
+ * When routePoints (actual decoded polyline samples) are provided, distance is
+ * calculated as the minimum haversine distance to any sample point — much more
+ * accurate than straight-line segment distance for curved routes.
  */
 async function fetchPlacesForWaypoint(
   lat: number,
@@ -125,13 +130,24 @@ async function fetchPlacesForWaypoint(
   corridorKm: number,
   expectedCountries: Set<string>,
   cap = 3,
+  routePoints: Array<{ lat: number; lng: number }> = [],
 ): Promise<AnyRouteRestaurant[]> {
   const toRouteResult = (p: PlaceResult): AnyRouteRestaurant => {
-    const distKm = distanceToSegmentKm(
-      p.latitude!, p.longitude!,
-      coordsA[0], coordsA[1],
-      coordsB[0], coordsB[1],
-    );
+    let distKm: number;
+    if (routePoints.length >= 2) {
+      // Strict route-snapping: distance to nearest decoded polyline sample
+      distKm = routePoints.reduce(
+        (min, pt) => Math.min(min, haversineKm(p.latitude!, p.longitude!, pt.lat, pt.lng)),
+        Infinity,
+      );
+    } else {
+      // Fallback: straight-line segment distance
+      distKm = distanceToSegmentKm(
+        p.latitude!, p.longitude!,
+        coordsA[0], coordsA[1],
+        coordsB[0], coordsB[1],
+      );
+    }
     return {
       id:              p.place_id,
       name:            p.name,
@@ -194,8 +210,8 @@ function buildWaypointsFromRoad(
   radiusKm:   number,
   edgeKm = 30,
 ): Array<[number, number]> {
-  // Adaptive spacing: at 5km radius every ~10km, at 20km every ~25km
-  const spacingKm = radiusKm <= 5 ? 10 : radiusKm <= 10 ? 15 : 25;
+  // High-density spacing: at 5km radius every ~12km, at 10km every ~15km, at 20km every ~20km
+  const spacingKm = radiusKm <= 5 ? 12 : radiusKm <= 10 ? 15 : 20;
 
   if (roadPoints.length >= 3) {
     // Use actual road points, thinned to `spacingKm` intervals
@@ -244,15 +260,20 @@ function mergeResults(
 export default function RoutePlannerPage() {
   const tNav = useTranslations("nav");
 
-  const [cityA,      setCityA]      = useState("");
-  const [cityB,      setCityB]      = useState("");
-  const [radius,     setRadius]     = useState<RadiusKm>(10);
-  const [loading,    setLoading]    = useState(false);
-  const [results,    setResults]    = useState<AnyRouteRestaurant[] | null>(null);
-  const [error,      setError]      = useState<string | null>(null);
-  const [resolvedA,  setResolvedA]  = useState<string | null>(null);
-  const [resolvedB,  setResolvedB]  = useState<string | null>(null);
-  const [searchArgs, setSearchArgs] = useState<SearchArgs | null>(null);
+  const [cityA,        setCityA]        = useState("");
+  const [cityB,        setCityB]        = useState("");
+  const [radius,       setRadius]       = useState<RadiusKm>(10);
+  const [loading,      setLoading]      = useState(false);
+  const [results,      setResults]      = useState<AnyRouteRestaurant[] | null>(null);
+  const [error,        setError]        = useState<string | null>(null);
+  const [resolvedA,    setResolvedA]    = useState<string | null>(null);
+  const [resolvedB,    setResolvedB]    = useState<string | null>(null);
+  const [searchArgs,   setSearchArgs]   = useState<SearchArgs | null>(null);
+
+  // Coordinates resolved from Google Places Autocomplete selection.
+  // When set, these take precedence over the resolveCityCoords() lookup table.
+  const [autoCoordA, setAutoCoordA] = useState<[number, number] | null>(null);
+  const [autoCoordB, setAutoCoordB] = useState<[number, number] | null>(null);
 
   // Cached restaurants from the last Supabase fetch (avoid re-fetching when
   // the user just changes the radius on an existing route).
@@ -270,15 +291,16 @@ export default function RoutePlannerPage() {
     setResolvedA(null);
     setResolvedB(null);
 
-    const coordsA = resolveCityCoords(cityA);
-    const coordsB = resolveCityCoords(cityB);
+    // Prefer coordinates from Google Places Autocomplete; fall back to lookup table
+    const coordsA: [number, number] | null = autoCoordA ?? resolveCityCoords(cityA);
+    const coordsB: [number, number] | null = autoCoordB ?? resolveCityCoords(cityB);
 
     if (!coordsA) {
-      setError(`Grad "${cityA}" nije pronađen. Provjeri pravopis (npr. "Banja Luka", "Sarajevo", "Zagreb").`);
+      setError(`Grad "${cityA}" nije pronađen. Odaberi grad iz padajuće liste ili provjeri pravopis (npr. "Banja Luka", "Sarajevo", "Zagreb").`);
       return;
     }
     if (!coordsB) {
-      setError(`Grad "${cityB}" nije pronađen. Provjeri pravopis.`);
+      setError(`Grad "${cityB}" nije pronađen. Odaberi grad iz padajuće liste ili provjeri pravopis.`);
       return;
     }
 
@@ -315,7 +337,7 @@ export default function RoutePlannerPage() {
       const [dbRes, ...waypointResults] = await Promise.all([
         supabase.from("restaurants").select("*").order("lepinja_rating", { ascending: false }),
         ...waypoints.map((wp) =>
-          fetchPlacesForWaypoint(wp[0], wp[1], coordsA, coordsB, activeRadius, expectedCountries),
+          fetchPlacesForWaypoint(wp[0], wp[1], coordsA, coordsB, activeRadius, expectedCountries, 3, routePoints),
         ),
       ]);
 
@@ -356,7 +378,7 @@ export default function RoutePlannerPage() {
       setError("Greška pri dohvatu restorana: " + String(err));
       setLoading(false);
     }
-  }, [cityA, cityB, radius]);
+  }, [cityA, cityB, radius, autoCoordA, autoCoordB, routePoints]);
 
   // ── Callback from RouteMapClient once Directions + filtering is done ────────
   const handleSearchComplete = useCallback((restaurants: RouteRestaurant[]) => {
@@ -444,20 +466,21 @@ export default function RoutePlannerPage() {
               <label className="block text-xs text-fg-muted font-semibold mb-2 uppercase tracking-widest">
                 🟢 Polazište (A)
               </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
-                <input
-                  type="text"
-                  value={cityA}
-                  onChange={(e) => setCityA(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="npr. Zagreb, Sarajevo…"
-                  className="input-base pl-10"
-                />
-              </div>
+              <CityAutocomplete
+                value={cityA}
+                onChange={setCityA}
+                onSelect={(_name, lat, lng) => {
+                  setAutoCoordA([lat, lng]);
+                  setResolvedA(`${lat.toFixed(4)}°, ${lng.toFixed(4)}°`);
+                }}
+                onClear={() => { setAutoCoordA(null); setResolvedA(null); }}
+                placeholder="npr. Zagreb, Sarajevo…"
+                leadingIcon={<MapPin className="w-4 h-4 text-green-500" />}
+              />
               {resolvedA && (
                 <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" /> Koordinate: {resolvedA}
+                  <CheckCircle className="w-3 h-3" />
+                  {autoCoordA ? "Google Places:" : "Koordinate:"} {resolvedA}
                 </p>
               )}
             </div>
@@ -467,20 +490,21 @@ export default function RoutePlannerPage() {
               <label className="block text-xs text-fg-muted font-semibold mb-2 uppercase tracking-widest">
                 🔴 Odredište (B)
               </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
-                <input
-                  type="text"
-                  value={cityB}
-                  onChange={(e) => setCityB(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="npr. Banja Luka, Split…"
-                  className="input-base pl-10"
-                />
-              </div>
+              <CityAutocomplete
+                value={cityB}
+                onChange={setCityB}
+                onSelect={(_name, lat, lng) => {
+                  setAutoCoordB([lat, lng]);
+                  setResolvedB(`${lat.toFixed(4)}°, ${lng.toFixed(4)}°`);
+                }}
+                onClear={() => { setAutoCoordB(null); setResolvedB(null); }}
+                placeholder="npr. Banja Luka, Split…"
+                leadingIcon={<MapPin className="w-4 h-4 text-red-500" />}
+              />
               {resolvedB && (
                 <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" /> Koordinate: {resolvedB}
+                  <CheckCircle className="w-3 h-3" />
+                  {autoCoordB ? "Google Places:" : "Koordinate:"} {resolvedB}
                 </p>
               )}
             </div>
@@ -556,7 +580,7 @@ export default function RoutePlannerPage() {
             </p>
             <div className="mt-5 flex justify-center flex-wrap gap-4 text-xs text-fg-muted">
               <span>✅ Google Directions API</span>
-              <span>✅ Polyline sampling (svakih 7 km)</span>
+              <span>✅ Polyline sampling (svakih 5 km)</span>
               <span>✅ Supabase baza</span>
             </div>
           </div>
