@@ -224,7 +224,7 @@ export default function FinderPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
           .from("restaurants")
-          .select("id, name, style, city, address, latitude, longitude, lepinja_rating, is_verified, tags, slug, google_place_id, phone, website, image_url")
+          .select("id, name, style, city, address, latitude, longitude, lepinja_rating, is_verified, tags, slug, google_place_id, phone, website")
           .order("lepinja_rating", { ascending: false });
 
         if (debouncedSearch.trim()) q = q.ilike("name", `%${debouncedSearch.trim()}%`);
