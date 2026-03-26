@@ -287,18 +287,33 @@ export default function RoutePlannerPage() {
     setLoading(true);
 
     try {
+      const totalKm = haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
+
+      // Dynamic exclusion zone: 20km each end, or 15% of total on short routes
+      const edgeKm = totalKm < 60
+        ? Math.round(totalKm * 0.15)
+        : 20;
+
+      // Normalised city names for address filtering (strip accents for loose match)
+      const originToken = cityA.trim().toLowerCase();
+      const destToken   = cityB.trim().toLowerCase();
+
+      /** True if a result is from one of the endpoint cities — should be hidden */
+      const isEndpointCity = (r: AnyRouteRestaurant) => {
+        const addr = (r.address + " " + r.city).toLowerCase();
+        return addr.includes(originToken) || addr.includes(destToken);
+      };
+
       // Determine which countries are valid for this route
       const expectedCountries = resolveExpectedCountries([cityA, cityB]);
 
-      // Use actual road points if available (from a previous map render), else straight-line
-      const waypoints = buildWaypointsFromRoad(routePoints, coordsA, coordsB, activeRadius);
+      // Waypoints ONLY in the middle zone (edgeKm excluded from each end)
+      const waypoints = buildWaypointsFromRoad(routePoints, coordsA, coordsB, activeRadius, edgeKm);
 
-      // Fetch Supabase DB + Google Places for both cities + waypoints — all in parallel
+      // Fetch Supabase DB + waypoint Places only — no city-level city searches
       const supabase = createClient();
-      const [dbRes, placesA, placesB, ...waypointResults] = await Promise.all([
+      const [dbRes, ...waypointResults] = await Promise.all([
         supabase.from("restaurants").select("*").order("lepinja_rating", { ascending: false }),
-        fetchPlacesForCity(cityA, coordsA, coordsB, activeRadius),
-        fetchPlacesForCity(cityB, coordsA, coordsB, activeRadius),
         ...waypoints.map((wp) =>
           fetchPlacesForWaypoint(wp[0], wp[1], coordsA, coordsB, activeRadius, expectedCountries),
         ),
@@ -309,30 +324,32 @@ export default function RoutePlannerPage() {
       const all = (dbRes.data ?? []) as Restaurant[];
       setCachedRestaurants(all);
 
-      // Merge & deduplicate all Places results (city + waypoints) by name+city
-      // Also apply country filter to city-level results (removes cross-border bleed)
-      const allPlaces = [...placesA, ...placesB, ...waypointResults.flat()]
+      // Merge, deduplicate, then strip endpoint-city noise
+      const allPlaces = waypointResults.flat()
         .filter((r) => !isCrossBorder(r.address, expectedCountries));
-      const placesMerged = allPlaces.filter(
-        (r, i, arr) =>
-          arr.findIndex((x) => x.name.toLowerCase() === r.name.toLowerCase() && x.city === r.city) === i,
-      );
+      const placesMerged = allPlaces
+        .filter(
+          (r, i, arr) =>
+            arr.findIndex((x) => x.name.toLowerCase() === r.name.toLowerCase() && x.city === r.city) === i,
+        )
+        .filter((r) => !isEndpointCity(r));
 
       if (!API_KEY) {
-        // No Maps key → straight-line Haversine filter for DB rows
-        const dbFiltered = filterByRoute(
+        // No Maps key → straight-line Haversine filter for DB rows, also exclude endpoints
+        const dbFiltered = (filterByRoute(
           all, coordsA[0], coordsA[1], coordsB[0], coordsB[1], activeRadius,
-        ) as RouteRestaurant[];
+        ) as RouteRestaurant[]).filter((r) => {
+          const dA = haversineKm(r.latitude!, r.longitude!, coordsA[0], coordsA[1]);
+          const dB = haversineKm(r.latitude!, r.longitude!, coordsB[0], coordsB[1]);
+          return dA > edgeKm && dB > edgeKm;
+        }) as AnyRouteRestaurant[];
 
-        // Merge DB + Places (DB rows take priority if same name)
-        const combined = mergeResults(dbFiltered, placesMerged);
-        setResults(combined);
+        setResults(mergeResults(dbFiltered, placesMerged));
         setLoading(false);
         return;
       }
 
-      // With Maps key: hand off route filtering to RouteMapClient, but we
-      // already have Places results — store them and merge after map callback.
+      // With Maps key: hand off route filtering to RouteMapClient, merge Places after callback.
       setCachedPlaces(placesMerged);
       setSearchArgs({ coordsA, coordsB, radiusKm: activeRadius, allRestaurants: all });
     } catch (err) {
@@ -343,9 +360,29 @@ export default function RoutePlannerPage() {
 
   // ── Callback from RouteMapClient once Directions + filtering is done ────────
   const handleSearchComplete = useCallback((restaurants: RouteRestaurant[]) => {
-    setResults(mergeResults(restaurants as AnyRouteRestaurant[], cachedPlaces));
+    // Strip endpoint-city DB results here too
+    const originToken = cityA.trim().toLowerCase();
+    const destToken   = cityB.trim().toLowerCase();
+    const coordsA = resolveCityCoords(cityA);
+    const coordsB = resolveCityCoords(cityB);
+    const totalKm = coordsA && coordsB
+      ? haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1])
+      : 999;
+    const edgeKm = totalKm < 60 ? Math.round(totalKm * 0.15) : 20;
+
+    const filtered = (restaurants as AnyRouteRestaurant[]).filter((r) => {
+      const addr = (r.address + " " + r.city).toLowerCase();
+      if (addr.includes(originToken) || addr.includes(destToken)) return false;
+      if (r.latitude == null || r.longitude == null) return true;
+      if (!coordsA || !coordsB) return true;
+      const dA = haversineKm(r.latitude, r.longitude, coordsA[0], coordsA[1]);
+      const dB = haversineKm(r.latitude, r.longitude, coordsB[0], coordsB[1]);
+      return dA > edgeKm && dB > edgeKm;
+    });
+
+    setResults(mergeResults(filtered, cachedPlaces));
     setLoading(false);
-  }, [cachedPlaces]);
+  }, [cachedPlaces, cityA, cityB]);
 
   // ── Actual road sample points from the decoded polyline ───────────────────
   const handleRoutePoints = useCallback((pts: Array<{ lat: number; lng: number }>) => {
@@ -531,8 +568,8 @@ export default function RoutePlannerPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-fg" style={{ fontFamily: "Oswald, sans-serif" }}>
                 {results.length === 0
-                  ? "Nema ćevap stanica na ovoj ruti"
-                  : `${results.length} ćevap ${results.length === 1 ? "stanica" : "stanica"} pronađeno`}
+                  ? "Stanice na putu (Izvan polazišta i cilja)"
+                  : `Stanice na putu (${results.length}) — Izvan polazišta i cilja`}
               </h2>
               <span className="text-xs text-fg-muted bg-surface px-2 py-1 rounded-lg">
                 {cityA} → {cityB} · ±{radius} km
@@ -543,10 +580,10 @@ export default function RoutePlannerPage() {
               <div className="card p-10 text-center">
                 <span className="text-5xl block mb-3">😢</span>
                 <p className="text-fg font-semibold mb-1" style={{ fontFamily: "Oswald, sans-serif" }}>
-                  Nema ćevap stanica na ovoj ruti
+                  Nismo pronašli ništa na samoj ruti
                 </p>
                 <p className="text-fg-muted text-sm mb-6">
-                  Nema restorana unutar <strong>{radius} km</strong> od rute {cityA} → {cityB}.
+                  Nema ćevapnica između <strong>{cityA}</strong> i <strong>{cityB}</strong> unutar <strong>{radius} km</strong> od ceste.
                   Pokušaj povećati radijus pretrage.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
