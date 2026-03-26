@@ -1,12 +1,10 @@
 "use client";
 
 // ── SSR-safe wrapper ─────────────────────────────────────────────────────────
-// @vis.gl/react-google-maps and the Google Maps JS API both access `window`
-// on import, which crashes Next.js SSR.  `dynamic(..., { ssr: false })`
-// ensures the component is only loaded in the browser.
+// @vis.gl/react-google-maps accesses `window` on import — crashes Next.js SSR.
+// dynamic({ ssr: false }) ensures it only loads in the browser.
 //
-// This file is the public API — import THIS one everywhere; never import
-// GoogleCevapMap directly.
+// Import THIS file everywhere; never import GoogleCevapMap directly.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import dynamic from "next/dynamic";
@@ -32,32 +30,18 @@ const GoogleCevapMap = dynamic(
 interface Props {
   restaurants:    MapRestaurant[];
   height?:        string;
-  selectedId?:    string | null;
-  onSelect?:      (id: string | null) => void;
   activeStyle?:   string | null;
   onStyleChange?: (style: string) => void;
-  onOpenProfile?: (id: string) => void;
+  onOpenProfile?: (r: MapRestaurant) => void;
 }
 
-export function RestaurantMap({
-  restaurants,
-  height,
-  selectedId,
-  onSelect,
-  activeStyle,
-  onStyleChange,
-  onOpenProfile,
-}: Props) {
+export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange, onOpenProfile }: Props) {
   return (
-    // suppressHydrationWarning: the Google Maps script injects <style> tags into
-    // the DOM after hydration; without this React emits a harmless but noisy
-    // hydration-mismatch warning for the container div.
+    // suppressHydrationWarning: Google Maps injects <style> tags after hydration
     <div suppressHydrationWarning>
       <GoogleCevapMap
         restaurants={restaurants}
         height={height}
-        selectedId={selectedId}
-        onSelect={onSelect}
         activeStyle={activeStyle}
         onStyleChange={onStyleChange}
         onOpenProfile={onOpenProfile}

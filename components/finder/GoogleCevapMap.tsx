@@ -3,10 +3,11 @@
 // ── GoogleCevapMap.tsx ────────────────────────────────────────────────────────
 // Google Maps integration for the Cevap Finder.
 //
-// Features:
-//   • Standard Pin markers (orange = DB/verified, blue = Google Places)
-//   • Rich dark InfoWindow card matching the app's design language
-//   • Floating style-filter overlay synced with main StyleFilter
+// Pin click fires onOpenProfile(r: MapRestaurant) directly — no InfoWindow.
+// The caller (finder/page.tsx) opens RestaurantDetailModal which handles
+// both DB restaurants (via id) and Google Places (via fsq_id / google_place_id).
+//
+// Floating style-filter overlay (top-right) is synced with the main StyleFilter.
 //
 // Stack: @vis.gl/react-google-maps v1.7.1
 // Loaded via dynamic({ ssr: false }) from RestaurantMap.tsx.
@@ -18,7 +19,6 @@ import {
   Map,
   AdvancedMarker,
   Pin,
-  InfoWindow,
   useMap,
 } from "@vis.gl/react-google-maps";
 import { MapPin } from "lucide-react";
@@ -42,22 +42,12 @@ export interface MapRestaurant {
 interface Props {
   restaurants:    MapRestaurant[];
   height?:        string;
-  selectedId?:    string | null;
-  onSelect?:      (id: string | null) => void;
   activeStyle?:   string | null;
   onStyleChange?: (style: string) => void;
-  onOpenProfile?: (id: string) => void;
+  onOpenProfile?: (r: MapRestaurant) => void;
 }
 
 // ── Style metadata ────────────────────────────────────────────────────────────
-const STYLE_META: Record<string, { color: string; emoji: string }> = {
-  Sarajevski:   { color: "#e65100", emoji: "🕌" },
-  "Banjalučki": { color: "#2563eb", emoji: "🌊" },
-  "Travnički":  { color: "#16a34a", emoji: "⛰️" },
-  "Leskovački": { color: "#dc2626", emoji: "🌶️" },
-  Ostalo:       { color: "#6b7280", emoji: "🔥" },
-};
-
 const STYLE_PILLS = [
   { value: "",           label: "Sve",        emoji: "🔥", color: "#e65100" },
   { value: "Sarajevski", label: "Sarajevski", emoji: "🕌", color: "#e65100" },
@@ -66,11 +56,6 @@ const STYLE_PILLS = [
   { value: "Leskovački", label: "Leskovački", emoji: "🌶️", color: "#dc2626" },
   { value: "Ostalo",     label: "Ostalo",     emoji: "🔥", color: "#6b7280" },
 ];
-
-function getStyleMeta(style?: string | null, isGoogle?: boolean) {
-  if (isGoogle) return { color: "#4285f4", emoji: "📍" };
-  return (style && STYLE_META[style]) ? STYLE_META[style] : { color: "#e65100", emoji: "🔥" };
-}
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -130,317 +115,6 @@ function BoundsUpdater({ restaurants }: { restaurants: MapRestaurant[] }) {
   return null;
 }
 
-// ── InfoWindow card ───────────────────────────────────────────────────────────
-function PlaceCard({
-  r,
-  onOpenProfile,
-  onClose,
-}: {
-  r:               MapRestaurant;
-  onOpenProfile?:  () => void;
-  onClose:         () => void;
-}) {
-  const isDb     = r.source === "supabase";
-  const isGoogle = r.source === "google";
-  const { color, emoji } = getStyleMeta(r.style, isGoogle);
-  const lepinji  = r.lepinja_rating ?? 0;
-  const mapsUrl  = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${r.address}, ${r.city}`)}`;
-  const bookingUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(r.city)}`;
-
-  const sep: React.CSSProperties = {
-    margin: 0,
-    border: "none",
-    borderTop: "1px solid rgba(255,255,255,0.07)",
-  };
-
-  return (
-    <div style={{ width: 272, fontFamily: "system-ui, -apple-system, sans-serif" }}>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{
-        padding:      "14px 14px 11px",
-        background:   `linear-gradient(135deg, ${color}20 0%, transparent 55%)`,
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
-      }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* Name + verified badge */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
-              <span style={{
-                fontWeight:  800,
-                fontSize:    15,
-                fontFamily:  "Oswald, sans-serif",
-                color:       "#f0ece4",
-                lineHeight:  1.2,
-              }}>
-                {r.name}
-              </span>
-              {r.is_verified && (
-                <span style={{
-                  fontSize:    9,
-                  padding:     "2px 6px",
-                  borderRadius: 999,
-                  background:  "rgba(34,197,94,0.18)",
-                  color:       "#4ade80",
-                  border:      "1px solid rgba(34,197,94,0.32)",
-                  fontWeight:  700,
-                  letterSpacing: "0.04em",
-                  whiteSpace:  "nowrap",
-                }}>
-                  ✓ VERIFICIRAN
-                </span>
-              )}
-            </div>
-            {/* City · address */}
-            <p style={{ margin: 0, fontSize: 11, color: "#7a7060", lineHeight: 1.4 }}>
-              {r.city}{r.address ? ` · ${r.address}` : ""}
-            </p>
-          </div>
-
-          {/* Close button */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-            aria-label="Zatvori"
-            style={{
-              flexShrink:     0,
-              width:          26,
-              height:         26,
-              borderRadius:   "50%",
-              background:     "rgba(255,255,255,0.07)",
-              border:         "1px solid rgba(255,255,255,0.12)",
-              color:          "#9e9080",
-              cursor:         "pointer",
-              display:        "flex",
-              alignItems:     "center",
-              justifyContent: "center",
-              fontSize:       13,
-              lineHeight:     1,
-              padding:        0,
-              marginTop:      1,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div style={{ padding: "12px 14px 14px" }}>
-
-        {/* Lepinja rating row */}
-        {lepinji > 0 && (
-          <>
-            <div style={{
-              display:    "flex",
-              alignItems: "center",
-              gap:        10,
-              padding:    "8px 10px",
-              borderRadius: 10,
-              background: "rgba(255,255,255,0.04)",
-              border:     "1px solid rgba(255,255,255,0.07)",
-              marginBottom: 10,
-            }}>
-              <span style={{ fontSize: 22, lineHeight: 1 }}>{emoji}</span>
-              <div>
-                <div style={{ display: "flex", gap: 2, marginBottom: 2 }}>
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <span key={i} style={{ fontSize: 13, opacity: i <= lepinji ? 1 : 0.18 }}>🔥</span>
-                  ))}
-                </div>
-                <p style={{ margin: 0, fontSize: 10, color: "#6b6358" }}>
-                  {lepinji}.0 / 5 &nbsp;·&nbsp; Lepinja ocjena
-                </p>
-              </div>
-            </div>
-            <hr style={sep} />
-            <div style={{ marginBottom: 10 }} />
-          </>
-        )}
-
-        {/* Style section */}
-        {(r.style || isGoogle) && (
-          <>
-            <p style={{
-              margin:         "0 0 6px",
-              fontSize:       9,
-              fontWeight:     700,
-              letterSpacing:  "0.1em",
-              color:          "#5a5248",
-              textTransform:  "uppercase",
-            }}>
-              Stil ćevapa
-            </p>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
-              {r.style && (
-                <span style={{
-                  fontSize:     11,
-                  padding:      "3px 10px",
-                  borderRadius: 999,
-                  background:   `${color}1a`,
-                  color:        color,
-                  border:       `1px solid ${color}35`,
-                  fontWeight:   600,
-                }}>
-                  {r.style}
-                </span>
-              )}
-              {isGoogle && (
-                <span style={{
-                  fontSize:     11,
-                  padding:      "3px 10px",
-                  borderRadius: 999,
-                  background:   "rgba(66,133,244,0.15)",
-                  color:        "#4285f4",
-                  border:       "1px solid rgba(66,133,244,0.25)",
-                  fontWeight:   600,
-                }}>
-                  Google
-                </span>
-              )}
-            </div>
-            <hr style={sep} />
-            <div style={{ marginBottom: 10 }} />
-          </>
-        )}
-
-        {/* Tags */}
-        {(r.tags ?? []).length > 0 && (
-          <>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
-              {(r.tags ?? []).slice(0, 4).map((tag) => (
-                <span key={tag} style={{
-                  fontSize:     10,
-                  padding:      "2px 7px",
-                  borderRadius: 999,
-                  background:   "rgba(255,255,255,0.06)",
-                  color:        "#9e9580",
-                  border:       "1px solid rgba(255,255,255,0.07)",
-                }}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-            <hr style={sep} />
-            <div style={{ marginBottom: 10 }} />
-          </>
-        )}
-
-        {/* Google Maps text link */}
-        <a
-          href={mapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display:        "flex",
-            alignItems:     "center",
-            gap:            6,
-            fontSize:       11,
-            color:          "#4285f4",
-            textDecoration: "none",
-            marginBottom:   12,
-          }}
-        >
-          <span style={{ fontSize: 14 }}>🗺️</span>
-          Pogledaj na Google Maps →
-        </a>
-
-        {/* CTA buttons */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-          {isDb && onOpenProfile && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onOpenProfile(); }}
-              style={{
-                flex:          1,
-                padding:       "9px 0",
-                borderRadius:  10,
-                background:    color,
-                color:         "#fff",
-                border:        "none",
-                cursor:        "pointer",
-                fontSize:      12,
-                fontWeight:    700,
-                fontFamily:    "Oswald, sans-serif",
-                letterSpacing: "0.06em",
-              }}
-            >
-              OTVORI PROFIL
-            </button>
-          )}
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              flex:           isDb ? "0 0 auto" : 1,
-              padding:        isDb ? "9px 12px" : "9px 0",
-              borderRadius:   10,
-              background:     "rgba(255,255,255,0.08)",
-              color:          "#c0b0a0",
-              border:         "1px solid rgba(255,255,255,0.10)",
-              cursor:         "pointer",
-              fontSize:       12,
-              fontWeight:     600,
-              textDecoration: "none",
-              display:        "flex",
-              alignItems:     "center",
-              justifyContent: "center",
-              gap:            4,
-              whiteSpace:     "nowrap",
-            }}
-          >
-            🧭 Kreni
-          </a>
-        </div>
-
-        {/* Accommodation upsell */}
-        <div style={{
-          padding:      "10px 12px",
-          borderRadius: 12,
-          background:   `${color}0e`,
-          border:       `1px solid ${color}25`,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-            <span style={{ fontSize: 20, lineHeight: 1 }}>🏨</span>
-            <div>
-              <p style={{
-                margin: 0, fontSize: 11, fontWeight: 700,
-                fontFamily: "Oswald, sans-serif", color: "#f0ece4", letterSpacing: "0.04em",
-              }}>
-                PLANIRAŠ POSJET?
-              </p>
-              <p style={{ margin: 0, fontSize: 10, color: "#7a7060" }}>
-                Pronađi smještaj u {r.city}
-              </p>
-            </div>
-          </div>
-          <a
-            href={bookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display:        "flex",
-              alignItems:     "center",
-              justifyContent: "center",
-              gap:            5,
-              padding:        "7px 0",
-              borderRadius:   8,
-              background:     color,
-              color:          "#fff",
-              fontWeight:     700,
-              fontSize:       11,
-              fontFamily:     "Oswald, sans-serif",
-              letterSpacing:  "0.07em",
-              textDecoration: "none",
-            }}
-          >
-            🔎 PRETRAŽI SMJEŠTAJ
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Floating map style filter ─────────────────────────────────────────────────
 function MapStyleFilter({ active, onChange }: { active: string; onChange: (s: string) => void }) {
   return (
@@ -490,20 +164,11 @@ function MapStyleFilter({ active, onChange }: { active: string; onChange: (s: st
 export default function GoogleCevapMap({
   restaurants,
   height        = "500px",
-  selectedId,
-  onSelect,
-  activeStyle:   controlledStyle,
+  activeStyle:  controlledStyle,
   onStyleChange,
   onOpenProfile,
 }: Props) {
-  const [internalKey,   setInternalKey]   = useState<string | null>(null);
   const [internalStyle, setInternalStyle] = useState<string>("");
-
-  const selectedKey    = selectedId !== undefined ? (selectedId ?? null) : internalKey;
-  const setSelectedKey = (key: string | null) => {
-    setInternalKey(key);
-    onSelect?.(key);
-  };
 
   const activeStyle       = controlledStyle !== undefined ? (controlledStyle ?? "") : internalStyle;
   const handleStyleChange = (s: string) => {
@@ -512,10 +177,6 @@ export default function GoogleCevapMap({
   };
 
   const mapped = restaurants.filter((r) => r.latitude != null && r.longitude != null);
-
-  const selectedRestaurant = mapped.find(
-    (r) => (r.id ?? r.fsq_id ?? r.name) === selectedKey
-  ) ?? null;
 
   // ── API key guard ─────────────────────────────────────────────────────────
   if (!API_KEY) {
@@ -545,20 +206,6 @@ export default function GoogleCevapMap({
       style={{ height, width: "100%", position: "relative" }}
       className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] z-0"
     >
-      {/* Hide native Google close button — we render our own inside PlaceCard */}
-      <style>{`
-        .gm-style-iw-c {
-          background: #161412 !important;
-          padding: 0 !important;
-          border-radius: 16px !important;
-          box-shadow: 0 12px 40px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,0.06) !important;
-          max-width: none !important;
-        }
-        .gm-style-iw-tc::after { background: #161412 !important; }
-        .gm-style-iw-d { overflow: hidden !important; }
-        .gm-style-iw-chr { display: none !important; }
-      `}</style>
-
       <APIProvider apiKey={API_KEY}>
         <Map
           mapId="9a4d0b5aaa7f88a18d6286ed"
@@ -570,11 +217,10 @@ export default function GoogleCevapMap({
           fullscreenControl
           zoomControl
           gestureHandling="cooperative"
-          onClick={() => setSelectedKey(null)}
         >
           <BoundsUpdater restaurants={restaurants} />
 
-          {/* ── Standard Pin markers ──────────────────────────────────────── */}
+          {/* ── Pin markers — click opens full profile modal ────────────── */}
           {mapped.map((r) => {
             const key    = r.id ?? r.fsq_id ?? r.name;
             const isDb   = r.source === "supabase";
@@ -584,46 +230,19 @@ export default function GoogleCevapMap({
               <AdvancedMarker
                 key={key}
                 position={{ lat: r.latitude as number, lng: r.longitude as number }}
-                onClick={() => setSelectedKey(key === selectedKey ? null : key)}
+                onClick={() => onOpenProfile?.(r)}
                 title={r.name}
-                zIndex={key === selectedKey ? 100 : undefined}
               >
                 <div style={{ opacity: dimmed ? 0.3 : 1, transition: "opacity 0.2s" }}>
                   <Pin
                     background={isDb ? "#e65100" : "#4285f4"}
                     borderColor={isDb ? "#bf360c" : "#1a73e8"}
                     glyphColor={isDb ? "#fff8f0" : "#ffffff"}
-                    scale={key === selectedKey ? 1.25 : 1}
                   />
                 </div>
               </AdvancedMarker>
             );
           })}
-
-          {/* ── InfoWindow ───────────────────────────────────────────────── */}
-          {selectedRestaurant && (
-            <InfoWindow
-              position={{
-                lat: selectedRestaurant.latitude  as number,
-                lng: selectedRestaurant.longitude as number,
-              }}
-              onCloseClick={() => setSelectedKey(null)}
-              pixelOffset={[0, -42]}
-            >
-              <PlaceCard
-                r={selectedRestaurant}
-                onClose={() => setSelectedKey(null)}
-                onOpenProfile={
-                  selectedRestaurant.id
-                    ? () => {
-                        onOpenProfile?.(selectedRestaurant.id!);
-                        setSelectedKey(null);
-                      }
-                    : undefined
-                }
-              />
-            </InfoWindow>
-          )}
         </Map>
       </APIProvider>
 

@@ -652,13 +652,32 @@ export default function FinderPage() {
           <RestaurantMap
             restaurants={mapPins}
             height="520px"
-            selectedId={selectedMapKey}
-            onSelect={setSelectedMapKey}
             activeStyle={activeStyle || null}
             onStyleChange={(s) => setActiveStyle(s as import("@/types").CevapStyle | "")}
-            onOpenProfile={(id) => {
-              const r = dbRestaurants.find((db) => db.id === id);
-              if (r) setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, lat: r.latitude, lng: r.longitude });
+            onOpenProfile={(pin) => {
+              if (pin.id) {
+                // DB restaurant — enrich from local state for full modal
+                const r = dbRestaurants.find((db) => db.id === pin.id);
+                setSelectedRestaurant({
+                  id:          pin.id,
+                  name:        pin.name,
+                  city:        pin.city,
+                  address:     pin.address,
+                  lat:         pin.latitude,
+                  lng:         pin.longitude,
+                  is_verified: r?.is_verified ?? pin.is_verified,
+                });
+              } else if (pin.fsq_id) {
+                // Google Places result — fsq_id holds the place_id
+                setSelectedRestaurant({
+                  google_place_id: pin.fsq_id,
+                  name:            pin.name,
+                  city:            pin.city,
+                  address:         pin.address,
+                  lat:             pin.latitude,
+                  lng:             pin.longitude,
+                });
+              }
             }}
           />
         )}
