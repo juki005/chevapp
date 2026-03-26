@@ -220,6 +220,18 @@ export default function FinderPage() {
     let cancelled = false;
     const load = async () => {
       setDbLoading(true);
+
+      // Guard: catch missing env vars before any network call
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        if (!cancelled) {
+          setDbError("NEXT_PUBLIC_SUPABASE_URL ili NEXT_PUBLIC_SUPABASE_ANON_KEY nije postavljen.");
+          setDbLoading(false);
+        }
+        return;
+      }
+
       try {
         const supabase = createClient();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -234,13 +246,31 @@ export default function FinderPage() {
 
         const { data, error } = await q;
         if (cancelled) return;
-        if (error) throw error;
+
+        if (error) {
+          // Log structured details so the real cause is visible in Vercel logs
+          console.error("[finder] Supabase query failed", {
+            code:    error.code,
+            message: error.message,
+            hint:    error.hint,
+            details: error.details,
+          });
+          throw error;
+        }
+
         setDbRestaurants((data as Restaurant[]) ?? []);
         setDbError(null);
-      } catch (err) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          console.error("[finder] Supabase load error:", err);
-          setDbError("Greška pri učitavanju baze. Provjeri Supabase konfiguraciju.");
+          const e = err as { code?: string; message?: string };
+          const hint = e.code === "42501"
+            ? " (RLS blokira čitanje — dodaj SELECT policy na tablicu restaurants)"
+            : e.code === "42703"
+            ? " (nepostojeća kolona — provjeri SELECT listu)"
+            : e.code
+            ? ` (${e.code})`
+            : "";
+          setDbError(`Greška pri učitavanju baze${hint}. Detalji u konzoli.`);
         }
       } finally {
         if (!cancelled) setDbLoading(false);
@@ -592,15 +622,8 @@ export default function FinderPage() {
             <ServerCrash className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-red-300">{dbError}</p>
-              <p className="text-xs text-[rgb(var(--muted))] mt-0.5">
-                Provjeri{" "}
-                <code className="px-1 rounded bg-[rgb(var(--surface))] text-[rgb(var(--primary))]">
-                  NEXT_PUBLIC_SUPABASE_URL
-                </code>{" "}
-                u{" "}
-                <code className="px-1 rounded bg-[rgb(var(--surface))] text-[rgb(var(--primary))]">
-                  .env.local
-                </code>
+              <p className="text-xs text-[rgb(var(--muted))] mt-1">
+                Provjeri Vercel → Settings → Environment Variables i Supabase → Authentication → Policies.
               </p>
             </div>
           </div>
