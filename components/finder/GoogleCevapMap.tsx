@@ -1,14 +1,12 @@
 "use client";
 
 // ── GoogleCevapMap.tsx ────────────────────────────────────────────────────────
-// Custom-themed Google Maps for the Cevap Finder.
+// Google Maps integration for the Cevap Finder.
 //
 // Features:
-//   • Per-style thematic markers (emoji + style colour + pointer triangle)
-//   • Verified green dot badge on marker
-//   • Dim/highlight based on active style filter
-//   • Rich dark InfoWindow card (name, rating, style, tags, CTA buttons)
-//   • Floating style-filter overlay (top-right of map)
+//   • Standard Pin markers (orange = DB/verified, blue = Google Places)
+//   • Rich dark InfoWindow card matching the app's design language
+//   • Floating style-filter overlay synced with main StyleFilter
 //
 // Stack: @vis.gl/react-google-maps v1.7.1
 // Loaded via dynamic({ ssr: false }) from RestaurantMap.tsx.
@@ -19,6 +17,7 @@ import {
   APIProvider,
   Map,
   AdvancedMarker,
+  Pin,
   InfoWindow,
   useMap,
 } from "@vis.gl/react-google-maps";
@@ -26,18 +25,18 @@ import { MapPin } from "lucide-react";
 
 // ── Public types ──────────────────────────────────────────────────────────────
 export interface MapRestaurant {
-  id?:           string;
-  fsq_id?:       string;
-  name:          string;
-  city:          string;
-  address:       string;
-  latitude:      number | null;
-  longitude:     number | null;
+  id?:             string;
+  fsq_id?:         string;
+  name:            string;
+  city:            string;
+  address:         string;
+  latitude:        number | null;
+  longitude:       number | null;
   lepinja_rating?: number;
-  is_verified?:  boolean;
-  tags?:         string[];
-  style?:        string;
-  source?:       "supabase" | "foursquare" | "google";
+  is_verified?:    boolean;
+  tags?:           string[];
+  style?:          string;
+  source?:         "supabase" | "foursquare" | "google";
 }
 
 interface Props {
@@ -58,22 +57,20 @@ const STYLE_META: Record<string, { color: string; emoji: string }> = {
   "Leskovački": { color: "#dc2626", emoji: "🌶️" },
   Ostalo:       { color: "#6b7280", emoji: "🔥" },
 };
-const GOOGLE_META = { color: "#4285f4", emoji: "📍" };
-const DEFAULT_META = { color: "#e65100", emoji: "🔥" };
-
-function getStyleMeta(style?: string | null, isGoogle?: boolean) {
-  if (isGoogle) return GOOGLE_META;
-  return (style && STYLE_META[style]) ? STYLE_META[style] : DEFAULT_META;
-}
 
 const STYLE_PILLS = [
-  { value: "",            label: "Sve",        emoji: "🔥", color: "#e65100" },
-  { value: "Sarajevski",  label: "Sarajevski", emoji: "🕌", color: "#e65100" },
-  { value: "Banjalučki",  label: "Banjalučki", emoji: "🌊", color: "#2563eb" },
-  { value: "Travnički",   label: "Travnički",  emoji: "⛰️", color: "#16a34a" },
-  { value: "Leskovački",  label: "Leskovački", emoji: "🌶️", color: "#dc2626" },
-  { value: "Ostalo",      label: "Ostalo",     emoji: "🔥", color: "#6b7280" },
+  { value: "",           label: "Sve",        emoji: "🔥", color: "#e65100" },
+  { value: "Sarajevski", label: "Sarajevski", emoji: "🕌", color: "#e65100" },
+  { value: "Banjalučki", label: "Banjalučki", emoji: "🌊", color: "#2563eb" },
+  { value: "Travnički",  label: "Travnički",  emoji: "⛰️", color: "#16a34a" },
+  { value: "Leskovački", label: "Leskovački", emoji: "🌶️", color: "#dc2626" },
+  { value: "Ostalo",     label: "Ostalo",     emoji: "🔥", color: "#6b7280" },
 ];
+
+function getStyleMeta(style?: string | null, isGoogle?: boolean) {
+  if (isGoogle) return { color: "#4285f4", emoji: "📍" };
+  return (style && STYLE_META[style]) ? STYLE_META[style] : { color: "#e65100", emoji: "🔥" };
+}
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -133,231 +130,236 @@ function BoundsUpdater({ restaurants }: { restaurants: MapRestaurant[] }) {
   return null;
 }
 
-// ── Custom thematic marker ────────────────────────────────────────────────────
-function CevapMarker({
-  r,
-  isSelected,
-  isDimmed,
-}: {
-  r:          MapRestaurant;
-  isSelected: boolean;
-  isDimmed:   boolean;
-}) {
-  const isGoogle = r.source === "google";
-  const { color, emoji } = getStyleMeta(r.style, isGoogle);
-  const size = isSelected ? 40 : 34;
-
-  return (
-    <div style={{
-      display:        "inline-flex",
-      flexDirection:  "column",
-      alignItems:     "center",
-      opacity:        isDimmed ? 0.28 : 1,
-      transition:     "opacity 0.2s ease, transform 0.15s ease",
-      transform:      isSelected ? "scale(1.15) translateY(-2px)" : "scale(1)",
-      cursor:         "pointer",
-      filter:         isSelected ? `drop-shadow(0 0 8px ${color}99)` : undefined,
-    }}>
-      {/* Circle badge */}
-      <div style={{
-        width:          size,
-        height:         size,
-        borderRadius:   "50%",
-        background:     color,
-        border:         `2.5px solid ${isSelected ? "#ffffff" : "rgba(255,255,255,0.35)"}`,
-        display:        "flex",
-        alignItems:     "center",
-        justifyContent: "center",
-        fontSize:       isSelected ? 20 : 17,
-        boxShadow:      isSelected
-          ? `0 0 0 4px ${color}40, 0 6px 20px rgba(0,0,0,0.6)`
-          : "0 2px 10px rgba(0,0,0,0.5)",
-        position:       "relative",
-        flexShrink:     0,
-      }}>
-        {emoji}
-
-        {/* Verified green dot */}
-        {r.is_verified && (
-          <div style={{
-            position:     "absolute",
-            top:          -2,
-            right:        -2,
-            width:        12,
-            height:       12,
-            borderRadius: "50%",
-            background:   "#22c55e",
-            border:       "2px solid #161412",
-          }} />
-        )}
-      </div>
-
-      {/* Pointer triangle */}
-      <div style={{
-        width:        0,
-        height:       0,
-        borderLeft:   "5px solid transparent",
-        borderRight:  "5px solid transparent",
-        borderTop:    `6px solid ${color}`,
-        marginTop:    -1,
-      }} />
-    </div>
-  );
-}
-
-// ── Rich InfoWindow card ──────────────────────────────────────────────────────
+// ── InfoWindow card ───────────────────────────────────────────────────────────
 function PlaceCard({
   r,
   onOpenProfile,
+  onClose,
 }: {
   r:               MapRestaurant;
   onOpenProfile?:  () => void;
+  onClose:         () => void;
 }) {
   const isDb     = r.source === "supabase";
   const isGoogle = r.source === "google";
   const { color, emoji } = getStyleMeta(r.style, isGoogle);
   const lepinji  = r.lepinja_rating ?? 0;
-  const mapsUrl  = `https://www.google.com/maps/dir/?api=1&destination=${r.latitude},${r.longitude}`;
+  const mapsUrl  = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${r.address}, ${r.city}`)}`;
+  const bookingUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(r.city)}`;
+
+  const sep: React.CSSProperties = {
+    margin: 0,
+    border: "none",
+    borderTop: "1px solid rgba(255,255,255,0.07)",
+  };
 
   return (
-    <div style={{
-      width:       260,
-      fontFamily:  "system-ui, -apple-system, sans-serif",
-    }}>
-      {/* Header */}
-      <div style={{
-        background:   `linear-gradient(135deg, ${color}25 0%, transparent 65%)`,
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
-        padding:      "14px 14px 10px",
-        display:      "flex",
-        gap:          10,
-        alignItems:   "flex-start",
-      }}>
-        <div style={{
-          width:          42,
-          height:         42,
-          borderRadius:   12,
-          background:     `${color}22`,
-          border:         `1px solid ${color}38`,
-          display:        "flex",
-          alignItems:     "center",
-          justifyContent: "center",
-          fontSize:       22,
-          flexShrink:     0,
-        }}>
-          {emoji}
-        </div>
+    <div style={{ width: 272, fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-            <p style={{
-              margin:       0,
-              fontWeight:   700,
-              fontSize:     14,
-              fontFamily:   "Oswald, sans-serif",
-              color:        "#f0ece4",
-              overflow:     "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace:   "nowrap",
-              maxWidth:     155,
-              lineHeight:   1.2,
-            }}>
-              {r.name}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div style={{
+        padding:      "14px 14px 11px",
+        background:   `linear-gradient(135deg, ${color}20 0%, transparent 55%)`,
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+      }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Name + verified badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
+              <span style={{
+                fontWeight:  800,
+                fontSize:    15,
+                fontFamily:  "Oswald, sans-serif",
+                color:       "#f0ece4",
+                lineHeight:  1.2,
+              }}>
+                {r.name}
+              </span>
+              {r.is_verified && (
+                <span style={{
+                  fontSize:    9,
+                  padding:     "2px 6px",
+                  borderRadius: 999,
+                  background:  "rgba(34,197,94,0.18)",
+                  color:       "#4ade80",
+                  border:      "1px solid rgba(34,197,94,0.32)",
+                  fontWeight:  700,
+                  letterSpacing: "0.04em",
+                  whiteSpace:  "nowrap",
+                }}>
+                  ✓ VERIFICIRAN
+                </span>
+              )}
+            </div>
+            {/* City · address */}
+            <p style={{ margin: 0, fontSize: 11, color: "#7a7060", lineHeight: 1.4 }}>
+              {r.city}{r.address ? ` · ${r.address}` : ""}
             </p>
-            {r.is_verified && (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="7" cy="7" r="7" fill="#22c55e" />
-                <path d="M4 7L6.5 9.5L10 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
           </div>
-          <p style={{ margin: 0, fontSize: 11, color: "#6b6358" }}>
-            📍 {r.city}
-          </p>
+
+          {/* Close button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            aria-label="Zatvori"
+            style={{
+              flexShrink:     0,
+              width:          26,
+              height:         26,
+              borderRadius:   "50%",
+              background:     "rgba(255,255,255,0.07)",
+              border:         "1px solid rgba(255,255,255,0.12)",
+              color:          "#9e9080",
+              cursor:         "pointer",
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              fontSize:       13,
+              lineHeight:     1,
+              padding:        0,
+              marginTop:      1,
+            }}
+          >
+            ✕
+          </button>
         </div>
       </div>
 
-      {/* Body */}
-      <div style={{ padding: "10px 14px 14px" }}>
-        {/* Style / source badges */}
-        <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-          {r.style && (
-            <span style={{
-              fontSize:   10,
-              padding:    "2px 8px",
-              borderRadius: 999,
-              background: `${color}1a`,
-              color:      color,
-              border:     `1px solid ${color}38`,
-              fontWeight: 600,
-            }}>
-              {r.style}
-            </span>
-          )}
-          {isGoogle && (
-            <span style={{
-              fontSize:   10,
-              padding:    "2px 8px",
-              borderRadius: 999,
-              background: "rgba(66,133,244,0.15)",
-              color:      "#4285f4",
-              border:     "1px solid rgba(66,133,244,0.28)",
-              fontWeight: 600,
-            }}>
-              Google
-            </span>
-          )}
-        </div>
+      {/* ── Body ───────────────────────────────────────────────────────────── */}
+      <div style={{ padding: "12px 14px 14px" }}>
 
-        {/* Lepinja rating */}
+        {/* Lepinja rating row */}
         {lepinji > 0 && (
-          <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <span key={i} style={{ fontSize: 14, opacity: i <= lepinji ? 1 : 0.18 }}>🔥</span>
-            ))}
-          </div>
+          <>
+            <div style={{
+              display:    "flex",
+              alignItems: "center",
+              gap:        10,
+              padding:    "8px 10px",
+              borderRadius: 10,
+              background: "rgba(255,255,255,0.04)",
+              border:     "1px solid rgba(255,255,255,0.07)",
+              marginBottom: 10,
+            }}>
+              <span style={{ fontSize: 22, lineHeight: 1 }}>{emoji}</span>
+              <div>
+                <div style={{ display: "flex", gap: 2, marginBottom: 2 }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <span key={i} style={{ fontSize: 13, opacity: i <= lepinji ? 1 : 0.18 }}>🔥</span>
+                  ))}
+                </div>
+                <p style={{ margin: 0, fontSize: 10, color: "#6b6358" }}>
+                  {lepinji}.0 / 5 &nbsp;·&nbsp; Lepinja ocjena
+                </p>
+              </div>
+            </div>
+            <hr style={sep} />
+            <div style={{ marginBottom: 10 }} />
+          </>
+        )}
+
+        {/* Style section */}
+        {(r.style || isGoogle) && (
+          <>
+            <p style={{
+              margin:         "0 0 6px",
+              fontSize:       9,
+              fontWeight:     700,
+              letterSpacing:  "0.1em",
+              color:          "#5a5248",
+              textTransform:  "uppercase",
+            }}>
+              Stil ćevapa
+            </p>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
+              {r.style && (
+                <span style={{
+                  fontSize:     11,
+                  padding:      "3px 10px",
+                  borderRadius: 999,
+                  background:   `${color}1a`,
+                  color:        color,
+                  border:       `1px solid ${color}35`,
+                  fontWeight:   600,
+                }}>
+                  {r.style}
+                </span>
+              )}
+              {isGoogle && (
+                <span style={{
+                  fontSize:     11,
+                  padding:      "3px 10px",
+                  borderRadius: 999,
+                  background:   "rgba(66,133,244,0.15)",
+                  color:        "#4285f4",
+                  border:       "1px solid rgba(66,133,244,0.25)",
+                  fontWeight:   600,
+                }}>
+                  Google
+                </span>
+              )}
+            </div>
+            <hr style={sep} />
+            <div style={{ marginBottom: 10 }} />
+          </>
         )}
 
         {/* Tags */}
         {(r.tags ?? []).length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
-            {(r.tags ?? []).slice(0, 3).map((tag) => (
-              <span key={tag} style={{
-                fontSize:     10,
-                padding:      "2px 7px",
-                borderRadius: 999,
-                background:   "rgba(255,255,255,0.07)",
-                color:        "#9e9580",
-              }}>
-                {tag}
-              </span>
-            ))}
-          </div>
+          <>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+              {(r.tags ?? []).slice(0, 4).map((tag) => (
+                <span key={tag} style={{
+                  fontSize:     10,
+                  padding:      "2px 7px",
+                  borderRadius: 999,
+                  background:   "rgba(255,255,255,0.06)",
+                  color:        "#9e9580",
+                  border:       "1px solid rgba(255,255,255,0.07)",
+                }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+            <hr style={sep} />
+            <div style={{ marginBottom: 10 }} />
+          </>
         )}
 
-        {/* Address */}
-        {r.address && (
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: "#5a5248", lineHeight: 1.4 }}>
-            {r.address}
-          </p>
-        )}
+        {/* Google Maps text link */}
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display:        "flex",
+            alignItems:     "center",
+            gap:            6,
+            fontSize:       11,
+            color:          "#4285f4",
+            textDecoration: "none",
+            marginBottom:   12,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>🗺️</span>
+          Pogledaj na Google Maps →
+        </a>
 
         {/* CTA buttons */}
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
           {isDb && onOpenProfile && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenProfile(); }}
               style={{
-                flex:        1,
-                padding:     "8px 0",
-                borderRadius: 10,
-                background:  color,
-                color:       "#fff",
-                border:      "none",
-                cursor:      "pointer",
-                fontSize:    11,
-                fontWeight:  700,
-                fontFamily:  "Oswald, sans-serif",
+                flex:          1,
+                padding:       "9px 0",
+                borderRadius:  10,
+                background:    color,
+                color:         "#fff",
+                border:        "none",
+                cursor:        "pointer",
+                fontSize:      12,
+                fontWeight:    700,
+                fontFamily:    "Oswald, sans-serif",
                 letterSpacing: "0.06em",
               }}
             >
@@ -370,13 +372,13 @@ function PlaceCard({
             rel="noopener noreferrer"
             style={{
               flex:           isDb ? "0 0 auto" : 1,
-              padding:        isDb ? "8px 12px" : "8px 0",
+              padding:        isDb ? "9px 12px" : "9px 0",
               borderRadius:   10,
               background:     "rgba(255,255,255,0.08)",
               color:          "#c0b0a0",
-              border:         "1px solid rgba(255,255,255,0.1)",
+              border:         "1px solid rgba(255,255,255,0.10)",
               cursor:         "pointer",
-              fontSize:       11,
+              fontSize:       12,
               fontWeight:     600,
               textDecoration: "none",
               display:        "flex",
@@ -389,19 +391,58 @@ function PlaceCard({
             🧭 Kreni
           </a>
         </div>
+
+        {/* Accommodation upsell */}
+        <div style={{
+          padding:      "10px 12px",
+          borderRadius: 12,
+          background:   `${color}0e`,
+          border:       `1px solid ${color}25`,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+            <span style={{ fontSize: 20, lineHeight: 1 }}>🏨</span>
+            <div>
+              <p style={{
+                margin: 0, fontSize: 11, fontWeight: 700,
+                fontFamily: "Oswald, sans-serif", color: "#f0ece4", letterSpacing: "0.04em",
+              }}>
+                PLANIRAŠ POSJET?
+              </p>
+              <p style={{ margin: 0, fontSize: 10, color: "#7a7060" }}>
+                Pronađi smještaj u {r.city}
+              </p>
+            </div>
+          </div>
+          <a
+            href={bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              gap:            5,
+              padding:        "7px 0",
+              borderRadius:   8,
+              background:     color,
+              color:          "#fff",
+              fontWeight:     700,
+              fontSize:       11,
+              fontFamily:     "Oswald, sans-serif",
+              letterSpacing:  "0.07em",
+              textDecoration: "none",
+            }}
+          >
+            🔎 PRETRAŽI SMJEŠTAJ
+          </a>
+        </div>
       </div>
     </div>
   );
 }
 
 // ── Floating map style filter ─────────────────────────────────────────────────
-function MapStyleFilter({
-  active,
-  onChange,
-}: {
-  active:   string;
-  onChange: (s: string) => void;
-}) {
+function MapStyleFilter({ active, onChange }: { active: string; onChange: (s: string) => void }) {
   return (
     <div style={{
       position:      "absolute",
@@ -422,18 +463,16 @@ function MapStyleFilter({
               display:        "flex",
               alignItems:     "center",
               gap:            5,
-              padding:        "4px 10px 4px 7px",
+              padding:        "5px 10px 5px 7px",
               borderRadius:   999,
-              background:     isActive ? color : "rgba(16,14,12,0.80)",
+              background:     isActive ? color : "rgba(16,14,12,0.82)",
               border:         `1px solid ${isActive ? color : "rgba(255,255,255,0.10)"}`,
               color:          isActive ? "#fff" : "#b0a898",
               fontSize:       11,
               fontWeight:     isActive ? 700 : 500,
               cursor:         "pointer",
               backdropFilter: "blur(10px)",
-              boxShadow:      isActive
-                ? `0 2px 12px ${color}55`
-                : "0 1px 5px rgba(0,0,0,0.45)",
+              boxShadow:      isActive ? `0 2px 12px ${color}55` : "0 1px 5px rgba(0,0,0,0.45)",
               transition:     "all 0.15s ease",
               whiteSpace:     "nowrap",
             }}
@@ -453,7 +492,7 @@ export default function GoogleCevapMap({
   height        = "500px",
   selectedId,
   onSelect,
-  activeStyle: controlledStyle,
+  activeStyle:   controlledStyle,
   onStyleChange,
   onOpenProfile,
 }: Props) {
@@ -466,8 +505,7 @@ export default function GoogleCevapMap({
     onSelect?.(key);
   };
 
-  // Controlled or internal style
-  const activeStyle    = controlledStyle !== undefined ? (controlledStyle ?? "") : internalStyle;
+  const activeStyle       = controlledStyle !== undefined ? (controlledStyle ?? "") : internalStyle;
   const handleStyleChange = (s: string) => {
     setInternalStyle(s);
     onStyleChange?.(s);
@@ -507,36 +545,18 @@ export default function GoogleCevapMap({
       style={{ height, width: "100%", position: "relative" }}
       className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] z-0"
     >
-      {/* InfoWindow chrome overrides */}
+      {/* Hide native Google close button — we render our own inside PlaceCard */}
       <style>{`
         .gm-style-iw-c {
           background: #161412 !important;
           padding: 0 !important;
           border-radius: 16px !important;
-          box-shadow: 0 12px 36px rgba(0,0,0,.7) !important;
+          box-shadow: 0 12px 40px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,0.06) !important;
           max-width: none !important;
         }
-        .gm-style-iw-tc::after {
-          background: #161412 !important;
-        }
-        .gm-style-iw-d {
-          overflow: hidden !important;
-        }
-        .gm-style-iw-chr {
-          position: absolute !important;
-          top: 8px !important;
-          right: 8px !important;
-          z-index: 2 !important;
-          padding: 0 !important;
-        }
-        .gm-style-iw-chr button.gm-ui-hover-effect {
-          width: 22px !important;
-          height: 22px !important;
-          opacity: 0.55 !important;
-        }
-        .gm-ui-hover-effect > span {
-          background-color: #a09880 !important;
-        }
+        .gm-style-iw-tc::after { background: #161412 !important; }
+        .gm-style-iw-d { overflow: hidden !important; }
+        .gm-style-iw-chr { display: none !important; }
       `}</style>
 
       <APIProvider apiKey={API_KEY}>
@@ -554,11 +574,11 @@ export default function GoogleCevapMap({
         >
           <BoundsUpdater restaurants={restaurants} />
 
-          {/* ── Thematic markers ─────────────────────────────────────────── */}
+          {/* ── Standard Pin markers ──────────────────────────────────────── */}
           {mapped.map((r) => {
-            const key      = r.id ?? r.fsq_id ?? r.name;
-            const isSelected = key === selectedKey;
-            const isDimmed   = !!activeStyle && !!r.style && r.style !== activeStyle;
+            const key    = r.id ?? r.fsq_id ?? r.name;
+            const isDb   = r.source === "supabase";
+            const dimmed = !!activeStyle && !!r.style && r.style !== activeStyle;
 
             return (
               <AdvancedMarker
@@ -566,9 +586,16 @@ export default function GoogleCevapMap({
                 position={{ lat: r.latitude as number, lng: r.longitude as number }}
                 onClick={() => setSelectedKey(key === selectedKey ? null : key)}
                 title={r.name}
-                zIndex={isSelected ? 100 : undefined}
+                zIndex={key === selectedKey ? 100 : undefined}
               >
-                <CevapMarker r={r} isSelected={isSelected} isDimmed={isDimmed} />
+                <div style={{ opacity: dimmed ? 0.3 : 1, transition: "opacity 0.2s" }}>
+                  <Pin
+                    background={isDb ? "#e65100" : "#4285f4"}
+                    borderColor={isDb ? "#bf360c" : "#1a73e8"}
+                    glyphColor={isDb ? "#fff8f0" : "#ffffff"}
+                    scale={key === selectedKey ? 1.25 : 1}
+                  />
+                </div>
               </AdvancedMarker>
             );
           })}
@@ -581,10 +608,11 @@ export default function GoogleCevapMap({
                 lng: selectedRestaurant.longitude as number,
               }}
               onCloseClick={() => setSelectedKey(null)}
-              pixelOffset={[0, -50]}
+              pixelOffset={[0, -42]}
             >
               <PlaceCard
                 r={selectedRestaurant}
+                onClose={() => setSelectedKey(null)}
                 onOpenProfile={
                   selectedRestaurant.id
                     ? () => {
