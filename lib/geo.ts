@@ -132,6 +132,34 @@ export function filterByPolylineSamples<
   return results.sort((a, b) => a.distanceKm - b.distanceKm);
 }
 
+/**
+ * Minimum perpendicular distance (km) from a point to any segment of a polyline.
+ *
+ * Iterates every consecutive segment and calls distanceToSegmentKm on each,
+ * returning the global minimum. This is the correct "distance to road" metric —
+ * unlike min-distance-to-sample-point, it never over-estimates for points that
+ * sit between two sample dots on a straight stretch of road.
+ */
+export function distanceToPolylineKm(
+  lat:      number,
+  lng:      number,
+  polyline: Array<{ lat: number; lng: number }>,
+): number {
+  if (polyline.length === 0) return Infinity;
+  if (polyline.length === 1) return haversineKm(lat, lng, polyline[0].lat, polyline[0].lng);
+  let min = Infinity;
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const d = distanceToSegmentKm(
+      lat, lng,
+      polyline[i].lat,     polyline[i].lng,
+      polyline[i + 1].lat, polyline[i + 1].lng,
+    );
+    if (d < min) min = d;
+    if (min === 0) break; // can't improve further
+  }
+  return min;
+}
+
 // ── Segment-based filter (legacy straight-line approach) ──────────────────────
 
 /**

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveCityCoords, resolveExpectedCountries } from "@/constants/cities";
-import { filterByRoute, distanceToSegmentKm, haversineKm } from "@/lib/geo";
+import { filterByRoute, distanceToSegmentKm, distanceToPolylineKm, haversineKm } from "@/lib/geo";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import CityAutocomplete from "@/components/finder/CityAutocomplete";
@@ -37,56 +37,6 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 // Extend RouteRestaurant with an optional source tag
 type AnyRouteRestaurant = RouteRestaurant & { source?: "db" | "places" | "waypoint" };
-
-/** Fetch ćevapi from Google Places for a city, return as RouteRestaurant rows */
-async function fetchPlacesForCity(
-  city: string,
-  coordsA: [number, number],
-  coordsB: [number, number],
-  radiusKm: number,
-): Promise<AnyRouteRestaurant[]> {
-  try {
-    const res = await fetch(
-      `/api/places?near=${encodeURIComponent(city)}&query=cevapi+rostilj+grill&limit=20`,
-    );
-    if (!res.ok) return [];
-    const json = await res.json() as { results?: PlaceResult[] };
-    return (json.results ?? [])
-      .filter((p) => p.latitude != null && p.longitude != null)
-      .map((p) => {
-        const distKm = distanceToSegmentKm(
-          p.latitude!, p.longitude!,
-          coordsA[0], coordsA[1],
-          coordsB[0], coordsB[1],
-        );
-        return {
-          id:             p.place_id,
-          name:           p.name,
-          city:           p.city,
-          address:        p.address,
-          latitude:       p.latitude,
-          longitude:      p.longitude,
-          lepinja_rating: p.rating ? Math.round(p.rating * 10) / 10 : 0,
-          is_verified:    false,
-          style:          null,
-          distanceKm:     distKm,
-          source:         "places" as const,
-          // Required Restaurant fields with sensible defaults
-          google_place_id: p.place_id,
-          phone:           null,
-          website:         null,
-          image_url:       null,
-          open_now:        p.open_now,
-          types:           p.types,
-          created_at:      "",
-          updated_at:      "",
-        } as unknown as AnyRouteRestaurant;
-      })
-      .filter((r) => r.distanceKm <= radiusKm);
-  } catch {
-    return [];
-  }
-}
 
 // All country names that appear in Google Places formatted_address strings.
 // Used to detect cross-border results without false-positives on addresses
@@ -118,9 +68,14 @@ function isCrossBorder(address: string, expected: Set<string>): boolean {
  * Uses the user's full selected radius (no hard cap).
  * If primary search returns 0 results, retries once at +50% radius ("deep search").
  *
- * When routePoints (actual decoded polyline samples) are provided, distance is
- * calculated as the minimum haversine distance to any sample point — much more
- * accurate than straight-line segment distance for curved routes.
+ * Distance is calculated as the true perpendicular distance to the nearest segment
+ * of the decoded polyline (distanceToPolylineKm) — not haversine to a sample point
+ * and not straight-line A→B. This is the same geometry the map uses, so the "X km
+ * from route" value on cards is accurate even on curved mountain roads.
+ *
+ * A final sanity check discards any result whose polyline distance exceeds
+ * `corridorKm` — this eliminates ghost results that slipped past the Places API
+ * radius bias (e.g. a restaurant in Bosnia showing up on a Zagreb–Split search).
  */
 async function fetchPlacesForWaypoint(
   lat: number,
@@ -133,21 +88,12 @@ async function fetchPlacesForWaypoint(
   routePoints: Array<{ lat: number; lng: number }> = [],
 ): Promise<AnyRouteRestaurant[]> {
   const toRouteResult = (p: PlaceResult): AnyRouteRestaurant => {
-    let distKm: number;
-    if (routePoints.length >= 2) {
-      // Strict route-snapping: distance to nearest decoded polyline sample
-      distKm = routePoints.reduce(
-        (min, pt) => Math.min(min, haversineKm(p.latitude!, p.longitude!, pt.lat, pt.lng)),
-        Infinity,
-      );
-    } else {
-      // Fallback: straight-line segment distance
-      distKm = distanceToSegmentKm(
-        p.latitude!, p.longitude!,
-        coordsA[0], coordsA[1],
-        coordsB[0], coordsB[1],
-      );
-    }
+    // True perpendicular distance to the nearest polyline segment.
+    // Falls back to straight-line A→B only when we don't have the decoded path yet
+    // (first search before the map has finished loading).
+    const distKm = routePoints.length >= 2
+      ? distanceToPolylineKm(p.latitude!, p.longitude!, routePoints)
+      : distanceToSegmentKm(p.latitude!, p.longitude!, coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
     return {
       id:              p.place_id,
       name:            p.name,
@@ -182,7 +128,18 @@ async function fetchPlacesForWaypoint(
         .filter((p) => p.latitude != null && p.longitude != null)
         .filter((p) => !isCrossBorder(p.address, expectedCountries))
         .map(toRouteResult)
+        // Primary corridor filter using true polyline distance
         .filter((r) => r.distanceKm <= radius)
+        // ── Sanity check ──────────────────────────────────────────────────
+        // Even if a result survived the radius filter (possible when routePoints
+        // is empty and we fell back to straight-line distance), re-validate
+        // against the full polyline if we have it. Eliminates ghost results
+        // that sit on the far side of a mountain range or national border.
+        .filter((r) => {
+          if (routePoints.length < 2) return true; // no polyline yet — trust the API
+          const trueDist = distanceToPolylineKm(r.latitude!, r.longitude!, routePoints);
+          return trueDist <= corridorKm;
+        })
         .sort((a, b) => a.distanceKm - b.distanceKm)
         .slice(0, cap);
     } catch {
@@ -382,19 +339,21 @@ export default function RoutePlannerPage() {
 
   // ── Callback from RouteMapClient once Directions + filtering is done ────────
   const handleSearchComplete = useCallback((restaurants: RouteRestaurant[]) => {
-    // Strip endpoint-city DB results here too
     const originToken = cityA.trim().toLowerCase();
     const destToken   = cityB.trim().toLowerCase();
-    const coordsA = resolveCityCoords(cityA);
-    const coordsB = resolveCityCoords(cityB);
+    // Prefer autocomplete coords — same source used in handleSearch
+    const coordsA: [number, number] | null = autoCoordA ?? resolveCityCoords(cityA);
+    const coordsB: [number, number] | null = autoCoordB ?? resolveCityCoords(cityB);
     const totalKm = coordsA && coordsB
       ? haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1])
       : 999;
     const edgeKm = totalKm < 60 ? Math.round(totalKm * 0.15) : 20;
 
     const filtered = (restaurants as AnyRouteRestaurant[]).filter((r) => {
+      // Strip endpoint-city noise
       const addr = (r.address + " " + r.city).toLowerCase();
       if (addr.includes(originToken) || addr.includes(destToken)) return false;
+      // Strip results within the edge exclusion zone
       if (r.latitude == null || r.longitude == null) return true;
       if (!coordsA || !coordsB) return true;
       const dA = haversineKm(r.latitude, r.longitude, coordsA[0], coordsA[1]);
@@ -404,7 +363,7 @@ export default function RoutePlannerPage() {
 
     setResults(mergeResults(filtered, cachedPlaces));
     setLoading(false);
-  }, [cachedPlaces, cityA, cityB]);
+  }, [cachedPlaces, cityA, cityB, autoCoordA, autoCoordB]);
 
   // ── Actual road sample points from the decoded polyline ───────────────────
   const handleRoutePoints = useCallback((pts: Array<{ lat: number; lng: number }>) => {

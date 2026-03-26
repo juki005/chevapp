@@ -6,8 +6,13 @@
 // Features:
 //   - Calls google.maps.DirectionsService when searchArgs change
 //   - Draws the actual road route as an orange polyline
-//   - Decodes the overview_polyline, samples every ~5 km (high-density)
-//   - Finds restaurants within the user's radius of any sample point
+//   - Decodes the full overview_polyline into lat/lng points
+//   - Filters DB restaurants using google.maps.geometry.poly.isLocationOnEdge
+//     (tolerance = radiusKm / 111.32 degrees) — follows road curves exactly
+//   - Falls back to pure-JS distanceToPolylineKm if geometry lib isn't ready
+//   - Reports accurate perpendicular distanceKm for each matched restaurant
+//   - Passes the FULL decoded path to onRoutePoints so the parent can also run
+//     distanceToPolylineKm for Places API results
 //   - Drops green (origin), red (destination), and orange (restaurant) markers
 //   - Auto-zooms to fit the full route + all found restaurants
 //   - Falls back to straight-line if Directions API returns an error
@@ -26,7 +31,7 @@ import {
   useMapsLibrary,
 } from "@vis.gl/react-google-maps";
 import { MapPin } from "lucide-react";
-import { samplePolyline, filterByPolylineSamples, decodePolyline } from "@/lib/geo";
+import { decodePolyline, distanceToPolylineKm } from "@/lib/geo";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import type { Restaurant } from "@/types";
 
@@ -75,11 +80,16 @@ interface Props {
 // ── Inner component (lives inside Map context) ────────────────────────────────
 function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Props, "height">) {
   const map         = useMap();
-  // useMapsLibrary ensures the "routes" library (DirectionsService, TravelMode)
-  // is fully loaded before we try to instantiate it.
+  // useMapsLibrary ensures the library JS is loaded before we instantiate its classes.
   const routesLib   = useMapsLibrary("routes");
-  const polyRef     = useRef<google.maps.Polyline | null>(null);
-  const searchRef   = useRef<SearchArgs | null>(null);
+  // geometry lib → gives us poly.isLocationOnEdge for curved-road filtering
+  const geometryLib = useMapsLibrary("geometry");
+  // Keep geometry lib in a ref so finalize() (async closure) always reads latest value
+  const geometryRef = useRef<google.maps.GeometryLibrary | null>(null);
+  useEffect(() => { geometryRef.current = geometryLib; }, [geometryLib]);
+
+  const polyRef   = useRef<google.maps.Polyline | null>(null);
+  const searchRef = useRef<SearchArgs | null>(null);
 
   const [restaurants,  setRestaurants]  = useState<RouteRestaurant[]>([]);
   const [selectedId,   setSelectedId]   = useState<string | null>(null);
@@ -178,25 +188,71 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
     });
 
     function finalize(
-      path:        Array<{ lat: number; lng: number }>,
-      bounds:      google.maps.LatLngBounds,
-      a:           [number, number],
-      b:           [number, number],
-      allRests:    typeof allRestaurants,
-      radius:      number,
+      path:     Array<{ lat: number; lng: number }>,
+      bounds:   google.maps.LatLngBounds,
+      a:        [number, number],
+      b:        [number, number],
+      allRests: typeof allRestaurants,
+      radius:   number,
     ) {
-      const samples  = samplePolyline(path, 5);
-      const filtered = filterByPolylineSamples(allRests, samples, radius);
+      // ── 1. Pass the FULL decoded path to the parent ───────────────────────
+      // The parent uses this for distanceToPolylineKm on Places API results.
+      onRoutePoints?.(path);
 
-      console.log("[RouteMap] Sampled", samples.length, "points →", filtered.length, "restaurants within", radius, "km");
+      // ── 2. Filter DB restaurants against the actual road polyline ─────────
+      //
+      // Gold path: google.maps.geometry.poly.isLocationOnEdge
+      //   tolerance is expressed in degrees; 1° ≈ 111.32 km
+      //   This method uses great-circle math and follows road curves exactly.
+      //
+      // Fallback: pure-JS distanceToPolylineKm (Cartesian approximation)
+      //   Used when geometry lib hasn't loaded yet or in test environments.
+      //
+      const geom = geometryRef.current;
+      const toleranceDeg = radius / 111.32;
 
-      // Give the parent actual road waypoints for accurate Places searches
-      onRoutePoints?.(samples);
+      const seen = new Set<string>();
+      const filtered: RouteRestaurant[] = [];
+
+      for (const r of allRests) {
+        if (r.latitude == null || r.longitude == null || seen.has(r.id)) continue;
+
+        let onRoute: boolean;
+        if (geom) {
+          // Curved-road filter — the search "tunnel" follows the decoded polyline
+          const gmPoly = new google.maps.Polyline({ path });
+          onRoute = geom.poly.isLocationOnEdge(
+            new google.maps.LatLng(r.latitude, r.longitude),
+            gmPoly,
+            toleranceDeg,
+          );
+        } else {
+          // Pure-JS fallback
+          onRoute = distanceToPolylineKm(r.latitude, r.longitude, path) <= radius;
+        }
+
+        if (onRoute) {
+          seen.add(r.id);
+          // ── 3. Accurate perpendicular distance for display ─────────────────
+          // Always use distanceToPolylineKm — gives the exact "closest road" km
+          // regardless of whether isLocationOnEdge or the fallback was used.
+          const distKm = distanceToPolylineKm(r.latitude, r.longitude, path);
+          filtered.push({ ...r, distanceKm: Math.round(distKm * 10) / 10 });
+        }
+      }
+
+      filtered.sort((a, b) => a.distanceKm - b.distanceKm);
+
+      console.log(
+        "[RouteMap]", geom ? "isLocationOnEdge ✓" : "distanceToPolylineKm (fallback)",
+        "→", filtered.length, "restaurants within", radius, "km of",
+        path.length, "decoded polyline points",
+      );
 
       setRestaurants(filtered);
       onSearchComplete(filtered);
 
-      // Auto-zoom to cover route + all markers
+      // ── 4. Auto-zoom ──────────────────────────────────────────────────────
       const fitBounds = new google.maps.LatLngBounds();
       fitBounds.union(bounds);
       filtered.forEach((r) => {
@@ -204,7 +260,6 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
           fitBounds.extend({ lat: r.latitude, lng: r.longitude });
         }
       });
-      // Ensure origin + destination are always in frame
       fitBounds.extend({ lat: a[0], lng: a[1] });
       fitBounds.extend({ lat: b[0], lng: b[1] });
       map?.fitBounds(fitBounds, 56);
