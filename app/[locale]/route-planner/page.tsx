@@ -87,20 +87,35 @@ async function fetchPlacesForCity(
   }
 }
 
-/** True if the place's address contains a country NOT in the expected set. */
+// All country names that appear in Google Places formatted_address strings.
+// Used to detect cross-border results without false-positives on addresses
+// that don't mention a country at all (e.g. short city-only addresses).
+const KNOWN_COUNTRIES = [
+  "Croatia", "Bosnia and Herzegovina", "Serbia", "Montenegro",
+  "Slovenia", "North Macedonia", "Kosovo", "Albania",
+  "Hungary", "Austria", "Italy", "Greece", "Romania", "Bulgaria",
+];
+
+/**
+ * Returns true ONLY when the address explicitly names a country that is NOT
+ * in the expected set. Addresses with no country mention are kept (returned false).
+ */
 function isCrossBorder(address: string, expected: Set<string>): boolean {
-  if (expected.size === 0) return false; // unknown route — don't filter
-  for (const country of expected) {
-    if (address.includes(country)) return false; // ✅ matches one expected country
+  if (expected.size === 0) return false; // unknown route — no filtering
+  for (const country of KNOWN_COUNTRIES) {
+    if (address.includes(country)) {
+      // We found a named country — block it only if it's not expected
+      return !expected.has(country);
+    }
   }
-  // Address doesn't mention any expected country → likely cross-border
-  return true;
+  // No known country in address → keep the result
+  return false;
 }
 
 /**
  * Fetch ćevapi near a single lat/lng waypoint (coordinate-based Places search).
- * Radius capped at 5 km for intermediate stops (tight corridor).
- * Filters out cross-border results using the expected country set.
+ * Uses the user's full selected radius (no hard cap).
+ * If primary search returns 0 results, retries once at +50% radius ("deep search").
  */
 async function fetchPlacesForWaypoint(
   lat: number,
@@ -111,80 +126,101 @@ async function fetchPlacesForWaypoint(
   expectedCountries: Set<string>,
   cap = 3,
 ): Promise<AnyRouteRestaurant[]> {
-  // Cap waypoint radius at 5 km — anything further is off-road
-  const waypointRadius = Math.min(corridorKm, 5);
-  try {
-    const res = await fetch(
-      `/api/places?lat=${lat}&lng=${lng}&query=cevapi+rostilj+grill&limit=10`,
+  const toRouteResult = (p: PlaceResult): AnyRouteRestaurant => {
+    const distKm = distanceToSegmentKm(
+      p.latitude!, p.longitude!,
+      coordsA[0], coordsA[1],
+      coordsB[0], coordsB[1],
     );
-    if (!res.ok) return [];
-    const json = await res.json() as { results?: PlaceResult[] };
-    return (json.results ?? [])
-      .filter((p) => p.latitude != null && p.longitude != null)
-      .filter((p) => !isCrossBorder(p.address, expectedCountries))
-      .map((p) => {
-        const distKm = distanceToSegmentKm(
-          p.latitude!, p.longitude!,
-          coordsA[0], coordsA[1],
-          coordsB[0], coordsB[1],
-        );
-        return {
-          id:              p.place_id,
-          name:            p.name,
-          city:            p.city,
-          address:         p.address,
-          latitude:        p.latitude,
-          longitude:       p.longitude,
-          lepinja_rating:  p.rating ? Math.round(p.rating * 10) / 10 : 0,
-          is_verified:     false,
-          style:           null,
-          distanceKm:      distKm,
-          source:          "waypoint" as const,
-          google_place_id: p.place_id,
-          phone:           null,
-          website:         null,
-          image_url:       null,
-          open_now:        p.open_now,
-          types:           p.types,
-          created_at:      "",
-          updated_at:      "",
-        } as unknown as AnyRouteRestaurant;
-      })
-      .filter((r) => r.distanceKm <= waypointRadius)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, cap);
-  } catch {
-    return [];
-  }
+    return {
+      id:              p.place_id,
+      name:            p.name,
+      city:            p.city,
+      address:         p.address,
+      latitude:        p.latitude,
+      longitude:       p.longitude,
+      lepinja_rating:  p.rating ? Math.round(p.rating * 10) / 10 : 0,
+      is_verified:     false,
+      style:           null,
+      distanceKm:      distKm,
+      source:          "waypoint" as const,
+      google_place_id: p.place_id,
+      phone:           null,
+      website:         null,
+      image_url:       null,
+      open_now:        p.open_now,
+      types:           p.types,
+      created_at:      "",
+      updated_at:      "",
+    } as unknown as AnyRouteRestaurant;
+  };
+
+  const runFetch = async (radius: number): Promise<AnyRouteRestaurant[]> => {
+    try {
+      const res = await fetch(
+        `/api/places?lat=${lat}&lng=${lng}&query=cevapi+rostilj+grill&limit=10`,
+      );
+      if (!res.ok) return [];
+      const json = await res.json() as { results?: PlaceResult[] };
+      return (json.results ?? [])
+        .filter((p) => p.latitude != null && p.longitude != null)
+        .filter((p) => !isCrossBorder(p.address, expectedCountries))
+        .map(toRouteResult)
+        .filter((r) => r.distanceKm <= radius)
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, cap);
+    } catch {
+      return [];
+    }
+  };
+
+  // Primary search with user-selected radius
+  const primary = await runFetch(corridorKm);
+  if (primary.length > 0) return primary;
+
+  // Deep-search fallback: +50% radius — finds the nearest town if the road is sparse
+  return runFetch(corridorKm * 1.5);
 }
 
 /**
  * Build waypoints from actual road sample points (from RouteMapClient polyline).
  * Falls back to straight-line interpolation when the map hasn't loaded yet.
- * Always skips the first/last `edgeKm` to avoid overlap with city searches.
+ * Spacing adapts to the chosen radius: tighter radius = more waypoints.
  */
 function buildWaypointsFromRoad(
   roadPoints: Array<{ lat: number; lng: number }>,
-  coordsA: [number, number],
-  coordsB: [number, number],
+  coordsA:    [number, number],
+  coordsB:    [number, number],
+  radiusKm:   number,
   edgeKm = 30,
 ): Array<[number, number]> {
+  // Adaptive spacing: at 5km radius every ~10km, at 20km every ~25km
+  const spacingKm = radiusKm <= 5 ? 10 : radiusKm <= 10 ? 15 : 25;
+
   if (roadPoints.length >= 3) {
-    // Use actual road points — skip ones too close to origin/destination
-    return roadPoints
-      .filter((p) => {
-        const dA = haversineKm(p.lat, p.lng, coordsA[0], coordsA[1]);
-        const dB = haversineKm(p.lat, p.lng, coordsB[0], coordsB[1]);
-        return dA > edgeKm && dB > edgeKm;
-      })
-      .map((p): [number, number] => [p.lat, p.lng]);
+    // Use actual road points, thinned to `spacingKm` intervals
+    const kept: Array<[number, number]> = [];
+    let lastKept: [number, number] = [roadPoints[0].lat, roadPoints[0].lng];
+
+    for (const p of roadPoints) {
+      const dA = haversineKm(p.lat, p.lng, coordsA[0], coordsA[1]);
+      const dB = haversineKm(p.lat, p.lng, coordsB[0], coordsB[1]);
+      if (dA <= edgeKm || dB <= edgeKm) continue; // skip near endpoints
+      const distFromLast = haversineKm(p.lat, p.lng, lastKept[0], lastKept[1]);
+      if (kept.length === 0 || distFromLast >= spacingKm) {
+        kept.push([p.lat, p.lng]);
+        lastKept = [p.lat, p.lng];
+      }
+    }
+    return kept;
   }
+
   // Fallback: straight-line interpolation
   const totalKm = haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
-  if (totalKm < edgeKm * 2 + 20) return [];
+  if (totalKm < edgeKm * 2 + spacingKm) return [];
   const tMin  = edgeKm / totalKm;
   const tMax  = 1 - edgeKm / totalKm;
-  const steps = totalKm > 300 ? 5 : totalKm > 150 ? 3 : 1;
+  const steps = Math.max(1, Math.floor((totalKm - edgeKm * 2) / spacingKm));
   const pts: Array<[number, number]> = [];
   for (let i = 1; i <= steps; i++) {
     const t = tMin + ((tMax - tMin) * i) / (steps + 1);
@@ -255,7 +291,7 @@ export default function RoutePlannerPage() {
       const expectedCountries = resolveExpectedCountries([cityA, cityB]);
 
       // Use actual road points if available (from a previous map render), else straight-line
-      const waypoints = buildWaypointsFromRoad(routePoints, coordsA, coordsB);
+      const waypoints = buildWaypointsFromRoad(routePoints, coordsA, coordsB, activeRadius);
 
       // Fetch Supabase DB + Google Places for both cities + waypoints — all in parallel
       const supabase = createClient();
@@ -420,8 +456,15 @@ export default function RoutePlannerPage() {
             </label>
             <div className="flex gap-2">
               {RADIUS_OPTIONS.map((r) => (
-                <button key={r} onClick={() => setRadius(r)}
-                  className={`${btnBase} ${radius === r ? btnActive : btnIdle}`}>
+                <button
+                  key={r}
+                  onClick={() => {
+                    setRadius(r);
+                    // Re-search immediately if we already have a route loaded
+                    if (results !== null || searchArgs !== null) handleSearch(r);
+                  }}
+                  className={`${btnBase} ${radius === r ? btnActive : btnIdle}`}
+                >
                   {r} km
                 </button>
               ))}
