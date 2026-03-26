@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { X, Loader2, CheckCircle, User } from "lucide-react";
 import { updateProfile } from "@/lib/actions/profile";
 import { getRank } from "@/lib/gamification";
@@ -78,6 +79,8 @@ export function EditProfileModal({
     }
   }, [isOpen, currentName, currentAvatar, currentStyle, currentBio, currentGender, currentWeight, currentHeight]);
 
+  const t = useTranslations("profile");
+
   if (!isOpen) return null;
 
   const rank = getRank(currentXP);
@@ -136,9 +139,9 @@ export function EditProfileModal({
             className="text-2xl font-bold text-[rgb(var(--foreground))] mb-1"
             style={{ fontFamily: "Oswald, sans-serif" }}
           >
-            Profil ažuriran!
+            {t("profileUpdated")}
           </h2>
-          <p className="text-sm text-[rgb(var(--muted))]">Promjene su uspješno spremljene.</p>
+          <p className="text-sm text-[rgb(var(--muted))]">{t("changesSaved")}</p>
         </div>
       </div>
     );

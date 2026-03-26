@@ -16,7 +16,10 @@
     "admin": "Admin",
     "signIn": "Sign In",
     "signOut": "Sign Out",
-    "signUp": "Sign Up"
+    "signUp": "Sign Up",
+    "rulet": "Rulet",
+    "openRulet": "Open Ćevap-Rulet",
+    "languageTheme": "Language / Theme"
   },
   "landing": {
     "heroTitle": "Find the Perfect Bite.",
@@ -106,7 +109,9 @@
     "workoutShovel": "Digging the garden",
     "minutes": "min",
     "hours": "h",
-    "quizTitle": "Quiz — Grill Culture"
+    "quizTitle": "Quiz — Grill Culture",
+    "signInRequired": "Login Required",
+    "signInForXP": "Sign in to track XP, streaks and rank in the Academy."
   },
   "community": {
     "title": "Community",
@@ -139,7 +144,9 @@
     "addEntry": "Add to Journal",
     "visitDate": "Visit date",
     "photo": "Photo",
-    "notes": "Notes"
+    "notes": "Notes",
+    "profileUpdated": "Profile updated!",
+    "changesSaved": "Changes saved successfully."
   },
   "jukebox": {
     "title": "ChevApp Jukebox",

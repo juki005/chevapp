@@ -44,7 +44,30 @@
       "Bash(find C:UsersimladDesktopGithubchevappnode_modules@supabasesupabase-js -name *.d.ts)",
       "Bash(find /c/Users/imlad/Desktop/Github/chevapp/node_modules/@supabase/supabase-js -name *.d.ts)",
       "Bash(find /c/Users/imlad/Desktop/Github/chevapp/node_modules/@supabase/supabase-js/dist -name *.d.ts)",
-      "Bash(find /c/Users/imlad/Desktop/Github/chevapp/node_modules/@supabase/supabase-js -name types*)"
+      "Bash(find /c/Users/imlad/Desktop/Github/chevapp/node_modules/@supabase/supabase-js -name types*)",
+      "Bash(npx supabase:*)",
+      "Bash(node scripts/fix-recipes.mjs)",
+      "Bash(node -e \":*)",
+      "Bash(node scripts/check-db.mjs)",
+      "Bash(node scripts/check-tables.mjs)",
+      "Bash(find /c/Users/imlad/Desktop/Github/chevapp -path */lib/supabase* -type f)",
+      "Bash(ls -la /c/Users/imlad/Desktop/Github/chevapp/app/[locale]/)",
+      "Bash(ls -la /c/Users/imlad/Desktop/Github/chevapp/app/[locale]/finder/)",
+      "Bash(npx next:*)",
+      "Bash(ls \"C:\\\\Users\\\\imlad\\\\Desktop\\\\Github\\\\chevapp\\\\app\\\\[locale]\\\\profile\"\" 2>/dev/null && echo \"exists\" || echo \"empty \")",
+      "Bash(ls app/[locale]/)",
+      "Bash(cat app/[locale]/layout.tsx)",
+      "Bash(grep -n \"leaderboard\\\\|Ljestvica\\\\|Trophy\\\\|sidebar\\\\|grid\\\\|max-w-7xl\\\\|aside\" app/[locale]/community/page.tsx)",
+      "Bash(cat app/[locale]/community/page.tsx)",
+      "Bash(cat app/[locale]/page.tsx)",
+      "Bash(grep -n \"google_place_id\\\\|place_id\\\\|placeResult\\\\|onProfileClick\\\\|ProfileTarget\" app/[locale]/finder/page.tsx)",
+      "Bash(grep -n \"setSelectedRestaurant\\\\|onProfileClick\\\\|place_id\\\\|placeToProfile\\\\|PlaceResult\" app/[locale]/finder/page.tsx)",
+      "Bash(grep -n \"^import\\\\|createClient\" app/[locale]/finder/page.tsx)",
+      "Bash(ls app/[locale]/akademija/)",
+      "Bash(ls app/[locale]/academy/)",
+      "Bash(head -60 app/[locale]/academy/page.tsx)",
+      "Bash(ls app/[locale]/route-planner/)",
+      "Bash(wc -l app/[locale]/route-planner/page.tsx)"
     ]
   }
 }

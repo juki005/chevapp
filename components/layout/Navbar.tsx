@@ -110,7 +110,7 @@ export function Navbar({ locale }: NavbarProps) {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-burnt-orange-500 text-cream text-sm font-semibold hover:bg-burnt-orange-600 active:scale-95 transition-all"
         >
           <User className="w-3.5 h-3.5" />
-          Prijavi se
+          {t("signIn")}
         </button>
       );
     }
@@ -118,7 +118,7 @@ export function Navbar({ locale }: NavbarProps) {
       <div className="relative">
         <button
           onClick={(e) => { e.stopPropagation(); setUserMenuOpen((v) => !v); }}
-          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-charcoal-700 dark:hover:bg-ugljen-border transition-colors"
+          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[rgb(var(--border))] transition-colors"
         >
           <div className="w-7 h-7 rounded-full bg-burnt-orange-500 flex items-center justify-center text-xs font-bold text-cream flex-shrink-0">
             {displayInitial}
@@ -141,12 +141,12 @@ export function Navbar({ locale }: NavbarProps) {
         </button>
 
         {userMenuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-charcoal-700 dark:border-ugljen-border bg-charcoal-800 dark:bg-ugljen-surface shadow-xl z-50 overflow-hidden">
-            <div className="px-4 py-3 border-b border-charcoal-700 dark:border-ugljen-border">
-              <p className="text-sm font-semibold text-cream truncate">
-                {user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Korisnik"}
+          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-xl z-50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-[rgb(var(--border))]">
+              <p className="text-sm font-semibold text-[rgb(var(--foreground))] truncate">
+                {user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? t("profile")}
               </p>
-              <p className="text-xs text-cream/40 truncate">{user.email}</p>
+              <p className="text-xs text-[rgb(var(--muted))] truncate">{user.email}</p>
               {xp !== null && (
                 <div className="flex items-center gap-3 mt-0.5">
                   <p className="text-xs text-burnt-orange-400 font-semibold">
@@ -164,17 +164,17 @@ export function Navbar({ locale }: NavbarProps) {
             <Link
               href="/profile"
               onClick={() => setUserMenuOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-3 text-sm text-cream/70 hover:text-cream hover:bg-charcoal-700 dark:hover:bg-ugljen-border transition-colors"
+              className="flex items-center gap-2.5 px-4 py-3 text-sm text-[rgb(var(--foreground)/0.7)] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border))] transition-colors"
             >
               <User className="w-4 h-4" />
-              Moj profil
+              {t("profile")}
             </Link>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-400/80 hover:text-red-400 hover:bg-red-500/5 transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              Odjavi se
+              {t("signOut")}
             </button>
           </div>
         )}
@@ -184,7 +184,7 @@ export function Navbar({ locale }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-charcoal-700 dark:border-ugljen-border bg-charcoal-800/95 dark:bg-ugljen-surface/95 backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.95)] backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
 
@@ -209,7 +209,7 @@ export function Navbar({ locale }: NavbarProps) {
                     "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
                     isActive(href)
                       ? "bg-burnt-orange-500/20 text-burnt-orange-400"
-                      : "text-cream/60 hover:text-cream hover:bg-charcoal-700 dark:hover:bg-ugljen-border"
+                      : "text-[rgb(var(--foreground)/0.6)] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border))]"
                   )}
                 >
                   <Icon className="w-4 h-4" />
@@ -228,13 +228,13 @@ export function Navbar({ locale }: NavbarProps) {
               <AuthSection />
               <Link
                 href="/admin"
-                className="hidden md:flex items-center gap-1 px-2 py-1 rounded text-xs text-cream/30 hover:text-cream/60 transition-colors"
+                className="hidden md:flex items-center gap-1 px-2 py-1 rounded text-xs text-[rgb(var(--foreground)/0.3)] hover:text-[rgb(var(--foreground)/0.6)] transition-colors"
                 title="Admin"
               >
                 <Shield className="w-3.5 h-3.5" />
               </Link>
               <button
-                className="md:hidden p-2 rounded-lg text-cream/70 hover:text-cream hover:bg-charcoal-700 transition-colors"
+                className="md:hidden p-2 rounded-lg text-[rgb(var(--foreground)/0.7)] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border))] transition-colors"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-label="Toggle menu"
               >
@@ -246,7 +246,7 @@ export function Navbar({ locale }: NavbarProps) {
 
         {/* Mobile drawer */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-charcoal-700 dark:border-ugljen-border bg-charcoal-800 dark:bg-ugljen-surface">
+          <div className="md:hidden border-t border-[rgb(var(--border))] bg-[rgb(var(--surface))]">
             <nav className="px-4 py-3 flex flex-col gap-1">
               {NAV_ITEMS.map(({ key, href, icon: Icon }) => (
                 <Link
@@ -257,7 +257,7 @@ export function Navbar({ locale }: NavbarProps) {
                     "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors",
                     isActive(href)
                       ? "bg-burnt-orange-500/20 text-burnt-orange-400"
-                      : "text-cream/70 hover:text-cream hover:bg-charcoal-700"
+                      : "text-[rgb(var(--foreground)/0.7)] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border))]"
                   )}
                 >
                   <Icon className="w-5 h-5" />
@@ -267,15 +267,15 @@ export function Navbar({ locale }: NavbarProps) {
               <Link
                 href="/jukebox"
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-cream/70 hover:text-cream hover:bg-charcoal-700 transition-colors"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-[rgb(var(--foreground)/0.7)] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border))] transition-colors"
               >
                 <Music className="w-5 h-5" />
                 <span>{t("jukebox")}</span>
               </Link>
 
               {/* Mobile: language + theme toggles */}
-              <div className="flex items-center justify-between pt-2 border-t border-charcoal-700">
-                <span className="text-xs text-cream/30 px-3 font-medium">Jezik / Tema</span>
+              <div className="flex items-center justify-between pt-2 border-t border-[rgb(var(--border))]">
+                <span className="text-xs text-[rgb(var(--foreground)/0.3)] px-3 font-medium">{t("languageTheme")}</span>
                 <div className="flex items-center gap-2 px-3">
                   <LanguageSwitcher locale={locale} />
                   <ThemeToggle />
@@ -284,14 +284,14 @@ export function Navbar({ locale }: NavbarProps) {
 
               {/* Mobile auth row */}
               {!authLoading && (
-                <div className="pt-2 border-t border-charcoal-700 mt-1">
+                <div className="pt-2 border-t border-[rgb(var(--border))] mt-1">
                   {user ? (
                     <button
                       onClick={() => { handleSignOut(); setMobileOpen(false); }}
                       className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-red-400/80 hover:text-red-400 hover:bg-red-500/5 w-full"
                     >
                       <LogOut className="w-5 h-5" />
-                      Odjavi se
+                      {t("signOut")}
                     </button>
                   ) : (
                     <button
@@ -299,7 +299,7 @@ export function Navbar({ locale }: NavbarProps) {
                       className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-burnt-orange-400 hover:bg-burnt-orange-500/10 w-full"
                     >
                       <User className="w-5 h-5" />
-                      Prijavi se
+                      {t("signIn")}
                     </button>
                   )}
                 </div>

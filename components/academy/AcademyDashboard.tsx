@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Zap, Flame, BookOpen, Trophy, Star, Lock, CheckCircle, Gamepad2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -31,6 +32,7 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 export function AcademyDashboard() {
+  const t        = useTranslations("academy");
   const supabase = createClient();
   const toast    = useToast();
 
@@ -141,10 +143,10 @@ export function AcademyDashboard() {
       <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-8 text-center">
         <Lock className="w-10 h-10 text-[rgb(var(--muted))] mx-auto mb-3 opacity-40" />
         <h3 className="font-bold text-[rgb(var(--foreground))] mb-1" style={{ fontFamily: "Oswald, sans-serif" }}>
-          Prijava potrebna
+          {t("signInRequired")}
         </h3>
         <p className="text-[rgb(var(--muted))] text-sm mb-4">
-          Prijavi se kako bi pratio/la XP, serije i rang u Akademiji.
+          {t("signInForXP")}
         </p>
         {word && (
           <div className="mt-6 text-left rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)] p-4">

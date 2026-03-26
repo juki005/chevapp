@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, X, Newspaper, Calendar, Trash2 } from "lucide-react";
 
@@ -14,6 +15,7 @@ interface NewsPost {
 }
 
 export function CommunityNews() {
+  const locale    = useLocale();
   const supabase  = createClient();
   const [posts,   setPosts]   = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export function CommunityNews() {
   };
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("hr-HR", { day: "numeric", month: "long", year: "numeric" });
+    new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" });
 
   return (
     <div className="space-y-4">

@@ -149,7 +149,14 @@ export async function GET(req: NextRequest) {
       source:    "google" as const,
     }));
 
-    return NextResponse.json({ results, total: results.length });
+    return NextResponse.json({ results, total: results.length }, {
+      headers: {
+        // Cache at the CDN edge for 1h; serve stale for up to 24h while revalidating.
+        // Restaurant locations change rarely — this dramatically cuts API costs on
+        // popular routes (Zagreb→Split will be searched many times per day).
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    });
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

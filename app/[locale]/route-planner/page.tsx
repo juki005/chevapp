@@ -478,11 +478,7 @@ export default function RoutePlannerPage() {
               {RADIUS_OPTIONS.map((r) => (
                 <button
                   key={r}
-                  onClick={() => {
-                    setRadius(r);
-                    // Re-search immediately if we already have a route loaded
-                    if (results !== null || searchArgs !== null) handleSearch(r);
-                  }}
+                  onClick={() => handleIncreaseRadius(r)}
                   className={`${btnBase} ${radius === r ? btnActive : btnIdle}`}
                 >
                   {r} km

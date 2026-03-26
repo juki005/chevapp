@@ -51,6 +51,14 @@ function lsToggle(key: string, id: string): boolean {
   return idx < 0; // true = added
 }
 
+// ── Haptic feedback helper ─────────────────────────────────────────────────────
+/** Fire a short vibration on devices that support it (iOS Safari, Android Chrome). */
+function haptic(style: "light" | "medium" = "light") {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(style === "light" ? 10 : 30);
+  }
+}
+
 // ── XP helper ─────────────────────────────────────────────────────────────────
 async function awardXP(userId: string, amount: number) {
   const supabase = createClient();
@@ -197,6 +205,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   // ── Toggle favorites ───────────────────────────────────────────────────────
   const toggleFav = async () => {
     if (favLoading) return;
+    haptic("light");
     setFavLoading(true);
     if (restaurant.id && userId) {
       const supabase = createClient();
@@ -216,6 +225,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   // ── Toggle wishlist ────────────────────────────────────────────────────────
   const toggleWish = async () => {
     if (wishLoading) return;
+    haptic("light");
     setWishLoading(true);
     if (restaurant.id && userId) {
       const supabase = createClient();
@@ -235,6 +245,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   // ── Tag a style (crowdsourced upsert) ─────────────────────────────────────
   const handleTagStyle = async (style: CevapStyle) => {
     if (!userId || tagLoading) return;
+    haptic("medium");
 
     // Toggling the same tag off
     if (dbStyleTag === style) {
@@ -335,12 +346,14 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       {/* Backdrop */}
       <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.75)" }} onClick={onClose} />
 
-      {/* Panel */}
+      {/* Panel — bottom sheet on mobile, centered modal on sm+ */}
       <div
         className={[
           "fixed flex flex-col overflow-hidden",
           "inset-x-0 bottom-0 rounded-t-3xl max-h-[92dvh]",
-          "sm:inset-auto sm:bottom-auto",
+          // Slide up from below on mobile
+          "animate-slide-up",
+          "sm:inset-auto sm:bottom-auto sm:animate-fade-in",
           "sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
           "sm:w-full sm:max-w-[520px] sm:rounded-2xl sm:max-h-[85vh]",
         ].join(" ")}

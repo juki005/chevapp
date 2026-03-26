@@ -16,7 +16,10 @@
     "admin": "Admin",
     "signIn": "Prijava",
     "signOut": "Odjava",
-    "signUp": "Registracija"
+    "signUp": "Registracija",
+    "rulet": "Rulet",
+    "openRulet": "Otvori Ćevap-Rulet",
+    "languageTheme": "Jezik / Tema"
   },
   "landing": {
     "heroTitle": "Pronađi Savršen Griz.",
@@ -106,7 +109,9 @@
     "workoutShovel": "Kopanje vrta",
     "minutes": "min",
     "hours": "h",
-    "quizTitle": "Kviz — Grill Kultura"
+    "quizTitle": "Kviz — Grill Kultura",
+    "signInRequired": "Prijava potrebna",
+    "signInForXP": "Prijavi se kako bi pratio/la XP, serije i rang u Akademiji."
   },
   "community": {
     "title": "Zajednica",
@@ -139,7 +144,9 @@
     "addEntry": "Dodaj u Dnevnik",
     "visitDate": "Datum posjeta",
     "photo": "Fotografija",
-    "notes": "Bilješke"
+    "notes": "Bilješke",
+    "profileUpdated": "Profil ažuriran!",
+    "changesSaved": "Promjene su uspješno spremljene."
   },
   "jukebox": {
     "title": "ChevApp Jukebox",

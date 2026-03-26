@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { StyleFilter } from "@/components/finder/StyleFilter";
 import { RestaurantCard } from "@/components/finder/RestaurantCard";
+import { RestaurantGridSkeleton } from "@/components/finder/RestaurantCardSkeleton";
 import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/RestaurantDetailModal";
 import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
 import { RestaurantMap, type MapRestaurant } from "@/components/finder/RestaurantMap";
@@ -223,7 +224,7 @@ export default function FinderPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
           .from("restaurants")
-          .select("*")
+          .select("id, name, style, city, address, latitude, longitude, lepinja_rating, is_verified, tags, slug, google_place_id, phone, website, image_url")
           .order("lepinja_rating", { ascending: false });
 
         if (debouncedSearch.trim()) q = q.ilike("name", `%${debouncedSearch.trim()}%`);
@@ -659,10 +660,7 @@ export default function FinderPage() {
         {viewMode === "grid" && (
           <div>
             {dbLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" />
-                <p className="text-sm text-[rgb(var(--muted))]">Učitavanje restorana...</p>
-              </div>
+              <RestaurantGridSkeleton />
 
             ) : visibleDbRestaurants.length === 0 && !placesSearched && !hasActiveFilters ? (
               /* Empty DB */
