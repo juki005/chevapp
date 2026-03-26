@@ -50,16 +50,17 @@ function placeToMapPin(r: PlaceResult): MapRestaurant {
 
 function toMapPin(r: Restaurant): MapRestaurant {
   return {
-    id:            r.id,
-    name:          r.name,
-    city:          r.city,
-    address:       r.address,
-    latitude:      r.latitude,
-    longitude:     r.longitude,
+    id:             r.id,
+    name:           r.name,
+    city:           r.city,
+    address:        r.address,
+    latitude:       r.latitude,
+    longitude:      r.longitude,
     lepinja_rating: r.lepinja_rating,
-    is_verified:   r.is_verified,
-    tags:          r.tags,
-    source:        "supabase",
+    is_verified:    r.is_verified,
+    tags:           r.tags,
+    style:          r.style,
+    source:         "supabase",
   };
 }
 
@@ -653,6 +654,12 @@ export default function FinderPage() {
             height="520px"
             selectedId={selectedMapKey}
             onSelect={setSelectedMapKey}
+            activeStyle={activeStyle || null}
+            onStyleChange={(s) => setActiveStyle(s as import("@/types").CevapStyle | "")}
+            onOpenProfile={(id) => {
+              const r = dbRestaurants.find((db) => db.id === id);
+              if (r) setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, lat: r.latitude, lng: r.longitude });
+            }}
           />
         )}
 

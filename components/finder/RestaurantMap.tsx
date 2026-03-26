@@ -30,19 +30,38 @@ const GoogleCevapMap = dynamic(
 );
 
 interface Props {
-  restaurants: MapRestaurant[];
-  height?:     string;
-  selectedId?: string | null;
-  onSelect?:   (id: string | null) => void;
+  restaurants:    MapRestaurant[];
+  height?:        string;
+  selectedId?:    string | null;
+  onSelect?:      (id: string | null) => void;
+  activeStyle?:   string | null;
+  onStyleChange?: (style: string) => void;
+  onOpenProfile?: (id: string) => void;
 }
 
-export function RestaurantMap({ restaurants, height = "500px", selectedId, onSelect }: Props) {
+export function RestaurantMap({
+  restaurants,
+  height,
+  selectedId,
+  onSelect,
+  activeStyle,
+  onStyleChange,
+  onOpenProfile,
+}: Props) {
   return (
     // suppressHydrationWarning: the Google Maps script injects <style> tags into
     // the DOM after hydration; without this React emits a harmless but noisy
     // hydration-mismatch warning for the container div.
     <div suppressHydrationWarning>
-      <GoogleCevapMap restaurants={restaurants} height={height} selectedId={selectedId} onSelect={onSelect} />
+      <GoogleCevapMap
+        restaurants={restaurants}
+        height={height}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        activeStyle={activeStyle}
+        onStyleChange={onStyleChange}
+        onOpenProfile={onOpenProfile}
+      />
     </div>
   );
 }
