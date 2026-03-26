@@ -47,6 +47,25 @@ export const CITY_COORDS: Record<string, [number, number]> = {
   "pristina":         [42.6629, 21.1655],
 };
 
+/** Maps known cities to their ISO country name as Google Places uses it. */
+const CITY_COUNTRY: Record<string, string> = {
+  "zagreb": "Croatia", "split": "Croatia", "rijeka": "Croatia",
+  "osijek": "Croatia", "dubrovnik": "Croatia", "zadar": "Croatia",
+  "pula": "Croatia", "slavonski brod": "Croatia", "varaždin": "Croatia", "sisak": "Croatia",
+  "sarajevo": "Bosnia and Herzegovina", "banja luka": "Bosnia and Herzegovina",
+  "travnik": "Bosnia and Herzegovina", "mostar": "Bosnia and Herzegovina",
+  "tuzla": "Bosnia and Herzegovina", "zenica": "Bosnia and Herzegovina",
+  "brčko": "Bosnia and Herzegovina", "konjic": "Bosnia and Herzegovina",
+  "foča": "Bosnia and Herzegovina", "bijeljina": "Bosnia and Herzegovina",
+  "beograd": "Serbia", "belgrade": "Serbia", "novi sad": "Serbia",
+  "niš": "Serbia", "nis": "Serbia", "leskovac": "Serbia",
+  "kragujevac": "Serbia", "subotica": "Serbia",
+  "podgorica": "Montenegro", "bar": "Montenegro", "nikšić": "Montenegro",
+  "ljubljana": "Slovenia", "maribor": "Slovenia", "celje": "Slovenia",
+  "skopje": "North Macedonia", "bitola": "North Macedonia",
+  "prishtina": "Kosovo", "pristina": "Kosovo",
+};
+
 /**
  * Resolve a city name (case-insensitive, trimmed) to [lat, lng].
  * Returns null if not found.
@@ -54,4 +73,18 @@ export const CITY_COORDS: Record<string, [number, number]> = {
 export function resolveCityCoords(input: string): [number, number] | null {
   const key = input.trim().toLowerCase();
   return CITY_COORDS[key] ?? null;
+}
+
+/**
+ * Returns the set of countries for the given city names.
+ * Used to filter out cross-border ghost results in the route planner.
+ * If neither city is known, returns an empty set (no filtering applied).
+ */
+export function resolveExpectedCountries(cities: string[]): Set<string> {
+  const out = new Set<string>();
+  for (const city of cities) {
+    const c = CITY_COUNTRY[city.trim().toLowerCase()];
+    if (c) out.add(c);
+  }
+  return out;
 }

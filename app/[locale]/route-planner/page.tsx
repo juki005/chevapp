@@ -7,7 +7,7 @@ import {
   Route, MapPin, Navigation, Loader2, AlertCircle, CheckCircle, Globe,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { resolveCityCoords } from "@/constants/cities";
+import { resolveCityCoords, resolveExpectedCountries } from "@/constants/cities";
 import { filterByRoute, distanceToSegmentKm, haversineKm } from "@/lib/geo";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
@@ -87,9 +87,20 @@ async function fetchPlacesForCity(
   }
 }
 
+/** True if the place's address contains a country NOT in the expected set. */
+function isCrossBorder(address: string, expected: Set<string>): boolean {
+  if (expected.size === 0) return false; // unknown route — don't filter
+  for (const country of expected) {
+    if (address.includes(country)) return false; // ✅ matches one expected country
+  }
+  // Address doesn't mention any expected country → likely cross-border
+  return true;
+}
+
 /**
  * Fetch ćevapi near a single lat/lng waypoint (coordinate-based Places search).
- * Returns up to `cap` closest results within the route corridor.
+ * Radius capped at 5 km for intermediate stops (tight corridor).
+ * Filters out cross-border results using the expected country set.
  */
 async function fetchPlacesForWaypoint(
   lat: number,
@@ -97,8 +108,11 @@ async function fetchPlacesForWaypoint(
   coordsA: [number, number],
   coordsB: [number, number],
   corridorKm: number,
+  expectedCountries: Set<string>,
   cap = 3,
 ): Promise<AnyRouteRestaurant[]> {
+  // Cap waypoint radius at 5 km — anything further is off-road
+  const waypointRadius = Math.min(corridorKm, 5);
   try {
     const res = await fetch(
       `/api/places?lat=${lat}&lng=${lng}&query=cevapi+rostilj+grill&limit=10`,
@@ -107,6 +121,7 @@ async function fetchPlacesForWaypoint(
     const json = await res.json() as { results?: PlaceResult[] };
     return (json.results ?? [])
       .filter((p) => p.latitude != null && p.longitude != null)
+      .filter((p) => !isCrossBorder(p.address, expectedCountries))
       .map((p) => {
         const distKm = distanceToSegmentKm(
           p.latitude!, p.longitude!,
@@ -135,7 +150,7 @@ async function fetchPlacesForWaypoint(
           updated_at:      "",
         } as unknown as AnyRouteRestaurant;
       })
-      .filter((r) => r.distanceKm <= corridorKm)
+      .filter((r) => r.distanceKm <= waypointRadius)
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, cap);
   } catch {
@@ -144,33 +159,38 @@ async function fetchPlacesForWaypoint(
 }
 
 /**
- * Generate intermediate waypoints along A→B straight line.
- * Skips waypoints within `edgeKm` of either endpoint to avoid overlap with
- * city searches. Returns empty array when the route is too short.
+ * Build waypoints from actual road sample points (from RouteMapClient polyline).
+ * Falls back to straight-line interpolation when the map hasn't loaded yet.
+ * Always skips the first/last `edgeKm` to avoid overlap with city searches.
  */
-function buildWaypoints(
+function buildWaypointsFromRoad(
+  roadPoints: Array<{ lat: number; lng: number }>,
   coordsA: [number, number],
   coordsB: [number, number],
   edgeKm = 30,
 ): Array<[number, number]> {
+  if (roadPoints.length >= 3) {
+    // Use actual road points — skip ones too close to origin/destination
+    return roadPoints
+      .filter((p) => {
+        const dA = haversineKm(p.lat, p.lng, coordsA[0], coordsA[1]);
+        const dB = haversineKm(p.lat, p.lng, coordsB[0], coordsB[1]);
+        return dA > edgeKm && dB > edgeKm;
+      })
+      .map((p): [number, number] => [p.lat, p.lng]);
+  }
+  // Fallback: straight-line interpolation
   const totalKm = haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
-  if (totalKm < edgeKm * 2 + 20) return []; // route too short for waypoints
-
-  // Evenly-spaced fractions, clamped to the non-edge zone
-  const tMin = edgeKm / totalKm;
-  const tMax = 1 - edgeKm / totalKm;
-
+  if (totalKm < edgeKm * 2 + 20) return [];
+  const tMin  = edgeKm / totalKm;
+  const tMax  = 1 - edgeKm / totalKm;
   const steps = totalKm > 300 ? 5 : totalKm > 150 ? 3 : 1;
-  const results: Array<[number, number]> = [];
-
+  const pts: Array<[number, number]> = [];
   for (let i = 1; i <= steps; i++) {
     const t = tMin + ((tMax - tMin) * i) / (steps + 1);
-    results.push([
-      coordsA[0] + (coordsB[0] - coordsA[0]) * t,
-      coordsA[1] + (coordsB[1] - coordsA[1]) * t,
-    ]);
+    pts.push([coordsA[0] + (coordsB[0] - coordsA[0]) * t, coordsA[1] + (coordsB[1] - coordsA[1]) * t]);
   }
-  return results;
+  return pts;
 }
 
 /** Merge DB results (priority) with Places results, deduplicate by name+city. */
@@ -202,6 +222,8 @@ export default function RoutePlannerPage() {
   // the user just changes the radius on an existing route).
   const [cachedRestaurants, setCachedRestaurants] = useState<Restaurant[]>([]);
   const [cachedPlaces,      setCachedPlaces]      = useState<AnyRouteRestaurant[]>([]);
+  // Actual road sample points received from RouteMapClient polyline decode
+  const [routePoints,       setRoutePoints]       = useState<Array<{ lat: number; lng: number }>>([]);
 
   // ── Search handler ────────────────────────────────────────────────────────
   const handleSearch = useCallback(async (overrideRadius?: RadiusKm) => {
@@ -229,8 +251,11 @@ export default function RoutePlannerPage() {
     setLoading(true);
 
     try {
-      // Compute intermediate waypoints (skips short routes automatically)
-      const waypoints = buildWaypoints(coordsA, coordsB);
+      // Determine which countries are valid for this route
+      const expectedCountries = resolveExpectedCountries([cityA, cityB]);
+
+      // Use actual road points if available (from a previous map render), else straight-line
+      const waypoints = buildWaypointsFromRoad(routePoints, coordsA, coordsB);
 
       // Fetch Supabase DB + Google Places for both cities + waypoints — all in parallel
       const supabase = createClient();
@@ -239,7 +264,7 @@ export default function RoutePlannerPage() {
         fetchPlacesForCity(cityA, coordsA, coordsB, activeRadius),
         fetchPlacesForCity(cityB, coordsA, coordsB, activeRadius),
         ...waypoints.map((wp) =>
-          fetchPlacesForWaypoint(wp[0], wp[1], coordsA, coordsB, activeRadius),
+          fetchPlacesForWaypoint(wp[0], wp[1], coordsA, coordsB, activeRadius, expectedCountries),
         ),
       ]);
 
@@ -249,7 +274,9 @@ export default function RoutePlannerPage() {
       setCachedRestaurants(all);
 
       // Merge & deduplicate all Places results (city + waypoints) by name+city
-      const allPlaces = [...placesA, ...placesB, ...waypointResults.flat()];
+      // Also apply country filter to city-level results (removes cross-border bleed)
+      const allPlaces = [...placesA, ...placesB, ...waypointResults.flat()]
+        .filter((r) => !isCrossBorder(r.address, expectedCountries));
       const placesMerged = allPlaces.filter(
         (r, i, arr) =>
           arr.findIndex((x) => x.name.toLowerCase() === r.name.toLowerCase() && x.city === r.city) === i,
@@ -280,12 +307,14 @@ export default function RoutePlannerPage() {
 
   // ── Callback from RouteMapClient once Directions + filtering is done ────────
   const handleSearchComplete = useCallback((restaurants: RouteRestaurant[]) => {
-    setResults((prev) => {
-      void prev; // discard old value — merge DB route results with cached Places
-      return mergeResults(restaurants as AnyRouteRestaurant[], cachedPlaces);
-    });
+    setResults(mergeResults(restaurants as AnyRouteRestaurant[], cachedPlaces));
     setLoading(false);
   }, [cachedPlaces]);
+
+  // ── Actual road sample points from the decoded polyline ───────────────────
+  const handleRoutePoints = useCallback((pts: Array<{ lat: number; lng: number }>) => {
+    setRoutePoints(pts);
+  }, []);
 
   // ── Increase-radius re-search ─────────────────────────────────────────────
   // If we already have a route (searchArgs set), just rebuild searchArgs with
@@ -426,6 +455,7 @@ export default function RoutePlannerPage() {
               height="420px"
               searchArgs={searchArgs}
               onSearchComplete={handleSearchComplete}
+              onRoutePoints={handleRoutePoints}
             />
           </div>
         )}

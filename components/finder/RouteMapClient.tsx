@@ -68,10 +68,12 @@ interface Props {
   height?:          string;
   searchArgs:       SearchArgs | null;
   onSearchComplete: (restaurants: RouteRestaurant[]) => void;
+  /** Fires once the polyline is decoded — gives parent the actual road sample points */
+  onRoutePoints?:   (points: Array<{ lat: number; lng: number }>) => void;
 }
 
 // ── Inner component (lives inside Map context) ────────────────────────────────
-function RouteMapInner({ searchArgs, onSearchComplete }: Omit<Props, "height">) {
+function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Props, "height">) {
   const map         = useMap();
   // useMapsLibrary ensures the "routes" library (DirectionsService, TravelMode)
   // is fully loaded before we try to instantiate it.
@@ -188,6 +190,9 @@ function RouteMapInner({ searchArgs, onSearchComplete }: Omit<Props, "height">) 
 
       console.log("[RouteMap] Sampled", samples.length, "points →", filtered.length, "restaurants within", radius, "km");
 
+      // Give the parent actual road waypoints for accurate Places searches
+      onRoutePoints?.(samples);
+
       setRestaurants(filtered);
       onSearchComplete(filtered);
 
@@ -281,7 +286,7 @@ function RouteMapInner({ searchArgs, onSearchComplete }: Omit<Props, "height">) 
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
-export default function RouteMapClient({ height = "420px", searchArgs, onSearchComplete }: Props) {
+export default function RouteMapClient({ height = "420px", searchArgs, onSearchComplete, onRoutePoints }: Props) {
   if (!API_KEY) {
     return (
       <div
@@ -353,7 +358,7 @@ export default function RouteMapClient({ height = "420px", searchArgs, onSearchC
           zoomControl
           gestureHandling="cooperative"
         >
-          <RouteMapInner searchArgs={searchArgs} onSearchComplete={onSearchComplete} />
+          <RouteMapInner searchArgs={searchArgs} onSearchComplete={onSearchComplete} onRoutePoints={onRoutePoints} />
         </Map>
       </APIProvider>
     </div>
