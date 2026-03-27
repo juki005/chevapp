@@ -313,8 +313,10 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
             google_place_id:  placeId,
             style,
             is_verified:      false,
-            lat:              restaurant.lat  ?? null,
-            lng:              restaurant.lng  ?? null,
+            latitude:         restaurant.lat  ?? null,
+            longitude:        restaurant.lng  ?? null,
+            lepinja_rating:   0,
+            tags:             [],
           })
           .select("id")
           .single();
