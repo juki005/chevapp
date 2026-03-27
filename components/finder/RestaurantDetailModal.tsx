@@ -246,91 +246,96 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   const handleTagStyle = async (style: CevapStyle) => {
     if (!userId || tagLoading) return;
     haptic("medium");
-
-    // Toggling the same tag off
-    if (dbStyleTag === style) {
-      setTagLoading(true);
-      const supabase = createClient();
-      const targetId = dbRestaurantId ?? restaurant.id;
-      if (targetId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("restaurants") as any).update({ style: null }).eq("id", targetId);
-        setDbStyleTag(null);
-      }
-      setTagLoading(false);
-      return;
-    }
-
     setTagLoading(true);
-    const supabase = createClient();
 
-    // ── Case A: existing DB restaurant (has id) ────────────────────────────
-    if (restaurant.id) {
-      const hadNoStyle = !dbStyleTag;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("restaurants") as any).update({ style }).eq("id", restaurant.id);
-      setDbStyleTag(style);
-      if (hadNoStyle) {
-        await awardXP(userId, 15);
-        setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+    try {
+      const supabase = createClient();
+
+      // Toggling the same tag off
+      if (dbStyleTag === style) {
+        const targetId = dbRestaurantId ?? restaurant.id;
+        if (targetId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error } = await (supabase.from("restaurants") as any).update({ style: null }).eq("id", targetId);
+          if (error) throw error;
+          setDbStyleTag(null);
+        }
+        return;
       }
-      setTagLoading(false);
-      return;
-    }
 
-    // ── Case B: Google Places restaurant ──────────────────────────────────
-    const placeId = restaurant.google_place_id;
-    if (!placeId) { setTagLoading(false); return; }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (supabase.from("restaurants") as any)
-      .select("id, style")
-      .eq("google_place_id", placeId)
-      .maybeSingle() as { data: { id: string; style: string | null } | null };
-
-    if (existing) {
-      // Row exists — update style
-      const row = existing;
-      const hadNoStyle = !row.style;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("restaurants") as any).update({ style }).eq("id", row.id);
-      setDbRestaurantId(row.id);
-      setDbStyleTag(style);
-      if (hadNoStyle) {
-        await awardXP(userId, 15);
-        setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
-      }
-    } else {
-      // New row — insert community-contributed restaurant
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: newRow } = await (supabase.from("restaurants") as any)
-        .insert({
-          name:             restaurant.name,
-          city:             restaurant.city,
-          address:          restaurant.address ?? null,
-          google_place_id:  placeId,
-          style,
-          is_verified:      false,
-          lat:              restaurant.lat  ?? null,
-          lng:              restaurant.lng  ?? null,
-        })
-        .select("id")
-        .single();
-
-      if (newRow) {
-        setDbRestaurantId((newRow as { id: string }).id);
+      // ── Case A: existing DB restaurant (has id) ──────────────────────────
+      if (restaurant.id) {
+        const hadNoStyle = !dbStyleTag;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from("restaurants") as any).update({ style }).eq("id", restaurant.id);
+        if (error) throw error;
         setDbStyleTag(style);
-        await awardXP(userId, 15);
-        setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
-
-        // Broadcast so finder can refresh its DB list
-        window.dispatchEvent(new CustomEvent("chevapp:restaurant_tagged", {
-          detail: { google_place_id: placeId, style, name: restaurant.name, city: restaurant.city },
-        }));
+        if (hadNoStyle) {
+          try { await awardXP(userId, 15); } catch { /* XP failure is non-critical */ }
+          setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+        } else {
+          setToast(`Stil ažuriran: ${style} ✓`);
+        }
+        return;
       }
-    }
 
-    setTagLoading(false);
+      // ── Case B: Google Places restaurant ────────────────────────────────
+      const placeId = restaurant.google_place_id;
+      if (!placeId) return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: existing } = await (supabase.from("restaurants") as any)
+        .select("id, style")
+        .eq("google_place_id", placeId)
+        .maybeSingle() as { data: { id: string; style: string | null } | null };
+
+      if (existing) {
+        const hadNoStyle = !existing.style;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from("restaurants") as any).update({ style }).eq("id", existing.id);
+        if (error) throw error;
+        setDbRestaurantId(existing.id);
+        setDbStyleTag(style);
+        if (hadNoStyle) {
+          try { await awardXP(userId, 15); } catch { /* XP failure is non-critical */ }
+          setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+        } else {
+          setToast(`Stil ažuriran: ${style} ✓`);
+        }
+      } else {
+        // New row — insert community-contributed restaurant
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: newRow, error } = await (supabase.from("restaurants") as any)
+          .insert({
+            name:             restaurant.name,
+            city:             restaurant.city,
+            address:          restaurant.address ?? null,
+            google_place_id:  placeId,
+            style,
+            is_verified:      false,
+            lat:              restaurant.lat  ?? null,
+            lng:              restaurant.lng  ?? null,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+
+        if (newRow) {
+          setDbRestaurantId((newRow as { id: string }).id);
+          setDbStyleTag(style);
+          try { await awardXP(userId, 15); } catch { /* XP failure is non-critical */ }
+          setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+          window.dispatchEvent(new CustomEvent("chevapp:restaurant_tagged", {
+            detail: { google_place_id: placeId, style, name: restaurant.name, city: restaurant.city },
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("[handleTagStyle] failed:", err);
+      setToast("Greška pri spremanju stila. Pokušaj ponovo.");
+    } finally {
+      setTagLoading(false);
+    }
   };
 
   const googleMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(`${restaurant.name} ${restaurant.city}`)}`;
@@ -370,9 +375,12 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
           <div
             style={{
               position: "absolute", top: "12px", left: "50%", transform: "translateX(-50%)",
-              zIndex: 10001, background: "rgb(34,197,94)", color: "#fff",
+              zIndex: 10001,
+              background: toast.startsWith("Greška") ? "rgb(239,68,68)" : "rgb(34,197,94)",
+              color: "#fff",
               padding: "10px 18px", borderRadius: "99px", fontSize: "13px", fontWeight: 600,
-              whiteSpace: "nowrap", boxShadow: "0 4px 20px rgba(34,197,94,0.4)",
+              whiteSpace: "nowrap",
+              boxShadow: toast.startsWith("Greška") ? "0 4px 20px rgba(239,68,68,0.4)" : "0 4px 20px rgba(34,197,94,0.4)",
               animation: "fade-in 0.3s ease",
             }}
           >
