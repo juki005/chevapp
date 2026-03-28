@@ -73,7 +73,7 @@ export async function recordUserActivity(
     let newStreak = 1;
     if (lastActivity) {
       const diffMs   = new Date(today).getTime() - new Date(lastActivity).getTime();
-      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
       if (diffDays === 1) {
         newStreak = currentStreak + 1; // consecutive day
       }
@@ -81,18 +81,23 @@ export async function recordUserActivity(
     }
 
     // ── Update user_stats ──────────────────────────────────────────────────
-    await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: statsError } = await (supabase as any)
       .from("user_stats")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(
         {
           user_id:                    user.id,
           current_streak:             newStreak,
           last_activity_date:         today,
           daily_challenge_claimed_at: today,
-        } as any,
+        },
         { onConflict: "user_id" }
       );
+
+    if (statsError) {
+      console.error("[recordUserActivity] user_stats upsert failed — aborting XP award:", statsError.message);
+      return fallback;
+    }
 
     // ── Award daily bonus XP to profiles ──────────────────────────────────
     const { data: profileRaw } = await supabase

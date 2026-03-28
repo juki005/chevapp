@@ -145,14 +145,19 @@ export async function awardXP(
   // Determine the definitive new XP value
   const newXP = rpcXP ?? (prevXP + points);
 
-  // Always upsert profiles.xp_points — this is the column the app reads
-  await supabase
-    .from("profiles")
+  // Only manually upsert profiles.xp_points when the RPC didn't run.
+  // If the RPC succeeded it already wrote the correct value — writing again
+  // risks overwriting a concurrent award that landed between our getUserStats
+  // call and now.
+  if (rpcXP === null) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .upsert(
-      { id: userId, xp_points: newXP, updated_at: new Date().toISOString() } as any,
-      { onConflict: "id" }
-    );
+    await supabase
+      .from("profiles")
+      .upsert(
+        { id: userId, xp_points: newXP, updated_at: new Date().toISOString() } as any,
+        { onConflict: "id" }
+      );
+  }
 
   const stats: UserStats = {
     ...(prev ?? {
