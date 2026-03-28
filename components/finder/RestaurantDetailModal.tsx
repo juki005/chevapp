@@ -100,12 +100,48 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   const [dataLoading,    setDataLoading]    = useState(false);
   const swipeTouchY = useRef<number | null>(null);
 
+  // Live Place Details (fetched from /api/place-details when google_place_id present)
+  const [liveRating,  setLiveRating]  = useState<number  | null | undefined>(undefined); // undefined = not yet fetched
+  const [liveOpenNow, setLiveOpenNow] = useState<boolean | null | undefined>(undefined);
+  const [livePhone,   setLivePhone]   = useState<string  | null>(null);
+  const [liveWebsite, setLiveWebsite] = useState<string  | null>(null);
+  const [liveTypes,   setLiveTypes]   = useState<string[] | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
   useEffect(() => { setMounted(true); }, []);
 
   // Auth
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }: { data: { user: { id: string } | null } }) => setUserId(user?.id ?? null));
   }, []);
+
+  // Fetch fresh Place Details (rating, open_now, phone, website) for Google Places
+  useEffect(() => {
+    setLiveRating(undefined);
+    setLiveOpenNow(undefined);
+    setLivePhone(null);
+    setLiveWebsite(null);
+    setLiveTypes(null);
+
+    const placeId = restaurant?.google_place_id;
+    if (!placeId) return;
+
+    setDetailsLoading(true);
+    fetch(`/api/place-details?place_id=${encodeURIComponent(placeId)}`)
+      .then((r) => r.json())
+      .then((d: { rating?: number | null; open_now?: boolean | null; phone?: string | null; website?: string | null; types?: string[] }) => {
+        setLiveRating(d.rating  ?? null);
+        setLiveOpenNow(d.open_now ?? null);
+        setLivePhone(d.phone    ?? null);
+        setLiveWebsite(d.website ?? null);
+        setLiveTypes(d.types    ?? []);
+      })
+      .catch(() => {
+        setLiveRating(null);
+        setLiveOpenNow(null);
+      })
+      .finally(() => setDetailsLoading(false));
+  }, [restaurant?.google_place_id]);
 
   // Reset state & load data on restaurant change
   useEffect(() => {
@@ -356,10 +392,18 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   };
 
   const googleMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(`${restaurant.name} ${restaurant.city}`)}`;
-  const cleanTypes    = (restaurant.types ?? [])
+
+  // Merge live Place Details with props (live wins when available)
+  const displayRating  = liveRating  !== undefined ? liveRating  : (restaurant.rating  ?? null);
+  const displayOpenNow = liveOpenNow !== undefined ? liveOpenNow : (restaurant.open_now ?? null);
+  const displayPhone   = livePhone   ?? restaurant.phone   ?? null;
+  const displayWebsite = liveWebsite ?? restaurant.website ?? null;
+  const rawTypes       = liveTypes   ?? restaurant.types   ?? [];
+  const cleanTypes     = rawTypes
     .filter((t) => !["point_of_interest", "establishment", "food"].includes(t))
     .map((t) => t.replace(/_/g, " "))
     .slice(0, 3);
+
   const canTag = !!userId && (!!restaurant.google_place_id || !!restaurant.id);
 
   const modal = (
@@ -418,16 +462,20 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
                 {restaurant.name}
               </h2>
               {restaurant.is_verified && <CheckCircle style={{ width: "16px", height: "16px", color: "#D35400", flexShrink: 0 }} />}
-              {restaurant.open_now != null && (
+              {detailsLoading ? (
+                <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "9999px", background: "rgb(var(--border))", color: "rgb(var(--muted))", border: "1px solid rgb(var(--border))", animation: "pulse 1.5s infinite" }}>
+                  …
+                </span>
+              ) : displayOpenNow != null ? (
                 <span style={{
                   fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "9999px",
-                  background: restaurant.open_now ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-                  color:      restaurant.open_now ? "#22c55e" : "#ef4444",
-                  border:     `1px solid ${restaurant.open_now ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+                  background: displayOpenNow ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
+                  color:      displayOpenNow ? "#22c55e" : "#ef4444",
+                  border:     `1px solid ${displayOpenNow ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
                 }}>
-                  {restaurant.open_now ? "Otvoreno" : "Zatvoreno"}
+                  {displayOpenNow ? "Otvoreno" : "Zatvoreno"}
                 </span>
-              )}
+              ) : null}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "6px" }}>
@@ -494,7 +542,19 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
                 🍖
               </div>
               <div style={{ flex: 1 }}>
-                {restaurant.rating != null && <div style={{ marginBottom: "10px" }}><StarRating rating={restaurant.rating} /></div>}
+                {/* Rating row */}
+                {detailsLoading ? (
+                  <div style={{ display: "flex", gap: "4px", marginBottom: "10px", alignItems: "center" }}>
+                    {[1,2,3,4,5].map((i) => (
+                      <div key={i} style={{ width: "14px", height: "14px", borderRadius: "3px", background: "rgb(var(--border))", opacity: 0.5 }} />
+                    ))}
+                    <div style={{ width: "28px", height: "14px", borderRadius: "3px", background: "rgb(var(--border))", marginLeft: "6px", opacity: 0.5 }} />
+                  </div>
+                ) : displayRating != null ? (
+                  <div style={{ marginBottom: "10px" }}><StarRating rating={displayRating} /></div>
+                ) : null}
+
+                {/* Type chips */}
                 {cleanTypes.length > 0 && (
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     {cleanTypes.map((t) => (
@@ -502,7 +562,9 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
                     ))}
                   </div>
                 )}
-                {restaurant.rating == null && cleanTypes.length === 0 && (
+
+                {/* Fallback only if all data is confirmed missing (not still loading) */}
+                {!detailsLoading && displayRating == null && cleanTypes.length === 0 && (
                   <p style={{ fontSize: "13px", color: "rgb(var(--muted))", margin: 0 }}>Više informacija dostupno na Google Maps.</p>
                 )}
               </div>
@@ -525,22 +587,26 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
                   {restaurant.address}, {restaurant.city}
                 </InfoRow>
               )}
-              {restaurant.open_now != null && (
-                <InfoRow icon={<Clock style={{ width: "15px", height: "15px", color: restaurant.open_now ? "#22c55e" : "#ef4444" }} />}>
-                  <span style={{ color: restaurant.open_now ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
-                    {restaurant.open_now ? "Trenutno otvoreno" : "Trenutno zatvoreno"}
+              {detailsLoading ? (
+                <InfoRow icon={<Clock style={{ width: "15px", height: "15px", color: "rgb(var(--muted))" }} />}>
+                  <span style={{ color: "rgb(var(--muted))", fontSize: "12px" }}>Provjera radnog vremena…</span>
+                </InfoRow>
+              ) : displayOpenNow != null ? (
+                <InfoRow icon={<Clock style={{ width: "15px", height: "15px", color: displayOpenNow ? "#22c55e" : "#ef4444" }} />}>
+                  <span style={{ color: displayOpenNow ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+                    {displayOpenNow ? "Trenutno otvoreno" : "Trenutno zatvoreno"}
                   </span>
                 </InfoRow>
-              )}
-              {restaurant.phone && (
+              ) : null}
+              {displayPhone && (
                 <InfoRow icon={<Phone style={{ width: "15px", height: "15px", color: "#D35400" }} />}>
-                  <a href={`tel:${restaurant.phone}`} style={{ color: "rgb(var(--foreground))", textDecoration: "none" }}>{restaurant.phone}</a>
+                  <a href={`tel:${displayPhone}`} style={{ color: "rgb(var(--foreground))", textDecoration: "none" }}>{displayPhone}</a>
                 </InfoRow>
               )}
-              {restaurant.website && (
+              {displayWebsite && (
                 <InfoRow icon={<Globe style={{ width: "15px", height: "15px", color: "#D35400" }} />}>
-                  <a href={restaurant.website.startsWith("http") ? restaurant.website : `https://${restaurant.website}`} target="_blank" rel="noopener noreferrer" style={{ color: "#4285f4", textDecoration: "none" }}>
-                    {restaurant.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                  <a href={displayWebsite.startsWith("http") ? displayWebsite : `https://${displayWebsite}`} target="_blank" rel="noopener noreferrer" style={{ color: "#4285f4", textDecoration: "none" }}>
+                    {displayWebsite.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                   </a>
                 </InfoRow>
               )}

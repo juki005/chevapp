@@ -387,7 +387,7 @@ export default function FinderPage() {
             onOpenProfile={(pin) => {
               if (pin.id) {
                 const r = dbRestaurants.find((db) => db.id === pin.id);
-                setSelectedRestaurant({ id: pin.id, name: pin.name, city: pin.city, address: pin.address, lat: pin.latitude, lng: pin.longitude, is_verified: r?.is_verified ?? pin.is_verified });
+                setSelectedRestaurant({ id: pin.id, name: pin.name, city: pin.city, address: pin.address, lat: pin.latitude, lng: pin.longitude, is_verified: r?.is_verified ?? pin.is_verified, rating: (r ? (avgRatings[r.id] ?? r.rating) : null) ?? null });
               } else if (pin.fsq_id) {
                 setSelectedRestaurant({ google_place_id: pin.fsq_id, name: pin.name, city: pin.city, address: pin.address, lat: pin.latitude, lng: pin.longitude });
               }
@@ -441,7 +441,7 @@ export default function FinderPage() {
                           <RestaurantCard
                             restaurant={r}
                             avgRating={avgRatings[r.id] ?? null}
-                            onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified })}
+                            onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified, rating: avgRatings[r.id] ?? r.rating ?? null })}
                           />
                         </div>
                       ))}
