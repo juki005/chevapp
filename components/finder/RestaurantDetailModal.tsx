@@ -56,7 +56,8 @@ function haptic(style: "light" | "medium" = "light") {
 // ── XP helper ─────────────────────────────────────────────────────────────────
 async function awardXP(userId: string, amount: number) {
   const supabase = createClient();
-  await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount } as any);
   window.dispatchEvent(new CustomEvent("chevapp:stats_updated", { detail: {} }));
 }
 
