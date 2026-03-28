@@ -6,32 +6,48 @@ import { RestaurantCard } from "./RestaurantCard";
 import type { Restaurant } from "@/types";
 import { Loader2, ServerCrash } from "lucide-react";
 
+const PAGE_SIZE = 12;
+
 export function RestaurantGrid() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [page,        setPage]        = useState(0);
+  const [hasMore,     setHasMore]     = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("restaurants")
-          .select("*")
-          .order("lepinja_rating", { ascending: false });
+  const fetchPage = async (pageIndex: number, append: boolean) => {
+    const isFirst = !append;
+    if (isFirst) setLoading(true); else setLoadingMore(true);
+    try {
+      const supabase = createClient();
+      const from = pageIndex * PAGE_SIZE;
+      const to   = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("*")
+        .order("lepinja_rating", { ascending: false })
+        .range(from, to);
 
-        if (error) throw error;
-        setRestaurants((data as Restaurant[]) ?? []);
-      } catch (err) {
-        setError("Greška pri učitavanju restorana. Provjeri Supabase konfiguraciju.");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      if (error) throw error;
+      const rows = (data as Restaurant[]) ?? [];
+      setRestaurants(prev => append ? [...prev, ...rows] : rows);
+      setHasMore(rows.length === PAGE_SIZE);
+    } catch (err) {
+      setError("Greška pri učitavanju restorana. Provjeri Supabase konfiguraciju.");
+      console.error(err);
+    } finally {
+      if (isFirst) setLoading(false); else setLoadingMore(false);
+    }
+  };
 
-    load();
-  }, []);
+  useEffect(() => { fetchPage(0, false); }, []);
+
+  const loadMore = () => {
+    const next = page + 1;
+    setPage(next);
+    fetchPage(next, true);
+  };
 
   if (loading) {
     return (
@@ -73,6 +89,19 @@ export function RestaurantGrid() {
           <RestaurantCard key={r.id} restaurant={r} />
         ))}
       </div>
+      {hasMore && (
+        <div className="flex justify-center mt-8">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-[rgb(var(--border))] text-sm font-semibold text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.4)] transition-all disabled:opacity-50"
+          >
+            {loadingMore
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Učitavanje...</>
+              : "Prikaži više"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

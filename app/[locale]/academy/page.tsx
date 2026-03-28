@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { GraduationCap, Calculator, Brain, LayoutDashboard, Gamepad2 } from "lucide-react";
+import { GraduationCap, Calculator, Brain, LayoutDashboard, Gamepad2, Loader2 } from "lucide-react";
 import { BurnoffCalculator } from "@/components/academy/BurnoffCalculator";
 import { QuizSystem } from "@/components/academy/QuizSystem";
 import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
-import { CevapMemory } from "@/components/academy/CevapMemory";
-import { CevapNinja } from "@/components/academy/CevapNinja";
-import { CevapSnake } from "@/components/academy/CevapSnake";
-import { GuessTheCity } from "@/components/academy/GuessTheCity";
 import { cn } from "@/lib/utils";
+
+const GameLoader = () => (
+  <div className="flex items-center justify-center py-20">
+    <Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" />
+  </div>
+);
+
+const CevapMemory   = dynamic(() => import("@/components/academy/CevapMemory").then(m => ({ default: m.CevapMemory })),   { loading: GameLoader });
+const CevapNinja    = dynamic(() => import("@/components/academy/CevapNinja").then(m => ({ default: m.CevapNinja })),     { loading: GameLoader });
+const CevapSnake    = dynamic(() => import("@/components/academy/CevapSnake").then(m => ({ default: m.CevapSnake })),     { loading: GameLoader });
+const GuessTheCity  = dynamic(() => import("@/components/academy/GuessTheCity").then(m => ({ default: m.GuessTheCity })), { loading: GameLoader });
 
 type AcademyTab = "dashboard" | "quiz" | "burnoff" | "games";
 type ActiveGame = "memory" | "ninja" | "city" | "snake" | null;

@@ -13,7 +13,13 @@ import { RestaurantCard } from "@/components/finder/RestaurantCard";
 import { RestaurantGridSkeleton } from "@/components/finder/RestaurantCardSkeleton";
 import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/RestaurantDetailModal";
 import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
-import { RestaurantMap, type MapRestaurant } from "@/components/finder/RestaurantMap";
+import dynamic from "next/dynamic";
+import type { MapRestaurant } from "@/components/finder/RestaurantMap";
+
+const RestaurantMap = dynamic(
+  () => import("@/components/finder/RestaurantMap").then(m => ({ default: m.RestaurantMap })),
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-[500px]"><Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" /></div> }
+);
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import type { Restaurant, CevapStyle } from "@/types";
 import { cn } from "@/lib/utils";
@@ -238,7 +244,8 @@ export default function FinderPage() {
         let q: any = supabase
           .from("restaurants")
           .select("*")
-          .order("lepinja_rating", { ascending: false });
+          .order("lepinja_rating", { ascending: false })
+          .limit(200);
 
         if (debouncedSearch.trim()) q = q.ilike("name", `%${debouncedSearch.trim()}%`);
         if (selectedCity)           q = q.eq("city", selectedCity);
