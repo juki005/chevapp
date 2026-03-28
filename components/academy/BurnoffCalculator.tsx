@@ -39,21 +39,21 @@ export function BurnoffCalculator() {
   return (
     <div
       id="burnoff"
-      className="rounded-2xl border border-charcoal-700 dark:border-ugljen-border bg-charcoal-800/40 dark:bg-ugljen-surface/30 overflow-hidden"
+      className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] overflow-hidden"
     >
       {/* ── Title bar ── */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-charcoal-700 dark:border-ugljen-border bg-burnt-orange-500/5">
-        <div className="w-10 h-10 rounded-xl bg-burnt-orange-500/20 flex items-center justify-center">
-          <Calculator className="w-5 h-5 text-burnt-orange-400" />
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-[rgb(var(--border))] bg-[rgb(var(--primary)/0.05)]">
+        <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.15)] flex items-center justify-center">
+          <Calculator className="w-5 h-5 text-[rgb(var(--primary))]" />
         </div>
         <div>
           <h2
-            className="text-xl font-bold text-cream"
+            className="text-xl font-bold text-[rgb(var(--foreground))]"
             style={{ fontFamily: "Oswald, sans-serif" }}
           >
             {t("burnoffTitle")}
           </h2>
-          <p className="text-cream/60 text-xs">{t("burnoffSubtitle")}</p>
+          <p className="text-[rgb(var(--foreground)/0.6)] text-xs">{t("burnoffSubtitle")}</p>
         </div>
       </div>
 
@@ -64,32 +64,32 @@ export function BurnoffCalculator() {
         <div className="space-y-6">
           {/* Ćevap count */}
           <div>
-            <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-3">
+            <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-3">
               🍖 {t("cevapCount")}
             </label>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setCevapCount((c) => Math.max(1, c - 1))}
-                className="w-10 h-10 rounded-xl bg-charcoal-700 dark:bg-ugljen-border hover:bg-burnt-orange-500/20 text-cream transition-colors flex items-center justify-center"
+                className="w-10 h-10 rounded-xl bg-[rgb(var(--border)/0.8)] hover:bg-[rgb(var(--primary)/0.2)] text-[rgb(var(--foreground))] transition-colors flex items-center justify-center"
               >
                 <ChevronDown className="w-5 h-5" />
               </button>
 
               <div className="flex-1 text-center">
                 <span
-                  className="text-4xl font-bold text-burnt-orange-400"
+                  className="text-4xl font-bold text-[rgb(var(--primary))]"
                   style={{ fontFamily: "Oswald, sans-serif" }}
                 >
                   {cevapCount}
                 </span>
-                <span className="text-cream/60 text-sm ml-2">
+                <span className="text-[rgb(var(--foreground)/0.6)] text-sm ml-2">
                   kom × {CALORIE_DATA.cevap} kcal
                 </span>
               </div>
 
               <button
                 onClick={() => setCevapCount((c) => Math.min(30, c + 1))}
-                className="w-10 h-10 rounded-xl bg-charcoal-700 dark:bg-ugljen-border hover:bg-burnt-orange-500/20 text-cream transition-colors flex items-center justify-center"
+                className="w-10 h-10 rounded-xl bg-[rgb(var(--border)/0.8)] hover:bg-[rgb(var(--primary)/0.2)] text-[rgb(var(--foreground))] transition-colors flex items-center justify-center"
               >
                 <ChevronUp className="w-5 h-5" />
               </button>
@@ -104,8 +104,8 @@ export function BurnoffCalculator() {
                   className={cn(
                     "px-3 py-1 rounded-lg text-xs font-medium border transition-colors",
                     cevapCount === n
-                      ? "border-burnt-orange-500/60 bg-burnt-orange-500/20 text-burnt-orange-400"
-                      : "border-charcoal-600 dark:border-ugljen-border text-cream/60 hover:text-cream/90",
+                      ? "border-[rgb(var(--primary)/0.6)] bg-[rgb(var(--primary)/0.2)] text-[rgb(var(--primary))]"
+                      : "border-[rgb(var(--border))] text-[rgb(var(--foreground)/0.6)] hover:text-[rgb(var(--foreground)/0.9)]",
                   )}
                 >
                   {n} kom
@@ -116,7 +116,7 @@ export function BurnoffCalculator() {
 
           {/* Extras */}
           <div>
-            <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-3">
+            <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-3">
               🥗 {t("extras")}
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -132,8 +132,8 @@ export function BurnoffCalculator() {
                   className={cn(
                     "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm transition-all",
                     extras[key]
-                      ? "border-burnt-orange-500/60 bg-burnt-orange-500/15 text-burnt-orange-300"
-                      : "border-charcoal-600 dark:border-ugljen-border text-cream/70 hover:text-cream/90 hover:border-charcoal-500",
+                      ? "border-[rgb(var(--primary)/0.6)] bg-[rgb(var(--primary)/0.15)] text-[rgb(var(--primary))]"
+                      : "border-[rgb(var(--border))] text-[rgb(var(--foreground)/0.7)] hover:text-[rgb(var(--foreground)/0.9)] hover:border-[rgb(var(--border)/0.6)]",
                   )}
                 >
                   <span>{emoji}</span>
@@ -146,7 +146,7 @@ export function BurnoffCalculator() {
 
           {/* Body weight slider */}
           <div>
-            <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-3">
+            <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-3">
               ⚖️ {t("weight")}
             </label>
             <div className="flex items-center gap-3">
@@ -156,10 +156,10 @@ export function BurnoffCalculator() {
                 max={150}
                 value={weight}
                 onChange={(e) => setWeight(Number(e.target.value))}
-                className="flex-1 accent-burnt-orange-500"
+                className="flex-1 accent-[rgb(var(--primary))]"
               />
               <span
-                className="text-xl font-bold text-cream w-16 text-right"
+                className="text-xl font-bold text-[rgb(var(--foreground))] w-16 text-right"
                 style={{ fontFamily: "Oswald, sans-serif" }}
               >
                 {weight} kg
@@ -168,17 +168,17 @@ export function BurnoffCalculator() {
           </div>
 
           {/* Live calorie total */}
-          <div className="rounded-xl bg-charcoal-900/60 dark:bg-ugljen-bg/60 border border-charcoal-600 dark:border-ugljen-border p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-cream/80 text-sm">
-              <Flame className="w-4 h-4 text-burnt-orange-400" />
+          <div className="rounded-xl bg-[rgb(var(--background)/0.6)] border border-[rgb(var(--border))] p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[rgb(var(--foreground)/0.8)] text-sm">
+              <Flame className="w-4 h-4 text-[rgb(var(--primary))]" />
               {t("totalCalories")}:
             </div>
             <span
-              className="text-2xl font-bold text-burnt-orange-400"
+              className="text-2xl font-bold text-[rgb(var(--primary))]"
               style={{ fontFamily: "Oswald, sans-serif" }}
             >
               {totalCalories}{" "}
-              <span className="text-sm font-normal text-cream/60">kcal</span>
+              <span className="text-sm font-normal text-[rgb(var(--foreground)/0.6)]">kcal</span>
             </span>
           </div>
         </div>
@@ -187,7 +187,7 @@ export function BurnoffCalculator() {
             BALKAN WORKOUT PANEL (real-time)
         ════════════════════════════════════════ */}
         <div>
-          <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-4">
+          <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-4">
             🏋️ {t("burnoffTitle2")}
           </label>
 
@@ -200,18 +200,18 @@ export function BurnoffCalculator() {
               return (
                 <div
                   key={workout.key}
-                  className="rounded-2xl border border-charcoal-600 dark:border-ugljen-border bg-charcoal-900/40 dark:bg-ugljen-bg/40 p-4 hover:border-burnt-orange-500/30 transition-colors"
+                  className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--background)/0.4)] p-4 hover:border-[rgb(var(--primary)/0.3)] transition-colors"
                 >
                   {/* Name + time */}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{workout.emoji}</span>
-                      <span className="font-semibold text-cream text-sm">
+                      <span className="font-semibold text-[rgb(var(--foreground))] text-sm">
                         {workout.name}
                       </span>
                     </div>
                     <span
-                      className="font-bold text-burnt-orange-400 text-lg tabular-nums"
+                      className="font-bold text-[rgb(var(--primary))] text-lg tabular-nums"
                       style={{ fontFamily: "Oswald, sans-serif" }}
                     >
                       {formatTime(mins)}
@@ -219,19 +219,19 @@ export function BurnoffCalculator() {
                   </div>
 
                   {/* Progress bar — fills as calories increase */}
-                  <div className="h-2 rounded-full bg-charcoal-700 dark:bg-ugljen-border overflow-hidden">
+                  <div className="h-2 rounded-full bg-[rgb(var(--border))] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-burnt-orange-600 to-burnt-orange-400 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-[rgb(var(--primary)/0.8)] to-[rgb(var(--primary))] transition-all duration-500"
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
 
                   {/* Rate chip + fun fact */}
                   <div className="flex items-start justify-between mt-1.5 gap-2">
-                    <p className="text-cream/55 text-xs italic flex-1 leading-snug">
+                    <p className="text-[rgb(var(--foreground)/0.55)] text-xs italic flex-1 leading-snug">
                       {workout.funFact}
                     </p>
-                    <span className="shrink-0 text-[10px] text-cream/45 tabular-nums">
+                    <span className="shrink-0 text-[10px] text-[rgb(var(--foreground)/0.45)] tabular-nums">
                       {workout.kcalPerHour} kcal/h
                     </span>
                   </div>
@@ -241,8 +241,8 @@ export function BurnoffCalculator() {
           </div>
 
           {/* Disclaimer — spans full width below the grid */}
-          <div className="rounded-2xl border border-burnt-orange-500/20 bg-burnt-orange-500/5 p-4 text-center mt-1">
-            <p className="text-burnt-orange-400/80 text-xs italic">
+          <div className="rounded-2xl border border-[rgb(var(--primary)/0.2)] bg-[rgb(var(--primary)/0.05)] p-4 text-center mt-1">
+            <p className="text-[rgb(var(--primary)/0.8)] text-xs italic">
               ⚠️ Ovi izračuni su procjena za osobu od{" "}
               <span className="font-semibold not-italic">{weight} kg</span>.
               Konsultiraj liječnika, ne aplikaciju za ćevape.
