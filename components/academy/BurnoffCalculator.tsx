@@ -53,7 +53,7 @@ export function BurnoffCalculator() {
           >
             {t("burnoffTitle")}
           </h2>
-          <p className="text-cream/40 text-xs">{t("burnoffSubtitle")}</p>
+          <p className="text-cream/60 text-xs">{t("burnoffSubtitle")}</p>
         </div>
       </div>
 
@@ -64,7 +64,7 @@ export function BurnoffCalculator() {
         <div className="space-y-6">
           {/* Ćevap count */}
           <div>
-            <label className="block text-xs font-semibold text-cream/50 uppercase tracking-widest mb-3">
+            <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-3">
               🍖 {t("cevapCount")}
             </label>
             <div className="flex items-center gap-3">
@@ -82,7 +82,7 @@ export function BurnoffCalculator() {
                 >
                   {cevapCount}
                 </span>
-                <span className="text-cream/40 text-sm ml-2">
+                <span className="text-cream/60 text-sm ml-2">
                   kom × {CALORIE_DATA.cevap} kcal
                 </span>
               </div>
@@ -105,7 +105,7 @@ export function BurnoffCalculator() {
                     "px-3 py-1 rounded-lg text-xs font-medium border transition-colors",
                     cevapCount === n
                       ? "border-burnt-orange-500/60 bg-burnt-orange-500/20 text-burnt-orange-400"
-                      : "border-charcoal-600 dark:border-ugljen-border text-cream/40 hover:text-cream/70",
+                      : "border-charcoal-600 dark:border-ugljen-border text-cream/60 hover:text-cream/90",
                   )}
                 >
                   {n} kom
@@ -116,7 +116,7 @@ export function BurnoffCalculator() {
 
           {/* Extras */}
           <div>
-            <label className="block text-xs font-semibold text-cream/50 uppercase tracking-widest mb-3">
+            <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-3">
               🥗 {t("extras")}
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -133,12 +133,12 @@ export function BurnoffCalculator() {
                     "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm transition-all",
                     extras[key]
                       ? "border-burnt-orange-500/60 bg-burnt-orange-500/15 text-burnt-orange-300"
-                      : "border-charcoal-600 dark:border-ugljen-border text-cream/50 hover:text-cream/80",
+                      : "border-charcoal-600 dark:border-ugljen-border text-cream/70 hover:text-cream/90 hover:border-charcoal-500",
                   )}
                 >
                   <span>{emoji}</span>
                   <span className="font-medium">{label}</span>
-                  <span className="ml-auto text-xs opacity-60">+{cal}</span>
+                  <span className="ml-auto text-xs opacity-70">+{cal}</span>
                 </button>
               ))}
             </div>
@@ -146,7 +146,7 @@ export function BurnoffCalculator() {
 
           {/* Body weight slider */}
           <div>
-            <label className="block text-xs font-semibold text-cream/50 uppercase tracking-widest mb-3">
+            <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-3">
               ⚖️ {t("weight")}
             </label>
             <div className="flex items-center gap-3">
@@ -169,7 +169,7 @@ export function BurnoffCalculator() {
 
           {/* Live calorie total */}
           <div className="rounded-xl bg-charcoal-900/60 dark:bg-ugljen-bg/60 border border-charcoal-600 dark:border-ugljen-border p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-cream/60 text-sm">
+            <div className="flex items-center gap-2 text-cream/80 text-sm">
               <Flame className="w-4 h-4 text-burnt-orange-400" />
               {t("totalCalories")}:
             </div>
@@ -178,7 +178,7 @@ export function BurnoffCalculator() {
               style={{ fontFamily: "Oswald, sans-serif" }}
             >
               {totalCalories}{" "}
-              <span className="text-sm font-normal text-cream/40">kcal</span>
+              <span className="text-sm font-normal text-cream/60">kcal</span>
             </span>
           </div>
         </div>
@@ -187,7 +187,7 @@ export function BurnoffCalculator() {
             BALKAN WORKOUT PANEL (real-time)
         ════════════════════════════════════════ */}
         <div>
-          <label className="block text-xs font-semibold text-cream/50 uppercase tracking-widest mb-4">
+          <label className="block text-xs font-semibold text-cream/80 uppercase tracking-widest mb-4">
             🏋️ {t("burnoffTitle2")}
           </label>
 
@@ -228,10 +228,10 @@ export function BurnoffCalculator() {
 
                   {/* Rate chip + fun fact */}
                   <div className="flex items-start justify-between mt-1.5 gap-2">
-                    <p className="text-cream/30 text-xs italic flex-1 leading-snug">
+                    <p className="text-cream/55 text-xs italic flex-1 leading-snug">
                       {workout.funFact}
                     </p>
-                    <span className="shrink-0 text-[10px] text-cream/20 tabular-nums">
+                    <span className="shrink-0 text-[10px] text-cream/45 tabular-nums">
                       {workout.kcalPerHour} kcal/h
                     </span>
                   </div>
@@ -242,7 +242,7 @@ export function BurnoffCalculator() {
 
           {/* Disclaimer — spans full width below the grid */}
           <div className="rounded-2xl border border-burnt-orange-500/20 bg-burnt-orange-500/5 p-4 text-center mt-1">
-            <p className="text-burnt-orange-400/70 text-xs italic">
+            <p className="text-burnt-orange-400/80 text-xs italic">
               ⚠️ Ovi izračuni su procjena za osobu od{" "}
               <span className="font-semibold not-italic">{weight} kg</span>.
               Konsultiraj liječnika, ne aplikaciju za ćevape.
