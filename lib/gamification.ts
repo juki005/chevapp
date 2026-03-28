@@ -133,7 +133,8 @@ export async function awardXP(
   // Try the streak-tracking RPC (may not exist in all envs — always ignore errors)
   let rpcXP: number | null = null;
   try {
-    const { data: rpcData, error: rpcErr } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rpcData, error: rpcErr } = await (supabase as any)
       .rpc("award_xp", { p_user_id: userId, p_points: points })
       .single();
     if (!rpcErr && rpcData) {
@@ -189,7 +190,8 @@ export async function claimDailyChallenge(
   supabase: GameClient,
   points:   number = 30
 ): Promise<{ success: boolean; alreadyClaimed: boolean }> {
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .rpc("claim_daily_challenge", { p_user_id: userId, p_points: points })
     .single();
 
