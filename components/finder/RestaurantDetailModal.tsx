@@ -55,9 +55,9 @@ function haptic(style: "light" | "medium" = "light") {
 
 // ── XP helper ─────────────────────────────────────────────────────────────────
 async function awardXP(userId: string, amount: number) {
-  const supabase = createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount } as any);
+  const supabase = createClient() as any;
+  await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount });
   window.dispatchEvent(new CustomEvent("chevapp:stats_updated", { detail: {} }));
 }
 
@@ -117,7 +117,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     if (!restaurant) return;
 
     const localKey = restaurant.id ?? `${restaurant.name}::${restaurant.city}`;
-    const supabase = createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
     setDataLoading(true);
 
     const fetches: Promise<void>[] = [];
@@ -214,12 +215,12 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     setFavLoading(true);
     try {
       if (restaurant.id && userId) {
-        const supabase = createClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const supabase = createClient() as any;
         if (isFav) {
           await supabase.from("user_favorites").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await supabase.from("user_favorites").insert({ user_id: userId, restaurant_id: restaurant.id } as any);
+          await supabase.from("user_favorites").insert({ user_id: userId, restaurant_id: restaurant.id });
         }
         setIsFav((v) => !v);
       } else {
@@ -239,12 +240,12 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     setWishLoading(true);
     try {
       if (restaurant.id && userId) {
-        const supabase = createClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const supabase = createClient() as any;
         if (isWish) {
           await supabase.from("user_wishlist").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await supabase.from("user_wishlist").insert({ user_id: userId, restaurant_id: restaurant.id } as any);
+          await supabase.from("user_wishlist").insert({ user_id: userId, restaurant_id: restaurant.id });
         }
         setIsWish((v) => !v);
       } else {
@@ -264,14 +265,14 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     setTagLoading(true);
 
     try {
-      const supabase = createClient();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabase = createClient() as any;
 
       // Toggling the same tag off
       if (dbStyleTag === style) {
         const targetId = dbRestaurantId ?? restaurant.id;
         if (targetId) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error } = await supabase.from("restaurants").update({ style: null } as any).eq("id", targetId);
+          const { error } = await supabase.from("restaurants").update({ style: null }).eq("id", targetId);
           if (error) throw error;
           setDbStyleTag(null);
           setToast("Stil uklonjen ✓");
@@ -282,8 +283,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       // ── Case A: existing DB restaurant ───────────────────────────────────
       if (restaurant.id) {
         const hadNoStyle = !dbStyleTag;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await supabase.from("restaurants").update({ style } as any).eq("id", restaurant.id);
+        const { error } = await supabase.from("restaurants").update({ style }).eq("id", restaurant.id);
         if (error) throw error;
         setDbStyleTag(style);
         if (hadNoStyle) {
@@ -307,8 +307,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
       if (existing) {
         const hadNoStyle = !existing.style;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await supabase.from("restaurants").update({ style } as any).eq("id", existing.id);
+        const { error } = await supabase.from("restaurants").update({ style }).eq("id", existing.id);
         if (error) throw error;
         setDbRestaurantId(existing.id);
         setDbStyleTag(style);
@@ -322,7 +321,6 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         // Insert community-contributed restaurant
         const { data: newRow, error } = await supabase
           .from("restaurants")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .insert({
             name:            restaurant.name,
             city:            restaurant.city,
@@ -334,7 +332,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
             longitude:       restaurant.lng  ?? null,
             lepinja_rating:  0,
             tags:            [],
-          } as any)
+          })
           .select("id")
           .single();
         if (error) throw error;
