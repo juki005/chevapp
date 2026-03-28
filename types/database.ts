@@ -15,7 +15,7 @@ export type CevapStyle =
   | "Leskovački"
   | "Ostalo";
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       profiles: {

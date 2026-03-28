@@ -9,8 +9,6 @@ import {
 import { AccommodationModal } from "@/components/finder/AccommodationModal";
 import { StyleTagSection, type CevapStyle } from "@/components/finder/modal/StyleTagSection";
 import { createClient } from "@/lib/supabase/client";
-import { createBrowserClient } from "@supabase/ssr";
-import type { Database } from "@/types/database";
 
 // ── Shared type ────────────────────────────────────────────────────────────────
 export interface ProfileTarget {
@@ -57,13 +55,7 @@ function haptic(style: "light" | "medium" = "light") {
 
 // ── XP helper ─────────────────────────────────────────────────────────────────
 async function awardXP(userId: string, amount: number) {
-  // createBrowserClient<Database> used directly (not through the createClient()
-  // wrapper) so TypeScript can resolve the Database generic and type-check
-  // the rpc() args correctly — same pattern used in lib/gamification.ts.
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
   await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount });
   window.dispatchEvent(new CustomEvent("chevapp:stats_updated", { detail: {} }));
 }
