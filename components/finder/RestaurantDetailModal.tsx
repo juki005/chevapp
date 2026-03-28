@@ -218,7 +218,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         if (isFav) {
           await supabase.from("user_favorites").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
         } else {
-          await supabase.from("user_favorites").insert({ user_id: userId, restaurant_id: restaurant.id });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await supabase.from("user_favorites").insert({ user_id: userId, restaurant_id: restaurant.id } as any);
         }
         setIsFav((v) => !v);
       } else {
@@ -242,7 +243,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         if (isWish) {
           await supabase.from("user_wishlist").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
         } else {
-          await supabase.from("user_wishlist").insert({ user_id: userId, restaurant_id: restaurant.id });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await supabase.from("user_wishlist").insert({ user_id: userId, restaurant_id: restaurant.id } as any);
         }
         setIsWish((v) => !v);
       } else {
@@ -268,7 +270,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       if (dbStyleTag === style) {
         const targetId = dbRestaurantId ?? restaurant.id;
         if (targetId) {
-          const { error } = await supabase.from("restaurants").update({ style: null }).eq("id", targetId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error } = await supabase.from("restaurants").update({ style: null } as any).eq("id", targetId);
           if (error) throw error;
           setDbStyleTag(null);
           setToast("Stil uklonjen ✓");
@@ -279,7 +282,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       // ── Case A: existing DB restaurant ───────────────────────────────────
       if (restaurant.id) {
         const hadNoStyle = !dbStyleTag;
-        const { error } = await supabase.from("restaurants").update({ style }).eq("id", restaurant.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await supabase.from("restaurants").update({ style } as any).eq("id", restaurant.id);
         if (error) throw error;
         setDbStyleTag(style);
         if (hadNoStyle) {
@@ -303,7 +307,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
       if (existing) {
         const hadNoStyle = !existing.style;
-        const { error } = await supabase.from("restaurants").update({ style }).eq("id", existing.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await supabase.from("restaurants").update({ style } as any).eq("id", existing.id);
         if (error) throw error;
         setDbRestaurantId(existing.id);
         setDbStyleTag(style);
@@ -317,6 +322,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         // Insert community-contributed restaurant
         const { data: newRow, error } = await supabase
           .from("restaurants")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .insert({
             name:            restaurant.name,
             city:            restaurant.city,
@@ -328,7 +334,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
             longitude:       restaurant.lng  ?? null,
             lepinja_rating:  0,
             tags:            [],
-          })
+          } as any)
           .select("id")
           .single();
         if (error) throw error;
