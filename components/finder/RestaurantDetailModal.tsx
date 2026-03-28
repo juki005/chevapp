@@ -9,6 +9,7 @@ import {
 import { AccommodationModal } from "@/components/finder/AccommodationModal";
 import { StyleTagSection, type CevapStyle } from "@/components/finder/modal/StyleTagSection";
 import { createClient } from "@/lib/supabase/client";
+import type { GameClient } from "@/lib/gamification";
 
 // ── Shared type ────────────────────────────────────────────────────────────────
 export interface ProfileTarget {
@@ -55,7 +56,7 @@ function haptic(style: "light" | "medium" = "light") {
 
 // ── XP helper ─────────────────────────────────────────────────────────────────
 async function awardXP(userId: string, amount: number) {
-  const supabase = createClient();
+  const supabase = createClient() as GameClient;
   await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount });
   window.dispatchEvent(new CustomEvent("chevapp:stats_updated", { detail: {} }));
 }
