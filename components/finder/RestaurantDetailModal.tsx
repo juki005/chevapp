@@ -159,31 +159,35 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     // Load existing style tag if this is a Google Places restaurant
     if (restaurant.google_place_id) {
       fetches.push(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from("restaurants") as any)
-          .select("id, style")
-          .eq("google_place_id", restaurant.google_place_id)
-          .maybeSingle()
-          .then(({ data }: { data: { id: string; style: string | null } | null }) => {
-            if (data) {
-              setDbRestaurantId(data.id);
-              setDbStyleTag((data.style as CevapStyle) ?? null);
-            }
-          })
+        Promise.resolve(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from("restaurants") as any)
+            .select("id, style")
+            .eq("google_place_id", restaurant.google_place_id)
+            .maybeSingle()
+            .then(({ data }: { data: { id: string; style: string | null } | null }) => {
+              if (data) {
+                setDbRestaurantId(data.id);
+                setDbStyleTag((data.style as CevapStyle) ?? null);
+              }
+            })
+        )
       );
     }
 
     // Load style tag for existing DB restaurants
     if (restaurant.id) {
       fetches.push(
-        supabase
-          .from("restaurants")
-          .select("style")
-          .eq("id", restaurant.id)
-          .maybeSingle()
-          .then(({ data }: { data: { style: string | null } | null }) => {
-            if (data) setDbStyleTag((data.style as CevapStyle) ?? null);
-          })
+        Promise.resolve(
+          supabase
+            .from("restaurants")
+            .select("style")
+            .eq("id", restaurant.id)
+            .maybeSingle()
+            .then(({ data }: { data: { style: string | null } | null }) => {
+              if (data) setDbStyleTag((data.style as CevapStyle) ?? null);
+            })
+        )
       );
     }
 
