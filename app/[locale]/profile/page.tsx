@@ -405,8 +405,13 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-24 h-24 rounded-2xl bg-[rgb(var(--border)/0.5)] flex items-center justify-center text-5xl border-2 border-[rgb(var(--primary)/0.3)]">
-                {avatarEmoji ?? "🧑‍🍳"}
+              <div className="w-24 h-24 rounded-2xl bg-[rgb(var(--border)/0.5)] flex items-center justify-center text-5xl border-2 border-[rgb(var(--primary)/0.3)] overflow-hidden">
+                {avatarEmoji?.startsWith("http") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarEmoji} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  avatarEmoji ?? "🧑‍🍳"
+                )}
               </div>
               <button
                 onClick={() => setEditModalOpen(true)}
@@ -1258,6 +1263,7 @@ export default function ProfilePage() {
         currentGender={genderDB}
         currentWeight={weightKgDB}
         currentHeight={heightCmDB}
+        userId={userId}
         onSaved={({ username, avatar_url, favorite_style }) => {
           setDisplayName(username);
           setAvatarEmoji(avatar_url);

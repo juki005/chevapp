@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { X, Loader2, CheckCircle, User } from "lucide-react";
+import { X, Loader2, CheckCircle, User, Upload, ImagePlus } from "lucide-react";
 import { updateProfile } from "@/lib/actions/profile";
 import { getRank } from "@/lib/gamification";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { CevapStyle } from "@/types/database";
 
@@ -30,6 +31,7 @@ export interface EditProfileModalProps {
   currentGender?: string | null;
   currentWeight?: number | null;
   currentHeight?: number | null;
+  userId?:        string | null;
   onSaved: (updates: { username: string; avatar_url: string | null; favorite_style: CevapStyle | null }) => void;
 }
 
@@ -39,6 +41,12 @@ const GENDER_OPTIONS = [
   { value: "female", label: "Žensko" },
   { value: "other",  label: "Ostalo" },
 ];
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+function isImageUrl(val: string | null): boolean {
+  return !!val && (val.startsWith("http://") || val.startsWith("https://"));
+}
 
 export function EditProfileModal({
   isOpen,
@@ -51,6 +59,7 @@ export function EditProfileModal({
   currentGender,
   currentWeight,
   currentHeight,
+  userId,
   onSaved,
 }: EditProfileModalProps) {
   const [username,       setUsername]       = useState(currentName);
@@ -64,6 +73,14 @@ export function EditProfileModal({
   const [error,          setError]          = useState<string | null>(null);
   const [saved,          setSaved]          = useState(false);
 
+  // Avatar mode: emoji picker vs photo upload
+  const [avatarMode,     setAvatarMode]     = useState<"emoji" | "upload">(
+    isImageUrl(currentAvatar) ? "upload" : "emoji"
+  );
+  const [uploadLoading,  setUploadLoading]  = useState(false);
+  const [uploadError,    setUploadError]    = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Sync props → state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -74,7 +91,9 @@ export function EditProfileModal({
       setGender(currentGender ?? "");
       setWeightKg(currentWeight != null ? String(currentWeight) : "");
       setHeightCm(currentHeight != null ? String(currentHeight) : "");
+      setAvatarMode(isImageUrl(currentAvatar) ? "upload" : "emoji");
       setError(null);
+      setUploadError(null);
       setSaved(false);
     }
   }, [isOpen, currentName, currentAvatar, currentStyle, currentBio, currentGender, currentWeight, currentHeight]);
@@ -86,9 +105,72 @@ export function EditProfileModal({
   const rank = getRank(currentXP);
 
   const handleClose = () => {
-    if (!loading) onClose();
+    if (!loading && !uploadLoading) onClose();
   };
 
+  // ── Image upload ────────────────────────────────────────────────────────────
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_BYTES) {
+      setUploadError("Slika je prevelika. Maksimalna veličina je 5 MB.");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Odabrana datoteka nije slika.");
+      return;
+    }
+
+    setUploadError(null);
+    setUploadLoading(true);
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabase = createClient() as any;
+
+      // Resolve userId from auth if not passed as prop
+      let uid = userId;
+      if (!uid) {
+        const { data: { user } } = await supabase.auth.getUser();
+        uid = user?.id ?? null;
+      }
+      if (!uid) throw new Error("Nisi prijavljen/a.");
+
+      const ext  = file.name.split(".").pop() ?? "jpg";
+      const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+      const { error: storageError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+
+      if (storageError) throw storageError;
+
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      setSelectedAvatar(urlData.publicUrl as string);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Greška pri učitavanju slike.";
+      setUploadError(msg);
+    } finally {
+      setUploadLoading(false);
+      // Reset file input so the same file can be re-selected if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleModeSwitch = (mode: "emoji" | "upload") => {
+    setAvatarMode(mode);
+    setUploadError(null);
+    // When switching to emoji mode, clear any image URL (and vice versa)
+    if (mode === "emoji" && isImageUrl(selectedAvatar)) {
+      setSelectedAvatar(null);
+    }
+    if (mode === "upload" && !isImageUrl(selectedAvatar)) {
+      setSelectedAvatar(null);
+    }
+  };
+
+  // ── Form submit ─────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -123,7 +205,7 @@ export function EditProfileModal({
     setTimeout(() => { onClose(); }, 1200);
   };
 
-  // ── Success state ─────────────────────────────────────────────────────────
+  // ── Success state ───────────────────────────────────────────────────────────
   if (saved) {
     return (
       <div
@@ -154,10 +236,10 @@ export function EditProfileModal({
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      <div className="relative w-full max-w-md bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-[rgb(var(--border))]">
+        <div className="px-6 pt-5 pb-4 border-b border-[rgb(var(--border))] flex-shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2
@@ -184,46 +266,155 @@ export function EditProfileModal({
           </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+        {/* Form — scrollable */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
 
-          {/* Avatar picker */}
+          {/* ── Avatar section ── */}
           <div>
             <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-3">
               Avatar
             </label>
-            <div className="grid grid-cols-8 gap-2">
-              {AVATARS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setSelectedAvatar(emoji === selectedAvatar ? null : emoji)}
-                  className={cn(
-                    "w-10 h-10 rounded-xl text-2xl flex items-center justify-center border-2 transition-all hover:scale-110 active:scale-95",
-                    selectedAvatar === emoji
-                      ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.12)] scale-110"
-                      : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.4)]"
-                  )}
-                  aria-label={emoji}
-                >
-                  {emoji}
-                </button>
-              ))}
-              {/* No avatar option */}
+
+            {/* Mode toggle */}
+            <div className="flex rounded-xl border border-[rgb(var(--border))] overflow-hidden mb-3 text-sm font-medium">
               <button
                 type="button"
-                onClick={() => setSelectedAvatar(null)}
+                onClick={() => handleModeSwitch("emoji")}
                 className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all",
-                  selectedAvatar === null
-                    ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.12)]"
-                    : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.4)]"
+                  "flex-1 py-2 flex items-center justify-center gap-1.5 transition-colors",
+                  avatarMode === "emoji"
+                    ? "bg-[rgb(var(--primary)/0.15)] text-[rgb(var(--primary))]"
+                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
                 )}
-                aria-label="Bez avatara"
               >
-                <User className="w-4 h-4 text-[rgb(var(--muted))]" />
+                🎭 Emoji
+              </button>
+              <div className="w-px bg-[rgb(var(--border))]" />
+              <button
+                type="button"
+                onClick={() => handleModeSwitch("upload")}
+                className={cn(
+                  "flex-1 py-2 flex items-center justify-center gap-1.5 transition-colors",
+                  avatarMode === "upload"
+                    ? "bg-[rgb(var(--primary)/0.15)] text-[rgb(var(--primary))]"
+                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                )}
+              >
+                <ImagePlus className="w-3.5 h-3.5" /> Slika
               </button>
             </div>
+
+            {/* ── Emoji picker ── */}
+            {avatarMode === "emoji" && (
+              <div className="grid grid-cols-9 gap-2">
+                {AVATARS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setSelectedAvatar(emoji === selectedAvatar ? null : emoji)}
+                    className={cn(
+                      "w-10 h-10 rounded-xl text-2xl flex items-center justify-center border-2 transition-all hover:scale-110 active:scale-95",
+                      selectedAvatar === emoji
+                        ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.12)] scale-110"
+                        : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.4)]"
+                    )}
+                    aria-label={emoji}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                {/* No avatar */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedAvatar(null)}
+                  className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all",
+                    selectedAvatar === null
+                      ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.12)]"
+                      : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.4)]"
+                  )}
+                  aria-label="Bez avatara"
+                >
+                  <User className="w-4 h-4 text-[rgb(var(--muted))]" />
+                </button>
+              </div>
+            )}
+
+            {/* ── Photo upload ── */}
+            {avatarMode === "upload" && (
+              <div className="space-y-3">
+                {/* Preview / drop zone */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadLoading}
+                  className={cn(
+                    "w-full h-36 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer",
+                    uploadLoading
+                      ? "border-[rgb(var(--border))] opacity-60 cursor-not-allowed"
+                      : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.5)] hover:bg-[rgb(var(--primary)/0.04)]"
+                  )}
+                >
+                  {uploadLoading ? (
+                    <>
+                      <Loader2 className="w-6 h-6 animate-spin text-[rgb(var(--primary))]" />
+                      <span className="text-xs text-[rgb(var(--muted))]">Učitavanje…</span>
+                    </>
+                  ) : isImageUrl(selectedAvatar) ? (
+                    // Show current photo preview
+                    <div className="relative w-full h-full rounded-2xl overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={selectedAvatar!}
+                        alt="Avatar preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1 opacity-0 hover:opacity-100 transition-opacity">
+                        <Upload className="w-5 h-5 text-white" />
+                        <span className="text-xs text-white font-medium">Zamijeni sliku</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.1)] flex items-center justify-center">
+                        <Upload className="w-5 h-5 text-[rgb(var(--primary))]" />
+                      </div>
+                      <span className="text-sm font-medium text-[rgb(var(--foreground)/0.8)]">
+                        Odaberi fotografiju
+                      </span>
+                      <span className="text-xs text-[rgb(var(--muted))]">
+                        JPG, PNG, WEBP · max 5 MB
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                {/* Remove photo link (only if an image is selected) */}
+                {isImageUrl(selectedAvatar) && !uploadLoading && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAvatar(null)}
+                    className="text-xs text-[rgb(var(--muted))] hover:text-red-400 transition-colors mx-auto block"
+                  >
+                    Ukloni sliku
+                  </button>
+                )}
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+
+                {/* Upload error */}
+                {uploadError && (
+                  <p className="text-xs text-red-400 text-center">{uploadError}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Username */}
@@ -268,7 +459,7 @@ export function EditProfileModal({
               onChange={(e) => setBio(e.target.value)}
               maxLength={200}
               rows={3}
-              placeholder="Kratko o sebi... npr. Sarajlija, ljubitelj Sarajevskog stila, tražim savršeni ćevap."
+              placeholder="Kratko o sebi… npr. Sarajlija, ljubitelj Sarajevskog stila, tražim savršeni ćevap."
               className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors resize-none"
             />
             <p className="text-right text-xs text-[rgb(var(--muted))] mt-1">{bio.length}/200</p>
@@ -343,7 +534,7 @@ export function EditProfileModal({
             </button>
             <button
               type="submit"
-              disabled={loading || !username.trim()}
+              disabled={loading || uploadLoading || !username.trim()}
               className="flex-1 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
               style={{ fontFamily: "Oswald, sans-serif" }}
             >
