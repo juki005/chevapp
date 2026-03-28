@@ -269,6 +269,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
           const { error } = await (supabase.from("restaurants") as any).update({ style: null }).eq("id", targetId);
           if (error) throw error;
           setDbStyleTag(null);
+          setToast("Stil uklonjen ✓");
         }
         return;
       }
@@ -319,7 +320,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
           .insert({
             name:             restaurant.name,
             city:             restaurant.city,
-            address:          restaurant.address ?? null,
+            address:          restaurant.address || "",
             google_place_id:  placeId,
             style,
             is_verified:      false,
@@ -332,19 +333,20 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
           .single();
         if (error) throw error;
 
-        if (newRow) {
-          setDbRestaurantId((newRow as { id: string }).id);
-          setDbStyleTag(style);
-          try { await awardXP(userId, 15); } catch { /* XP failure is non-critical */ }
-          setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
-          window.dispatchEvent(new CustomEvent("chevapp:restaurant_tagged", {
-            detail: { google_place_id: placeId, style, name: restaurant.name, city: restaurant.city },
-          }));
-        }
+        // Success — update state regardless of whether .select() returned the row
+        // (RLS timing or policy gaps can make newRow null even on a successful INSERT)
+        if (newRow) setDbRestaurantId((newRow as { id: string }).id);
+        setDbStyleTag(style);
+        try { await awardXP(userId, 15); } catch { /* XP failure is non-critical */ }
+        setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+        window.dispatchEvent(new CustomEvent("chevapp:restaurant_tagged", {
+          detail: { google_place_id: placeId, style, name: restaurant.name, city: restaurant.city },
+        }));
       }
     } catch (err) {
+      const detail = (err as { message?: string })?.message ?? String(err);
       console.error("[handleTagStyle] failed:", err);
-      setToast("Greška pri spremanju stila. Pokušaj ponovo.");
+      setToast(`Greška: ${detail.slice(0, 80)}`);
     } finally {
       setTagLoading(false);
     }
