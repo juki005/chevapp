@@ -28,8 +28,9 @@ export async function updateProfile(
   input: UpdateProfileInput
 ): Promise<UpdateProfileResult> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = (await createClient()) as any;
+    const { data: { user } }: { data: { user: { id: string } | null } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Nisi prijavljen/a." };
 
     const username = input.username.trim();

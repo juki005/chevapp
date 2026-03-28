@@ -149,7 +149,8 @@ export async function awardXP(
   // risks overwriting a concurrent award that landed between our getUserStats
   // call and now.
   if (rpcXP === null) {
-    await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
       .from("profiles")
       .upsert(
         { id: userId, xp_points: newXP, updated_at: new Date().toISOString() },

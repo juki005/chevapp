@@ -41,8 +41,9 @@ export async function recordUserActivity(
   };
 
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = (await createClient()) as any;
+    const { data: { user } }: { data: { user: { id: string } | null } } = await supabase.auth.getUser();
     if (!user) return fallback;
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
@@ -109,11 +110,7 @@ export async function recordUserActivity(
     const currentXP = profileData?.xp_points ?? 0;
     await supabase
       .from("profiles")
-      .update({
-        xp_points:  currentXP + DAILY_BONUS_XP,
-        updated_at: new Date().toISOString(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as never)
+      .update({ xp_points: currentXP + DAILY_BONUS_XP, updated_at: new Date().toISOString() })
       .eq("id", user.id);
 
     // Invalidate server-rendered pages that display XP / streak
