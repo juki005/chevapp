@@ -14,7 +14,7 @@ import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import CityAutocomplete from "@/components/finder/CityAutocomplete";
 import type { Restaurant } from "@/types";
 import type { RouteRestaurant, SearchArgs } from "@/components/finder/RouteMapClient";
-import type { PlaceResult } from "@/app/api/places/route";
+import type { PlaceResult } from "@/types/places";
 
 // ── Map loaded client-side only (uses window / Google Maps JS API) ─────────────
 const RouteMap = dynamic(() => import("@/components/finder/RouteMapClient"), {

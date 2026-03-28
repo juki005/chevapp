@@ -36,6 +36,8 @@ export interface Database {
           condiment_pref:       "kajmak" | "ajvar" | null;
           home_city:            string | null;
           weight_kg:            number | null;
+          height_cm:            number | null;
+          gender:               string | null;
           is_admin:             boolean;
         };
         Insert: {
@@ -55,6 +57,8 @@ export interface Database {
           condiment_pref?: "kajmak" | "ajvar" | null;
           home_city?: string | null;
           weight_kg?: number | null;
+          height_cm?: number | null;
+          gender?: string | null;
           is_admin?: boolean;
         };
         Update: {
@@ -74,6 +78,8 @@ export interface Database {
           condiment_pref?: "kajmak" | "ajvar" | null;
           home_city?: string | null;
           weight_kg?: number | null;
+          height_cm?: number | null;
+          gender?: string | null;
           is_admin?: boolean;
         };
         Relationships: [];
@@ -96,7 +102,11 @@ export interface Database {
           gallery_urls: string[];
           is_verified: boolean;
           status_reports: Json[];
-          foursquare_id: string | null;
+          foursquare_id:    string | null;
+          google_place_id:  string | null;
+          slug:             string | null;
+          rating:           number | null;
+          review_count:     number | null;
         };
         Insert: {
           id?: string;
@@ -116,12 +126,16 @@ export interface Database {
           is_verified?: boolean;
           status_reports?: Json[];
           foursquare_id?: string | null;
+          google_place_id?: string | null;
+          slug?: string | null;
+          rating?: number | null;
+          review_count?: number | null;
         };
         Update: {
           id?: string;
           created_at?: string;
           name?: string;
-          style?: CevapStyle;
+          style?: CevapStyle | null;   // nullable — allows clearing a crowdsourced tag
           city?: string;
           address?: string;
           latitude?: number | null;
@@ -135,6 +149,10 @@ export interface Database {
           is_verified?: boolean;
           status_reports?: Json[];
           foursquare_id?: string | null;
+          google_place_id?: string | null;
+          slug?: string | null;
+          rating?: number | null;
+          review_count?: number | null;
         };
         Relationships: [];
       };

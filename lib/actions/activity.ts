@@ -81,8 +81,7 @@ export async function recordUserActivity(
     }
 
     // ── Update user_stats ──────────────────────────────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: statsError } = await (supabase as any)
+    const { error: statsError } = await supabase
       .from("user_stats")
       .upsert(
         {

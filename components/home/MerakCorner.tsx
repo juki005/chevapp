@@ -47,7 +47,7 @@ function findTodayIndex(words: Word[]): number {
   const pool = words.filter((w) => w.display_date === null);
   if (pool.length > 0) {
     const dayOfYear = Math.floor(
-      (new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+      (Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 1)) / 86400000
     );
     const todayWord = pool[dayOfYear % pool.length];
     const idx = words.findIndex((w) => w.id === todayWord.id);

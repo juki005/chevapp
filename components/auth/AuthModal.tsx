@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Flame, Mail, Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "@/lib/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,8 @@ function GoogleIcon() {
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+  const t = useTranslations("auth");
+  const tCommon = useTranslations("common");
   const router = useRouter();
 
   const [tab,           setTab]           = useState<AuthTab>("login");
@@ -46,7 +49,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setError(null); setSuccess(null); setLoading(false);
   };
 
-  const switchTab = (t: AuthTab) => { reset(); setTab(t); };
+  const switchTab = (newTab: AuthTab) => { reset(); setTab(newTab); };
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
@@ -63,12 +66,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         },
       });
       if (err) {
-        setError("Google prijava nije uspjela. Provjeri Supabase konfiguraciju.");
+        setError(t("errorGoogle"));
         setGoogleLoading(false);
       }
       // On success the browser navigates away — spinner stays intentionally.
     } catch {
-      setError("Neočekivana greška. Pokušaj ponovo.");
+      setError(t("errorUnexpected"));
       setGoogleLoading(false);
     } finally {
       clearTimeout(resetTimer);
@@ -88,7 +91,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       if (err) {
         setError(
           err.message === "Invalid login credentials"
-            ? "Pogrešan e-mail ili lozinka."
+            ? t("errorWrongCredentials")
             : err.message
         );
         setLoading(false);
@@ -113,16 +116,16 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         setLoading(false);
         return;
       }
-      setSuccess("Provjeri e-mail i potvrdi registraciju. Nakon toga se možeš prijaviti.");
+      setSuccess(t("errorCheckEmail"));
       setLoading(false);
     }
   };
 
   // Friendly error mapping
   const friendlyError = (msg: string) => {
-    if (msg.includes("already registered")) return "Ovaj e-mail je već registriran.";
-    if (msg.includes("Password should be at least")) return "Lozinka mora imati najmanje 6 znakova.";
-    if (msg.includes("valid email")) return "Unesi ispravnu e-mail adresu.";
+    if (msg.includes("already registered")) return t("errorEmailExists");
+    if (msg.includes("Password should be at least")) return t("errorPasswordShort");
+    if (msg.includes("valid email")) return t("errorInvalidEmail");
     return msg;
   };
 
@@ -149,11 +152,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             </span>
           </div>
           <p className="text-xs text-[rgb(var(--muted))] mt-0.5">
-            {tab === "login" ? "Prijavi se u svoj account" : "Kreiraj besplatan account"}
+            {tab === "login" ? t("loginTitle") : t("registerTitle")}
           </p>
           <button
             onClick={() => { reset(); onClose(); }}
-            aria-label="Zatvori"
+            aria-label={tCommon("close")}
             className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)] transition-colors"
           >
             <X className="w-4 h-4" />
@@ -162,18 +165,18 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
         {/* Tabs */}
         <div className="flex border-b border-[rgb(var(--border))]">
-          {(["login", "register"] as AuthTab[]).map((t) => (
+          {(["login", "register"] as AuthTab[]).map((tabKey) => (
             <button
-              key={t}
-              onClick={() => switchTab(t)}
+              key={tabKey}
+              onClick={() => switchTab(tabKey)}
               className={cn(
                 "flex-1 py-3 text-sm font-semibold transition-colors",
-                tab === t
+                tab === tabKey
                   ? "text-[rgb(var(--primary))] border-b-2 border-[rgb(var(--primary))]"
                   : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
               )}
             >
-              {t === "login" ? "Prijavi se" : "Registriraj se"}
+              {tabKey === "login" ? t("tabSignIn") : t("tabRegister")}
             </button>
           ))}
         </div>
@@ -191,26 +194,26 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             {googleLoading
               ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
               : <GoogleIcon />}
-            Nastavi putem Googlea
+            {t("continueWithGoogle")}
           </button>
 
           {/* ── Divider ────────────────────────────────────────────────── */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-[rgb(var(--border))]" />
-            <span className="text-xs text-[rgb(var(--muted))] select-none">ili</span>
+            <span className="text-xs text-[rgb(var(--muted))] select-none">{t("dividerOr")}</span>
             <div className="flex-1 h-px bg-[rgb(var(--border))]" />
           </div>
 
           {tab === "register" && (
             <div>
-              <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">Ime i prezime</label>
+              <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">{t("fullName")}</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Tvoje ime"
+                  placeholder={t("namePlaceholder")}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.6)] transition-colors"
                 />
               </div>
@@ -218,7 +221,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           )}
 
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">E-mail</label>
+            <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">{t("email")}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
               <input
@@ -233,7 +236,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </div>
 
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">Lozinka</label>
+            <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">{t("password")}</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
               <input
@@ -242,7 +245,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={tab === "register" ? "Min. 6 znakova" : "••••••••"}
+                placeholder={tab === "register" ? t("passwordMin") : "••••••••"}
                 className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.6)] transition-colors"
               />
               <button
@@ -277,24 +280,24 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {loading
-              ? (tab === "login" ? "Prijavljivanje…" : "Registriranje…")
-              : (tab === "login" ? "Prijavi se" : "Kreiraj account")}
+              ? (tab === "login" ? t("signingIn") : t("signingUp"))
+              : (tab === "login" ? t("tabSignIn") : t("createAccount"))}
           </button>
 
           {/* Switch tab hint */}
           <p className="text-center text-xs text-[rgb(var(--muted))]">
             {tab === "login" ? (
-              <>Nemaš account?{" "}
+              <>{t("noAccount")}{" "}
                 <button type="button" onClick={() => switchTab("register")}
                   className="text-[rgb(var(--primary))] hover:underline">
-                  Registriraj se
+                  {t("tabRegister")}
                 </button>
               </>
             ) : (
-              <>Već imaš account?{" "}
+              <>{t("hasAccount")}{" "}
                 <button type="button" onClick={() => switchTab("login")}
                   className="text-[rgb(var(--primary))] hover:underline">
-                  Prijavi se
+                  {t("tabSignIn")}
                 </button>
               </>
             )}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { PlaceResult } from "@/types/places";
 
 // ── Google Places Text Search proxy ──────────────────────────────────────────
 // Keeps the API key server-side (GOOGLE_MAPS_API_KEY) so it's never exposed in
@@ -216,16 +217,5 @@ interface GPlaceRaw {
   opening_hours?: { open_now?: boolean };
 }
 
-// Normalised shape returned to the frontend
-export interface PlaceResult {
-  place_id:  string;
-  name:      string;
-  address:   string;
-  city:      string;
-  latitude:  number | null;
-  longitude: number | null;
-  rating:    number | null;
-  open_now:  boolean | null;
-  types:     string[];
-  source:    "google";
-}
+// Re-export so existing imports from this file continue to work
+export type { PlaceResult } from "@/types/places";

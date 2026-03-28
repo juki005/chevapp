@@ -69,7 +69,14 @@
     "lepinjaRating": "Lepinja rating",
     "reviews": "reviews",
     "distance": "km from you",
-    "noResults": "No results for the selected filters."
+    "noResults": "No results for the selected filters.",
+    "closedNow": "Closed",
+    "allCities": "All cities",
+    "listView": "List",
+    "mapView": "Map",
+    "favoritesOnly": "Favourites only",
+    "clearFilters": "Clear filters",
+    "openProfile": "PROFILE"
   },
   "kitchen": {
     "title": "Master Kitchen",
@@ -186,7 +193,24 @@
     "signInWithGoogle": "Sign in with Google",
     "signingIn": "Signing in...",
     "welcomeBack": "Welcome back!",
-    "createAccount": "Create account"
+    "createAccount": "Create account",
+    "loginTitle": "Sign in to your account",
+    "registerTitle": "Create a free account",
+    "continueWithGoogle": "Continue with Google",
+    "dividerOr": "or",
+    "fullName": "Full name",
+    "namePlaceholder": "Your name",
+    "passwordMin": "Min. 6 characters",
+    "signingUp": "Creating account…",
+    "tabSignIn": "Sign In",
+    "tabRegister": "Register",
+    "errorGoogle": "Google sign-in failed.",
+    "errorUnexpected": "Unexpected error. Please try again.",
+    "errorWrongCredentials": "Incorrect email or password.",
+    "errorCheckEmail": "Check your email and confirm your registration. Then you can sign in.",
+    "errorEmailExists": "This email is already registered.",
+    "errorPasswordShort": "Password must be at least 6 characters.",
+    "errorInvalidEmail": "Enter a valid email address."
   },
   "common": {
     "loading": "Loading...",

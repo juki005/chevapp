@@ -67,7 +67,7 @@ export async function updateProfile(
     if (input.weight_kg !== undefined) updatePayload.weight_kg = input.weight_kg ?? null;
     if (input.height_cm !== undefined) updatePayload.height_cm = input.height_cm ?? null;
 
-    const { error: dbError } = await (supabase as any)
+    const { error: dbError } = await supabase
       .from("profiles")
       .update(updatePayload)
       .eq("id", user.id);

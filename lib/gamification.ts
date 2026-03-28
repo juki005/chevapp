@@ -133,8 +133,7 @@ export async function awardXP(
   // Try the streak-tracking RPC (may not exist in all envs — always ignore errors)
   let rpcXP: number | null = null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rpcData, error: rpcErr } = await (supabase as any)
+    const { data: rpcData, error: rpcErr } = await supabase
       .rpc("award_xp", { p_user_id: userId, p_points: points })
       .single();
     if (!rpcErr && rpcData) {
@@ -150,11 +149,10 @@ export async function awardXP(
   // risks overwriting a concurrent award that landed between our getUserStats
   // call and now.
   if (rpcXP === null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await supabase
       .from("profiles")
       .upsert(
-        { id: userId, xp_points: newXP, updated_at: new Date().toISOString() } as any,
+        { id: userId, xp_points: newXP, updated_at: new Date().toISOString() },
         { onConflict: "id" }
       );
   }
@@ -190,8 +188,7 @@ export async function claimDailyChallenge(
   supabase: GameClient,
   points:   number = 30
 ): Promise<{ success: boolean; alreadyClaimed: boolean }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .rpc("claim_daily_challenge", { p_user_id: userId, p_points: points })
     .single();
 
@@ -256,7 +253,7 @@ export async function getWordOfDay(supabase: GameClient): Promise<WordOfDay | nu
   if (pool && pool.length > 0) {
     // Deterministic-ish: use today's date as seed so the same word shows all day
     const dayOfYear = Math.floor(
-      (new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+      (Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 1)) / 86400000
     );
     return pool[dayOfYear % pool.length];
   }
