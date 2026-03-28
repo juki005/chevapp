@@ -56,16 +56,7 @@ function haptic(style: "light" | "medium" = "light") {
 // ── XP helper ─────────────────────────────────────────────────────────────────
 async function awardXP(userId: string, amount: number) {
   const supabase = createClient();
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("xp_points")
-    .eq("id", userId)
-    .single();
-  const current = (prof as { xp_points: number } | null)?.xp_points ?? 0;
-  await supabase
-    .from("profiles")
-    .update({ xp_points: current + amount })
-    .eq("id", userId);
+  await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount });
   window.dispatchEvent(new CustomEvent("chevapp:stats_updated", { detail: {} }));
 }
 
