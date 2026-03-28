@@ -111,6 +111,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   const [dbRestaurantId,  setDbRestaurantId]  = useState<string | null>(null);
   const [tagLoading,      setTagLoading]      = useState(false);
   const [toast,           setToast]           = useState<string | null>(null);
+  const [dataLoading,     setDataLoading]     = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -130,18 +131,25 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
     const localKey = restaurant.id ?? `${restaurant.name}::${restaurant.city}`;
     const supabase = createClient();
+    setDataLoading(true);
+
+    const fetches: Promise<void>[] = [];
 
     // Favorites / wishlist
     if (restaurant.id) {
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user || !restaurant.id) return;
-        const uid = user.id;
-        const rid = restaurant.id!;
-        supabase.from("user_favorites").select("id").eq("user_id", uid).eq("restaurant_id", rid).maybeSingle()
-          .then(({ data }) => setIsFav(!!data));
-        supabase.from("user_wishlist").select("id").eq("user_id", uid).eq("restaurant_id", rid).maybeSingle()
-          .then(({ data }) => setIsWish(!!data));
-      });
+      fetches.push(
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user || !restaurant.id) return;
+          const uid = user.id;
+          const rid = restaurant.id!;
+          return Promise.all([
+            supabase.from("user_favorites").select("id").eq("user_id", uid).eq("restaurant_id", rid).maybeSingle()
+              .then(({ data }) => setIsFav(!!data)),
+            supabase.from("user_wishlist").select("id").eq("user_id", uid).eq("restaurant_id", rid).maybeSingle()
+              .then(({ data }) => setIsWish(!!data)),
+          ]).then(() => undefined);
+        })
+      );
     } else {
       setIsFav(lsHas(LS_FAV,  localKey));
       setIsWish(lsHas(LS_WISH, localKey));
@@ -149,30 +157,36 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
     // Load existing style tag if this is a Google Places restaurant
     if (restaurant.google_place_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from("restaurants") as any)
-        .select("id, style")
-        .eq("google_place_id", restaurant.google_place_id)
-        .maybeSingle()
-        .then(({ data }: { data: { id: string; style: string | null } | null }) => {
-          if (data) {
-            setDbRestaurantId(data.id);
-            setDbStyleTag((data.style as CevapStyle) ?? null);
-          }
-        });
+      fetches.push(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("restaurants") as any)
+          .select("id, style")
+          .eq("google_place_id", restaurant.google_place_id)
+          .maybeSingle()
+          .then(({ data }: { data: { id: string; style: string | null } | null }) => {
+            if (data) {
+              setDbRestaurantId(data.id);
+              setDbStyleTag((data.style as CevapStyle) ?? null);
+            }
+          })
+      );
     }
 
     // Load style tag for existing DB restaurants
     if (restaurant.id) {
-      supabase
-        .from("restaurants")
-        .select("style")
-        .eq("id", restaurant.id)
-        .maybeSingle()
-        .then(({ data }: { data: { style: string | null } | null }) => {
-          if (data) setDbStyleTag((data.style as CevapStyle) ?? null);
-        });
+      fetches.push(
+        supabase
+          .from("restaurants")
+          .select("style")
+          .eq("id", restaurant.id)
+          .maybeSingle()
+          .then(({ data }: { data: { style: string | null } | null }) => {
+            if (data) setDbStyleTag((data.style as CevapStyle) ?? null);
+          })
+      );
     }
+
+    Promise.allSettled(fetches).finally(() => setDataLoading(false));
   }, [restaurant?.id, restaurant?.name, restaurant?.city, restaurant?.google_place_id]);
 
   // Body scroll lock
@@ -431,27 +445,29 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
             {/* Fav / Wish buttons */}
             <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
-              <button onClick={toggleFav} disabled={favLoading}
+              <button onClick={toggleFav} disabled={favLoading || dataLoading}
                 style={{
                   display: "flex", alignItems: "center", gap: "5px",
                   padding: "5px 14px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600,
                   border: `1px solid ${isFav ? "#ef4444" : "rgb(var(--border))"}`,
                   background: isFav ? "rgba(239,68,68,0.1)" : "transparent",
                   color: isFav ? "#ef4444" : "rgb(var(--muted))",
-                  cursor: "pointer", opacity: favLoading ? 0.6 : 1, transition: "all 0.15s",
+                  cursor: (favLoading || dataLoading) ? "not-allowed" : "pointer",
+                  opacity: (favLoading || dataLoading) ? 0.5 : 1, transition: "all 0.15s",
                 }}>
                 <Heart style={{ width: "13px", height: "13px", fill: isFav ? "#ef4444" : "transparent", flexShrink: 0 }} />
                 {isFav ? "Favorit ✓" : "Favoriti"}
               </button>
 
-              <button onClick={toggleWish} disabled={wishLoading}
+              <button onClick={toggleWish} disabled={wishLoading || dataLoading}
                 style={{
                   display: "flex", alignItems: "center", gap: "5px",
                   padding: "5px 14px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600,
                   border: `1px solid ${isWish ? "#D35400" : "rgb(var(--border))"}`,
                   background: isWish ? "rgba(211,84,0,0.1)" : "transparent",
                   color: isWish ? "#D35400" : "rgb(var(--muted))",
-                  cursor: "pointer", opacity: wishLoading ? 0.6 : 1, transition: "all 0.15s",
+                  cursor: (wishLoading || dataLoading) ? "not-allowed" : "pointer",
+                  opacity: (wishLoading || dataLoading) ? 0.5 : 1, transition: "all 0.15s",
                 }}>
                 <Bookmark style={{ width: "13px", height: "13px", fill: isWish ? "#D35400" : "transparent", flexShrink: 0 }} />
                 {isWish ? "Na listi ✓" : "Želim ići"}
@@ -502,7 +518,17 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
                 )}
               </div>
 
-              {canTag ? (
+              {dataLoading ? (
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {CEVAP_STYLES.map((s) => (
+                    <div key={s} style={{
+                      padding: "7px 14px", borderRadius: "9999px",
+                      background: "rgb(var(--border))", width: "90px", height: "34px",
+                      animation: "pulse 1.5s ease-in-out infinite",
+                    }} />
+                  ))}
+                </div>
+              ) : canTag ? (
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   {CEVAP_STYLES.map((style) => {
                     const isActive = dbStyleTag === style;

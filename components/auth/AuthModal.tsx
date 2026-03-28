@@ -51,18 +51,28 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     setError(null);
-    const supabase = createClient();
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (err) {
-      setError("Google prijava nije uspjela. Provjeri Supabase konfiguraciju.");
+    // Reset spinner after 30 s — covers the case where the user closes the
+    // OAuth popup/tab and returns to the modal with the button still spinning.
+    const resetTimer = setTimeout(() => setGoogleLoading(false), 30_000);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (err) {
+        setError("Google prijava nije uspjela. Provjeri Supabase konfiguraciju.");
+        setGoogleLoading(false);
+      }
+      // On success the browser navigates away — spinner stays intentionally.
+    } catch {
+      setError("Neočekivana greška. Pokušaj ponovo.");
       setGoogleLoading(false);
+    } finally {
+      clearTimeout(resetTimer);
     }
-    // On success the browser navigates away — no need to call onClose/onSuccess.
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

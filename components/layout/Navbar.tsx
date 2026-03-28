@@ -63,9 +63,9 @@ export function Navbar({ locale }: NavbarProps) {
       setActiveToday(statsData?.last_activity_date === today);
     }
 
-    supabase.auth.getUser().then(({ data: { user: u } }) => {
-      setUser(u);
-      if (u) loadUser(u.id);
+    // getUser() only sets authLoading — loadUser is handled by onAuthStateChange
+    // which fires INITIAL_SESSION on mount, avoiding a duplicate parallel fetch.
+    supabase.auth.getUser().then(() => {
       setAuthLoading(false);
     });
 

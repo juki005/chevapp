@@ -792,6 +792,31 @@ export default function FinderPage() {
                   </div>
                 )}
 
+                {/* ── Google Places loading skeleton ───────────────────── */}
+                {placesLoading && (
+                  <div>
+                    <p className="text-xs text-[#4285f4] uppercase tracking-widest font-medium mb-3 flex items-center gap-2">
+                      <span className="font-bold">G</span>
+                      Google Places — pretražujem&hellip;
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 animate-pulse">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-8 h-8 rounded-full bg-[rgb(var(--border))]" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-4 bg-[rgb(var(--border))] rounded w-3/4" />
+                              <div className="h-3 bg-[rgb(var(--border))] rounded w-1/2" />
+                            </div>
+                          </div>
+                          <div className="h-3 bg-[rgb(var(--border))] rounded w-full mb-2" />
+                          <div className="h-3 bg-[rgb(var(--border))] rounded w-2/3" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Google Places grid ───────────────────────────────── */}
                 {placesSearched && visiblePlaceResults.length > 0 && (
                   <div>
