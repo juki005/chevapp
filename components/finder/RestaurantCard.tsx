@@ -43,6 +43,7 @@ export function RestaurantCard({
           e.stopPropagation(); // prevent the finder page wrapper's onClick
           onProfileClick?.();
         }}
+        aria-label={`Otvori profil — ${restaurant.name}`}
         className="w-full text-left flex items-center gap-3 px-5 pt-5 pb-3 hover:bg-burnt-orange-500/[0.03] transition-colors"
       >
         <div className="w-12 h-12 rounded-xl bg-charcoal-700 dark:bg-ugljen-border flex items-center justify-center text-2xl flex-shrink-0">
@@ -107,12 +108,12 @@ export function RestaurantCard({
       <div className="px-5 py-3 border-t border-charcoal-700/60 dark:border-ugljen-border/60 flex items-center justify-between gap-3">
         {/* Quick emoji reactions */}
         <div className="flex gap-1">
-          {["🧅", "🔥", "🥯"].map((e) => (
+          {(["🧅", "🔥", "🥯"] as const).map((e) => (
             <button
               key={e}
               onClick={(ev) => ev.stopPropagation()}
+              aria-label={e === "🧅" ? "Luk" : e === "🔥" ? "Vatra" : "Lepinja"}
               className="w-8 h-8 rounded-lg hover:bg-burnt-orange-500/10 transition-colors text-sm flex items-center justify-center hover:scale-110"
-              title="Brza ocjena"
             >
               {e}
             </button>
@@ -120,12 +121,14 @@ export function RestaurantCard({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* PROFIL — triggers the parent modal */}
+          {/* PROFIL — triggers the parent modal (tabIndex={-1}: header button already handles keyboard) */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onProfileClick?.();
             }}
+            tabIndex={-1}
+            aria-hidden="true"
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold",
               "border border-charcoal-600 dark:border-ugljen-border",

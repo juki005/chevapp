@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   X, MapPin, BedDouble, ExternalLink, CheckCircle,
@@ -112,6 +112,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   const [tagLoading,      setTagLoading]      = useState(false);
   const [toast,           setToast]           = useState<string | null>(null);
   const [dataLoading,     setDataLoading]     = useState(false);
+  const swipeTouchY = useRef<number | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -393,8 +394,17 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         style={{ zIndex: 9999, background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", boxShadow: "0 8px 48px rgba(0,0,0,0.5)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle — mobile only */}
-        <div className="flex sm:hidden justify-center pt-3 pb-1 flex-shrink-0">
+        {/* Drag handle — mobile only — touch here to swipe-down-close */}
+        <div
+          className="flex sm:hidden justify-center pt-3 pb-1 flex-shrink-0 cursor-grab"
+          onTouchStart={(e) => { swipeTouchY.current = e.touches[0].clientY; }}
+          onTouchEnd={(e) => {
+            if (swipeTouchY.current === null) return;
+            const delta = e.changedTouches[0].clientY - swipeTouchY.current;
+            swipeTouchY.current = null;
+            if (delta > 80) onClose();
+          }}
+        >
           <div style={{ width: "40px", height: "4px", borderRadius: "9999px", background: "rgb(var(--border))" }} />
         </div>
 
@@ -475,7 +485,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
             </div>
           </div>
 
-          <button onClick={onClose} style={{ width: "36px", height: "36px", borderRadius: "10px", border: "1px solid rgb(var(--border))", background: "transparent", color: "rgb(var(--muted))", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+          <button onClick={onClose} aria-label="Zatvori" style={{ width: "36px", height: "36px", borderRadius: "10px", border: "1px solid rgb(var(--border))", background: "transparent", color: "rgb(var(--muted))", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
             <X style={{ width: "16px", height: "16px" }} />
           </button>
         </div>

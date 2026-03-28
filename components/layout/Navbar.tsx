@@ -141,7 +141,7 @@ export function Navbar({ locale }: NavbarProps) {
         </button>
 
         {userMenuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-xl z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-2 w-52 max-w-[calc(100vw-1rem)] rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-xl z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-[rgb(var(--border))]">
               <p className="text-sm font-semibold text-[rgb(var(--foreground))] truncate">
                 {user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? t("profile")}

@@ -74,6 +74,7 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
           </div>
           <button
             onClick={onClose}
+            aria-label="Zatvori"
             className="p-1.5 rounded-lg border border-charcoal-700 dark:border-ugljen-border text-cream/40 hover:text-cream hover:border-burnt-orange-500/40 transition-colors flex-shrink-0 ml-3"
           >
             <X className="w-4 h-4" />

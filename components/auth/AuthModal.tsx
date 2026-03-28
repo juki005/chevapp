@@ -153,6 +153,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </p>
           <button
             onClick={() => { reset(); onClose(); }}
+            aria-label="Zatvori"
             className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)] transition-colors"
           >
             <X className="w-4 h-4" />

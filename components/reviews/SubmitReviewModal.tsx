@@ -176,6 +176,7 @@ export function SubmitReviewModal({ isOpen, onClose, restaurant, onSuccess }: Su
             </div>
             <button
               onClick={handleClose}
+              aria-label="Zatvori"
               className="w-8 h-8 rounded-lg flex items-center justify-center text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)] transition-colors flex-shrink-0"
             >
               <X className="w-4 h-4" />
