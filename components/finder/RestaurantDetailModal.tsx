@@ -104,7 +104,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
 
   // Auth
   useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null));
+    createClient().auth.getUser().then(({ data: { user } }: { data: { user: { id: string } | null } }) => setUserId(user?.id ?? null));
   }, []);
 
   // Reset state & load data on restaurant change
@@ -126,15 +126,15 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     // Favorites / wishlist
     if (restaurant.id) {
       fetches.push(
-        supabase.auth.getUser().then(({ data: { user } }) => {
+        supabase.auth.getUser().then(({ data: { user } }: { data: { user: { id: string } | null } }) => {
           if (!user || !restaurant.id) return;
           const uid = user.id;
           const rid = restaurant.id!;
           return Promise.all([
             supabase.from("user_favorites").select("id").eq("user_id", uid).eq("restaurant_id", rid).maybeSingle()
-              .then(({ data }) => setIsFav(!!data)),
+              .then(({ data }: { data: unknown }) => setIsFav(!!data)),
             supabase.from("user_wishlist").select("id").eq("user_id", uid).eq("restaurant_id", rid).maybeSingle()
-              .then(({ data }) => setIsWish(!!data)),
+              .then(({ data }: { data: unknown }) => setIsWish(!!data)),
           ]).then(() => undefined);
         })
       );
