@@ -122,9 +122,13 @@ export async function GET(req: NextRequest) {
     if (body.status !== "OK" && body.status !== "ZERO_RESULTS") {
       const hint = STATUS_HINTS[body.status] ?? `Google API status: ${body.status}`;
       console.error(`[places] ❌ status=${body.status} — ${hint}`);
+      const isRateLimit = body.status === "OVER_QUERY_LIMIT" || body.status === "OVER_DAILY_LIMIT";
       return NextResponse.json(
         { error: hint, status: body.status },
-        { status: body.status === "REQUEST_DENIED" ? 401 : 502 }
+        {
+          status: body.status === "REQUEST_DENIED" ? 401 : 502,
+          headers: isRateLimit ? { "Retry-After": "60" } : {},
+        }
       );
     }
 

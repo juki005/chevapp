@@ -207,19 +207,24 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     if (favLoading) return;
     haptic("light");
     setFavLoading(true);
-    if (restaurant.id && userId) {
-      const supabase = createClient();
-      if (isFav) {
-        await supabase.from("user_favorites").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
+    try {
+      if (restaurant.id && userId) {
+        const supabase = createClient();
+        if (isFav) {
+          await supabase.from("user_favorites").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from("user_favorites") as any).insert({ user_id: userId, restaurant_id: restaurant.id });
+        }
+        setIsFav((v) => !v);
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("user_favorites") as any).insert({ user_id: userId, restaurant_id: restaurant.id });
+        setIsFav(lsToggle(LS_FAV, localKey));
       }
-      setIsFav((v) => !v);
-    } else {
-      setIsFav(lsToggle(LS_FAV, localKey));
+    } catch (err) {
+      console.error("[toggleFav]", err);
+    } finally {
+      setFavLoading(false);
     }
-    setFavLoading(false);
   };
 
   // ── Toggle wishlist ────────────────────────────────────────────────────────
@@ -227,19 +232,24 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
     if (wishLoading) return;
     haptic("light");
     setWishLoading(true);
-    if (restaurant.id && userId) {
-      const supabase = createClient();
-      if (isWish) {
-        await supabase.from("user_wishlist").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
+    try {
+      if (restaurant.id && userId) {
+        const supabase = createClient();
+        if (isWish) {
+          await supabase.from("user_wishlist").delete().eq("user_id", userId).eq("restaurant_id", restaurant.id);
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from("user_wishlist") as any).insert({ user_id: userId, restaurant_id: restaurant.id });
+        }
+        setIsWish((v) => !v);
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("user_wishlist") as any).insert({ user_id: userId, restaurant_id: restaurant.id });
+        setIsWish(lsToggle(LS_WISH, localKey));
       }
-      setIsWish((v) => !v);
-    } else {
-      setIsWish(lsToggle(LS_WISH, localKey));
+    } catch (err) {
+      console.error("[toggleWish]", err);
+    } finally {
+      setWishLoading(false);
     }
-    setWishLoading(false);
   };
 
   // ── Tag a style (crowdsourced upsert) ─────────────────────────────────────

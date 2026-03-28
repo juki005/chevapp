@@ -28,32 +28,40 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function check() {
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (!user) {
-        // Not logged in → no onboarding needed
-        setStatus("done");
-        return;
+        if (!user) {
+          // Not logged in → no onboarding needed
+          setStatus("done");
+          return;
+        }
+
+        setUserId(user.id);
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("onboarding_completed")
+          .eq("id", user.id)
+          .single();
+
+        if (cancelled) return;
+
+        // Default to TRUE (done) — only show onboarding when explicitly false.
+        // Covers: migration not yet run, column missing, or existing users.
+        const completed = (profile as { onboarding_completed?: boolean } | null)
+          ?.onboarding_completed ?? true;
+
+        setStatus(completed ? "done" : "needed");
+      } catch (err) {
+        // Auth or DB failure — default to "done" so the page is never frozen.
+        if (!cancelled) {
+          console.warn("[OnboardingGuard] check failed, skipping onboarding:", err);
+          setStatus("done");
+        }
       }
-
-      setUserId(user.id);
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("onboarding_completed")
-        .eq("id", user.id)
-        .single();
-
-      if (cancelled) return;
-
-      // Default to TRUE (done) — only show onboarding when explicitly false.
-      // Covers: migration not yet run, column missing, or existing users.
-      const completed = (profile as { onboarding_completed?: boolean } | null)
-        ?.onboarding_completed ?? true;
-
-      setStatus(completed ? "done" : "needed");
     }
 
     check();
