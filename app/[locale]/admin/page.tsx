@@ -27,26 +27,55 @@ export default function AdminPage() {
   const locale      = useLocale();
   const [status,    setStatus]    = useState<"loading" | "ok" | "denied">("loading");
   const [activeTab, setActiveTab] = useState<AdminTab>("stats");
+  const [debugInfo, setDebugInfo] = useState<string>("");
+  const [retryKey,  setRetryKey]  = useState(0);
 
   // ── Auth check ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { setStatus("denied"); return; }
-      supabase
+    async function checkAdmin() {
+      const supabase = createClient();
+
+      // Step 1: verify the auth session
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.warn("[admin] no authenticated user:", authError?.message);
+        setDebugInfo(authError?.message ?? "No session — please log in first.");
+        setStatus("denied");
+        return;
+      }
+
+      // Step 2: read is_admin from profiles
+      // Use maybeSingle() so a missing row returns null instead of throwing
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("is_admin")
         .eq("id", user.id)
-        .single()
-        .then(({ data }) => {
-          if ((data as { is_admin?: boolean } | null)?.is_admin === true) {
-            setStatus("ok");
-          } else {
-            setStatus("denied");
-          }
-        });
-    });
-  }, []);
+        .maybeSingle();
+
+      if (profileError) {
+        // RLS blocked the read, row missing, or network error
+        console.error("[admin] profiles query failed:", profileError.code, profileError.message);
+        setDebugInfo(`DB error (${profileError.code}): ${profileError.message}`);
+        setStatus("denied");
+        return;
+      }
+
+      const row     = profile as { is_admin?: boolean } | null;
+      const isAdmin = row?.is_admin === true;
+      console.log("[admin] check result:", { userId: user.id, row, isAdmin });
+
+      if (!isAdmin) {
+        setDebugInfo(
+          row === null
+            ? "Profile row not found for this user ID."
+            : `is_admin = ${JSON.stringify(row.is_admin)} (expected: true)`
+        );
+      }
+      setStatus(isAdmin ? "ok" : "denied");
+    }
+
+    checkAdmin();
+  }, [retryKey]);
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (status === "loading") {
@@ -68,15 +97,29 @@ export default function AdminPage() {
           <h1 className="text-xl font-bold text-[rgb(var(--foreground))] mb-2" style={{ fontFamily: "Oswald, sans-serif" }}>
             Pristup odbijen
           </h1>
-          <p className="text-sm text-[rgb(var(--muted))] mb-6">
+          <p className="text-sm text-[rgb(var(--muted))] mb-4">
             Ova stranica je dostupna samo administratorima.
           </p>
-          <button
-            onClick={() => router.push(`/${locale}`)}
-            className="px-6 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-bold hover:opacity-90 transition-opacity"
-          >
-            Idi na početnu
-          </button>
+          {debugInfo && (
+            <div className="mb-5 rounded-xl bg-[rgb(var(--surface))] border border-[rgb(var(--border))] px-4 py-3 text-left">
+              <p className="text-xs font-semibold text-[rgb(var(--muted))] uppercase tracking-wider mb-1">Razlog odbijanja</p>
+              <p className="text-xs text-red-400 font-mono break-all">{debugInfo}</p>
+            </div>
+          )}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => { setStatus("loading"); setDebugInfo(""); setRetryKey((k) => k + 1); }}
+              className="px-6 py-2.5 rounded-xl border border-[rgb(var(--border))] text-sm font-bold text-[rgb(var(--foreground))] hover:bg-[rgb(var(--surface))] transition-colors"
+            >
+              Pokušaj ponovo
+            </button>
+            <button
+              onClick={() => router.push(`/${locale}`)}
+              className="px-6 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-bold hover:opacity-90 transition-opacity"
+            >
+              Idi na početnu
+            </button>
+          </div>
         </div>
       </div>
     );
