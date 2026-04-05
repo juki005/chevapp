@@ -244,7 +244,7 @@ export default function CommunityPage() {
     { key: "feed",    icon: <Rss       className="w-4 h-4" />, label: t("feed")        },
     { key: "tips",    icon: <Lightbulb className="w-4 h-4" />, label: t("insiderTips") },
     { key: "events",  icon: <Calendar  className="w-4 h-4" />, label: t("events")      },
-    { key: "explore", icon: <Landmark  className="w-4 h-4" />, label: discoveryCityName ? `Istraži ${discoveryCityName}` : "Istraži grad" },
+    { key: "explore", icon: <Landmark  className="w-4 h-4" />, label: "Istraži grad"   },
   ];
 
   return (
@@ -283,12 +283,9 @@ export default function CommunityPage() {
                   activeTab === key
                     ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
                     : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]",
-                  key === "explore" && activeTab !== key && "border-indigo-500/20 text-indigo-400/70 hover:text-indigo-300",
                 )}
               >
-                {icon}
-                <span className="hidden sm:inline">{label}</span>
-                <span className="sm:hidden">{key === "explore" ? "Istraži" : label}</span>
+                {icon} {label}
               </button>
             ))}
           </div>
@@ -474,6 +471,15 @@ export default function CommunityPage() {
           {/* ──────────── ISTRAŽI GRAD TAB ──────────── */}
           {activeTab === "explore" && (
             <div className="space-y-5">
+
+              {/* Tab heading with active city */}
+              <div className="flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-[rgb(var(--primary))]" />
+                <h2 className="text-xl font-bold text-[rgb(var(--foreground))] uppercase tracking-wide" style={{ fontFamily: "Oswald, sans-serif" }}>
+                  {discoveryCityName ? `Istraži ${discoveryCityName}` : "Istraži grad"}
+                </h2>
+                {discoveryLoading && <Loader2 className="w-4 h-4 animate-spin text-[rgb(var(--muted))]" />}
+              </div>
 
               {/* City search input */}
               <div className="flex gap-2">

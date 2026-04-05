@@ -435,7 +435,7 @@ export default function GoogleCevapMap({
         <Map
           mapId="9a4d0b5aaa7f88a18d6286ed"
           defaultCenter={defaultCenter}
-          defaultZoom={mapped.length === 0 ? 6 : 8}
+          defaultZoom={initialDiscoveryMode ? 13 : mapped.length === 0 ? 6 : 8}
           styles={CHARCOAL_STYLE}
           mapTypeControl={false}
           streetViewControl={false}
@@ -552,8 +552,8 @@ export default function GoogleCevapMap({
         />
       )}
 
-      {/* ── Empty-state overlay ───────────────────────────────────────────── */}
-      {mapped.length === 0 && (
+      {/* ── Empty-state overlay (hidden in discovery-only mode) ─────────── */}
+      {mapped.length === 0 && !initialDiscoveryMode && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgb(var(--surface)/0.9)] z-10 rounded-2xl pointer-events-none">
           <span className="text-5xl mb-3">🗺️</span>
           <p className="text-[rgb(var(--foreground))] font-semibold text-base">
