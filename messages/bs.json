@@ -95,7 +95,12 @@
     "difficulty": "Težina",
     "easy": "Lako",
     "medium": "Srednje",
-    "hard": "Teško"
+    "hard": "Teško",
+    "videosComingSoon": "Video sadržaj dolazi uskoro",
+    "videosComingSoonSub": "Pripremamo korak-po-korak video tutoriale za svaki recept. Navrati uskoro!",
+    "videosComingSoonBadge": "Uskoro",
+    "videosComingSoonHint": "U međuvremenu, istraži našu kolekciju recepata iznad.",
+    "noVideosFound": "Nema videa za upit \"{query}\"."
   },
   "academy": {
     "title": "Akademija",
@@ -160,7 +165,7 @@
     "joinedDate": "Član od",
     "totalVisits": "Ukupno posjeta",
     "favoriteStyle": "Omiljeni stil",
-    "addEntry": "Dodaj u Dnevnik",
+    "addEntry": "Zabilježi Posjetu",
     "visitDate": "Datum posjeta",
     "photo": "Fotografija",
     "notes": "Bilješke",

@@ -95,7 +95,12 @@
     "difficulty": "Difficulty",
     "easy": "Easy",
     "medium": "Medium",
-    "hard": "Hard"
+    "hard": "Hard",
+    "videosComingSoon": "Video content coming soon",
+    "videosComingSoonSub": "We're curating step-by-step video tutorials for every recipe. Come back soon!",
+    "videosComingSoonBadge": "Coming Soon",
+    "videosComingSoonHint": "In the meantime, explore our full recipe collection above.",
+    "noVideosFound": "No videos found for \"{query}\"."
   },
   "academy": {
     "title": "Academy",
@@ -160,7 +165,7 @@
     "joinedDate": "Member since",
     "totalVisits": "Total visits",
     "favoriteStyle": "Favourite style",
-    "addEntry": "Add to Journal",
+    "addEntry": "Log a Visit",
     "visitDate": "Visit date",
     "photo": "Photo",
     "notes": "Notes",

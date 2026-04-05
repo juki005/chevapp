@@ -95,7 +95,12 @@
     "difficulty": "Schwierigkeit",
     "easy": "Leicht",
     "medium": "Mittel",
-    "hard": "Schwer"
+    "hard": "Schwer",
+    "videosComingSoon": "Video-Inhalte kommen bald",
+    "videosComingSoonSub": "Wir erstellen Schritt-für-Schritt Video-Tutorials für jedes Rezept. Bald verfügbar!",
+    "videosComingSoonBadge": "Demnächst",
+    "videosComingSoonHint": "Erkunde in der Zwischenzeit unsere Rezeptsammlung oben.",
+    "noVideosFound": "Keine Videos für \"{query}\" gefunden."
   },
   "academy": {
     "title": "Akademie",
@@ -160,7 +165,7 @@
     "joinedDate": "Mitglied seit",
     "totalVisits": "Gesamtbesuche",
     "favoriteStyle": "Lieblingsstil",
-    "addEntry": "Zum Tagebuch hinzufügen",
+    "addEntry": "Besuch eintragen",
     "visitDate": "Besuchsdatum",
     "photo": "Foto",
     "notes": "Notizen",

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { ChefHat, BookOpen, Video, Users, PlayCircle, ExternalLink, Search, X, Clapperboard, Pin } from "lucide-react";
+import { ChefHat, BookOpen, Video, Users, PlayCircle, ExternalLink, Search, X, Clapperboard, Pin, Sparkles } from "lucide-react";
 import { type Recipe } from "@/constants/recipes";
 import { type KitchenVideo } from "@/lib/actions/kitchen";
 import { RecipeModal } from "@/components/kitchen/RecipeModal";
@@ -276,8 +276,8 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
         {activeTab === "videos" && (
           <div>
             {initialVideos.length === 0 ? (
-              /* ── YouTube search fallback — no DB videos yet ──────────────── */
-              <YouTubeSearchFallback recipes={initialRecipes} />
+              /* ── Polished "coming soon" empty state — no DB videos yet ───── */
+              <VideosComingSoon t={t} />
             ) : (
               <>
                 {/* ── Video search ──────────────────────────────────────────── */}
@@ -434,98 +434,60 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
   );
 }
 
-// ── YouTube Search Fallback ────────────────────────────────────────────────────
+// ── Videos Coming Soon ────────────────────────────────────────────────────────
 // Shown in the Videos tab when the kitchen_videos DB table is empty.
-// Uses YouTube's listType=search embed to play results directly in-page —
-// no API key required. Quick-search chips are auto-generated from every
-// recipe's youtubeQuery field.
+// Clean, on-brand empty state — no YouTube search iframe, no external chips.
 // ─────────────────────────────────────────────────────────────────────────────
-function YouTubeSearchFallback({ recipes }: { recipes: Recipe[] }) {
-  const [inputValue,  setInputValue]  = useState("ćevapi recept");
-  const [activeQuery, setActiveQuery] = useState("ćevapi recept");
-
-  const runSearch = (q: string) => {
-    const trimmed = q.trim();
-    if (trimmed) setActiveQuery(trimmed);
-  };
-
-  // Deduplicated YouTube search chips from recipe data
-  const chips = Array.from(
-    new Set(recipes.map((r) => r.youtubeQuery).filter(Boolean))
-  ).slice(0, 12);
-
-  // YouTube embed URL using listType=search — loads results inline, no API key needed
-  const embedSrc = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(activeQuery)}&rel=0&modestbranding=1&iv_load_policy=3&controls=1`;
-
+function VideosComingSoon({ t }: { t: ReturnType<typeof import("next-intl").useTranslations<"kitchen">> }) {
   return (
-    <div className="space-y-5">
-      {/* Search bar */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && runSearch(inputValue)}
-            placeholder="npr. sarajevski ćevapi, leskovački roštilj…"
-            className="w-full pl-11 pr-4 py-3 rounded-xl bg-[rgb(var(--surface)/0.5)] border border-[rgb(var(--border))] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-red-500/50 transition-colors text-sm"
-          />
-        </div>
-        <button
-          onClick={() => runSearch(inputValue)}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors flex-shrink-0"
-        >
-          <PlayCircle className="w-4 h-4" />
-          <span className="hidden sm:inline">Pretraži</span>
-        </button>
-      </div>
+    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+      {/* Decorative card */}
+      <div className="relative w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] px-8 py-12 overflow-hidden">
+        {/* Blur blobs */}
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.07)] blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.05)] blur-3xl pointer-events-none" />
 
-      {/* Quick-search chips from recipe data */}
-      {chips.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {chips.map((q) => (
-            <button
-              key={q}
-              onClick={() => { setInputValue(q); runSearch(q); }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-all",
-                activeQuery === q
-                  ? "border-red-500/50 bg-red-500/10 text-red-400"
-                  : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--muted))] hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5"
-              )}
-            >
-              <PlayCircle className="w-3 h-3 flex-shrink-0" />
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Inline YouTube search results — plays directly on this page */}
-      <div className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] bg-black">
-        <div className="px-4 py-2.5 bg-[rgb(var(--surface)/0.8)] border-b border-[rgb(var(--border))] flex items-center gap-2">
-          <div className="w-5 h-5 rounded flex items-center justify-center bg-red-600 flex-shrink-0">
-            <PlayCircle className="w-3 h-3 text-white" />
+        <div className="relative z-10 flex flex-col items-center gap-5">
+          {/* Icon */}
+          <div className="w-20 h-20 rounded-2xl bg-[rgb(var(--primary)/0.12)] border border-[rgb(var(--primary)/0.2)] flex items-center justify-center">
+            <Clapperboard className="w-10 h-10 text-[rgb(var(--primary))]" />
           </div>
-          <span className="text-xs font-medium text-[rgb(var(--foreground))] truncate">
-            YouTube · <span className="text-[rgb(var(--muted))]">{activeQuery}</span>
-          </span>
-        </div>
-        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-          <iframe
-            key={activeQuery}
-            src={embedSrc}
-            title={`YouTube: ${activeQuery}`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="absolute inset-0 w-full h-full"
-          />
+
+          {/* Heading */}
+          <div>
+            <h3
+              className="text-2xl font-bold text-[rgb(var(--foreground))] mb-2"
+              style={{ fontFamily: "Oswald, sans-serif" }}
+            >
+              {t("videosComingSoon")}
+            </h3>
+            <p className="text-sm text-[rgb(var(--muted))] leading-relaxed max-w-xs mx-auto">
+              {t("videosComingSoonSub")}
+            </p>
+          </div>
+
+          {/* Coming-soon badge */}
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[rgb(var(--primary)/0.1)] border border-[rgb(var(--primary)/0.25)] text-[rgb(var(--primary))] text-sm font-semibold">
+            <Sparkles className="w-4 h-4" />
+            {t("videosComingSoonBadge")}
+          </div>
+
+          {/* Recipe teaser chips */}
+          <div className="flex flex-wrap justify-center gap-2 mt-1">
+            {(["🥩 Ćevapi", "🥯 Lepinja", "🧅 Luk & Kajmak", "🔥 Roštilj"] as const).map((label) => (
+              <span
+                key={label}
+                className="text-xs px-3 py-1.5 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--muted))]"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
-      <p className="text-[10px] text-[rgb(var(--muted))] opacity-40 text-center">
-        Vlastite video recepte dodajemo uskoro · Pretraži i gledaj direktno ovdje
+      <p className="text-[11px] text-[rgb(var(--muted))] opacity-40 mt-6">
+        {t("videosComingSoonHint")}
       </p>
     </div>
   );
