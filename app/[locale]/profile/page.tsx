@@ -20,6 +20,20 @@ import { cn } from "@/lib/utils";
 import { GastroCityList, type CityVisit } from "@/components/profile/GastroCityList";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import type { CevapStyle } from "@/types/database";
+import dynamic from "next/dynamic";
+
+// Lazy-load restaurant autocomplete — avoids loading Google Maps JS on page init
+const RestaurantAutocomplete = dynamic(
+  () => import("@/components/profile/RestaurantAutocomplete"),
+  { ssr: false, loading: () => (
+    <input
+      type="text"
+      disabled
+      placeholder="Učitavanje…"
+      className="w-full px-3 py-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)] text-sm text-[rgb(var(--muted))]"
+    />
+  )},
+);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ProfileTab = "journal" | "gastro" | "taste" | "badges" | "music" | "favorites" | "ai";
@@ -32,6 +46,8 @@ interface JournalEntry {
   rating:     number;
   note:       string;
   date:       string;
+  placeId?:   string;   // Google Place ID — set via RestaurantAutocomplete
+  isVerified?: boolean; // true when placeId matches a known restaurant in our DB
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -174,28 +190,62 @@ export default function ProfilePage() {
   }, [userId, supabase]);
 
   // ── Journal state ────────────────────────────────────────────────────────
-  const [activeTab,      setActiveTab]      = useState<ProfileTab>("journal");
-  const [entries,        setEntries]        = useState<JournalEntry[]>(INITIAL_ENTRIES);
-  const [showForm,       setShowForm]       = useState(false);
-  const [formRestaurant, setFormRestaurant] = useState("");
-  const [formCity,       setFormCity]       = useState("");
-  const [formStyle,      setFormStyle]      = useState(STYLE_OPTIONS[0]);
-  const [formRating,     setFormRating]     = useState(5);
-  const [formNote,       setFormNote]       = useState("");
+  const [activeTab,       setActiveTab]       = useState<ProfileTab>("journal");
+  const [entries,         setEntries]         = useState<JournalEntry[]>(INITIAL_ENTRIES);
+  const [showForm,        setShowForm]        = useState(false);
+  const [formRestaurant,  setFormRestaurant]  = useState("");
+  const [formCity,        setFormCity]        = useState("");
+  const [formStyle,       setFormStyle]       = useState(STYLE_OPTIONS[0]);
+  const [formRating,      setFormRating]      = useState(5);
+  const [formNote,        setFormNote]        = useState("");
+  const [formPlaceId,     setFormPlaceId]     = useState("");
+  const [formIsVerified,  setFormIsVerified]  = useState(false);
+  const [verifyChecking,  setVerifyChecking]  = useState(false);
+
+  /** Called when user picks a restaurant from Google Places Autocomplete */
+  const handleRestaurantSelect = async (name: string, city: string, placeId: string) => {
+    setFormRestaurant(name);
+    if (city) setFormCity(city);
+    setFormPlaceId(placeId);
+    setFormIsVerified(false);
+    if (!placeId) return;
+
+    // Check if this Place ID matches a known restaurant in our DB
+    setVerifyChecking(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from("restaurants") as any)
+        .select("style")
+        .eq("google_place_id", placeId)
+        .maybeSingle();
+      if (data) {
+        setFormIsVerified(true);
+        // Auto-fill style if the DB knows it
+        if (data.style && STYLE_OPTIONS.includes(data.style)) {
+          setFormStyle(data.style);
+        }
+      }
+    } catch { /* best-effort */ }
+    setVerifyChecking(false);
+  };
 
   const handleAddEntry = () => {
     if (!formRestaurant.trim() || !formCity.trim()) return;
     setEntries((prev) => [{
-      id: Date.now().toString(),
+      id:         Date.now().toString(),
       restaurant: formRestaurant.trim(),
       city:       formCity.trim(),
       style:      formStyle,
       rating:     formRating,
       note:       formNote.trim(),
       date:       new Date().toISOString().split("T")[0],
+      placeId:    formPlaceId || undefined,
+      isVerified: formIsVerified,
     }, ...prev]);
     setFormRestaurant(""); setFormCity(""); setFormStyle(STYLE_OPTIONS[0]);
-    setFormRating(5); setFormNote(""); setShowForm(false);
+    setFormRating(5); setFormNote("");
+    setFormPlaceId(""); setFormIsVerified(false);
+    setShowForm(false);
   };
   const deleteEntry = (id: string) => setEntries((p) => p.filter((e) => e.id !== id));
 
@@ -589,20 +639,39 @@ export default function ProfilePage() {
                   Novi unos u dnevnik
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  {[
-                    { label: "Restoran *", value: formRestaurant, setter: setFormRestaurant, placeholder: "npr. Željo 1" },
-                    { label: "Grad *",     value: formCity,       setter: setFormCity,       placeholder: "npr. Sarajevo" },
-                  ].map(({ label, value, setter, placeholder }) => (
-                    <div key={label}>
-                      <label className="text-xs text-[rgb(var(--muted))] mb-1 block">{label}</label>
-                      <input
-                        type="text" value={value}
-                        onChange={(e) => setter(e.target.value)}
-                        placeholder={placeholder}
-                        className="w-full px-3 py-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
-                      />
-                    </div>
-                  ))}
+                  {/* Restaurant field — uses Google Places Autocomplete */}
+                  <div>
+                    <label className="text-xs text-[rgb(var(--muted))] mb-1 flex items-center gap-2">
+                      Restoran *
+                      {verifyChecking && (
+                        <span className="text-[10px] text-[rgb(var(--muted))] animate-pulse">Provjeravam…</span>
+                      )}
+                      {formIsVerified && !verifyChecking && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded-full">
+                          <CheckCircle className="w-2.5 h-2.5" />
+                          {t("verifiedVisit")}
+                        </span>
+                      )}
+                    </label>
+                    <RestaurantAutocomplete
+                      value={formRestaurant}
+                      onChange={(v) => { setFormRestaurant(v); setFormPlaceId(""); setFormIsVerified(false); }}
+                      onSelect={handleRestaurantSelect}
+                      onClear={() => { setFormPlaceId(""); setFormIsVerified(false); }}
+                      placeholder="npr. Željo 1"
+                    />
+                  </div>
+                  {/* City field — auto-filled from autocomplete, editable */}
+                  <div>
+                    <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Grad *</label>
+                    <input
+                      type="text"
+                      value={formCity}
+                      onChange={(e) => setFormCity(e.target.value)}
+                      placeholder="npr. Sarajevo"
+                      className="w-full px-3 py-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
@@ -670,27 +739,64 @@ export default function ProfilePage() {
             ) : (
               <div className="space-y-3">
                 {entries.map((entry) => (
-                  <div key={entry.id} className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-4">
+                  <div
+                    key={entry.id}
+                    className={cn(
+                      "rounded-2xl border p-4 transition-colors",
+                      entry.isVerified
+                        ? "border-emerald-500/25 bg-emerald-500/4"
+                        : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)]"
+                    )}
+                  >
                     <div className="flex items-start gap-3">
+                      {/* Date stamp */}
+                      <div className="flex-shrink-0 w-12 text-center rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.6)] py-1.5 hidden sm:block">
+                        <div className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-wider leading-none">
+                          {new Date(entry.date).toLocaleString("hr-HR", { month: "short" })}
+                        </div>
+                        <div className="text-lg font-bold text-[rgb(var(--foreground))] leading-none mt-0.5" style={{ fontFamily: "Oswald, sans-serif" }}>
+                          {new Date(entry.date).getDate()}
+                        </div>
+                      </div>
+
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
+                        {/* Title row */}
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <span className="font-bold text-[rgb(var(--foreground))] text-base truncate" style={{ fontFamily: "Oswald, sans-serif" }}>
                             {entry.restaurant}
                           </span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]">
+                          {entry.isVerified && (
+                            <span className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                              <CheckCircle className="w-2.5 h-2.5" />
+                              {t("verifiedVisit")}
+                            </span>
+                          )}
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))] flex-shrink-0">
                             {entry.style}
                           </span>
-                          <span className="text-xs text-[rgb(var(--primary))] font-semibold ml-auto">+{entry.rating * 10} XP</span>
+                          <span className="text-xs text-[rgb(var(--primary))] font-semibold ml-auto flex-shrink-0">
+                            +{entry.rating * 10} XP
+                          </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-[rgb(var(--muted))] mb-2">
+
+                        {/* Meta row */}
+                        <div className="flex items-center gap-3 text-xs text-[rgb(var(--muted))] mb-2 flex-wrap">
                           <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{entry.city}</span>
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{entry.date}</span>
+                          <span className="flex items-center gap-1 sm:hidden"><Calendar className="w-3 h-3" />{entry.date}</span>
+                          <span className="text-[rgb(var(--primary))] font-mono">{flameRating(entry.rating)}</span>
                         </div>
-                        <p className="text-xs text-[rgb(var(--primary))]">{flameRating(entry.rating)}</p>
-                        {entry.note && <p className="text-sm text-[rgb(var(--muted))] leading-relaxed mt-1">{entry.note}</p>}
+
+                        {entry.note && (
+                          <p className="text-sm text-[rgb(var(--muted))] leading-relaxed italic">
+                            &ldquo;{entry.note}&rdquo;
+                          </p>
+                        )}
                       </div>
-                      <button onClick={() => deleteEntry(entry.id)}
-                        className="p-1.5 rounded-lg text-[rgb(var(--muted))] hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0">
+
+                      <button
+                        onClick={() => deleteEntry(entry.id)}
+                        className="p-1.5 rounded-lg text-[rgb(var(--muted))] hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
+                      >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

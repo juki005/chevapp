@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
-  Route, MapPin, Navigation, Loader2, AlertCircle, CheckCircle, Globe,
+  Route, MapPin, Navigation, Loader2, AlertCircle, CheckCircle, Globe, ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveCityCoords, resolveExpectedCountries } from "@/constants/cities";
@@ -604,9 +604,11 @@ const STYLE_EMOJIS: Record<string, string> = {
 };
 
 function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant; index: number }) {
+  const t          = useTranslations("routePlanner");
   const isPlaces   = restaurant.source === "places";
   const isWaypoint = restaurant.source === "waypoint";
   const isGoogle   = isPlaces || isWaypoint;
+  const taUrl      = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(`${restaurant.name} ${restaurant.city}`)}`;
   return (
     <div className="card p-4 flex items-center gap-4">
       <div
@@ -652,13 +654,26 @@ function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant;
         </div>
         <div className="text-xs text-fg-muted">od rute</div>
       </div>
-      <DirectionsButton
-        name={restaurant.name}
-        address={restaurant.address}
-        city={restaurant.city}
-        lat={restaurant.latitude}
-        lng={restaurant.longitude}
-      />
+      <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
+        <DirectionsButton
+          name={restaurant.name}
+          address={restaurant.address}
+          city={restaurant.city}
+          lat={restaurant.latitude}
+          lng={restaurant.longitude}
+        />
+        <a
+          href={taUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t("tripAdvisor")}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 text-xs font-medium hover:bg-emerald-500/15 transition-colors whitespace-nowrap"
+        >
+          <ExternalLink className="w-3 h-3 flex-shrink-0" />
+          <span className="hidden sm:inline">TripAdvisor</span>
+          <span className="sm:hidden">TA</span>
+        </a>
+      </div>
     </div>
   );
 }

@@ -162,7 +162,12 @@
     "photo": "Fotografija",
     "notes": "Bilješke",
     "profileUpdated": "Profil ažuriran!",
-    "changesSaved": "Promjene su uspješno spremljene."
+    "changesSaved": "Promjene su uspješno spremljene.",
+    "verifiedVisit": "Verificirana posjeta",
+    "restaurantSearch": "Pretraži restoran…"
+  },
+  "routePlanner": {
+    "tripAdvisor": "Vidi na TripAdvisoru"
   },
   "jukebox": {
     "title": "ChevApp Jukebox",

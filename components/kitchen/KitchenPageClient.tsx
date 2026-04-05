@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { ChefHat, BookOpen, Video, Users, PlayCircle, ExternalLink, Search, X, Clapperboard } from "lucide-react";
+import { ChefHat, BookOpen, Video, Users, PlayCircle, ExternalLink, Search, X, Clapperboard, Pin } from "lucide-react";
 import { type Recipe } from "@/constants/recipes";
 import { type KitchenVideo } from "@/lib/actions/kitchen";
 import { RecipeModal } from "@/components/kitchen/RecipeModal";
@@ -49,7 +49,10 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [selectedVideoStyle, setSelectedVideoStyle] = useState<string>("default");
   const [searchQuery, setSearchQuery] = useState("");
+  const [videoSearchQuery, setVideoSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("");
+  // Track which video is currently playing (shows iframe instead of thumbnail)
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
 
   // ── Video helpers (derived from DB data) ──────────────────────────────────
   // Group videos by style; fall back to "default" bucket
@@ -82,8 +85,21 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
           r.style.toLowerCase().includes(q)
       );
     }
-    return list;
+    // Pinned items float to the top
+    return [...list].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
   }, [initialRecipes, searchQuery, categoryFilter]);
+
+  // Video filtering — search by title or channel
+  const filteredVideoList = useMemo(() => {
+    if (!videoSearchQuery.trim()) return videoList;
+    const q = videoSearchQuery.toLowerCase();
+    return videoList.filter(
+      (v) =>
+        v.title.toLowerCase().includes(q) ||
+        v.channel.toLowerCase().includes(q) ||
+        v.style.toLowerCase().includes(q)
+    );
+  }, [videoList, videoSearchQuery]);
 
   return (
     <div className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
@@ -202,8 +218,20 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                 <button
                   key={recipe.id}
                   onClick={() => setSelectedRecipe(recipe)}
-                  className="group rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-6 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all text-left cursor-pointer"
+                  className={cn(
+                    "group rounded-2xl border p-6 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all text-left cursor-pointer relative",
+                    recipe.is_pinned
+                      ? "border-[rgb(var(--primary)/0.4)] bg-[rgb(var(--primary)/0.04)]"
+                      : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)]"
+                  )}
                 >
+                  {/* Admin Pick badge */}
+                  {recipe.is_pinned && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgb(var(--primary))] text-white text-[10px] font-bold">
+                      <Pin className="w-2.5 h-2.5" />
+                      Admin Pick
+                    </div>
+                  )}
                   <div className="flex items-start gap-4">
                     <div className="text-5xl leading-none flex-shrink-0">{recipe.emoji}</div>
                     <div className="flex-1 min-w-0">
@@ -264,6 +292,26 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
               </div>
             ) : (
               <>
+                {/* ── Video search ──────────────────────────────────────────── */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
+                  <input
+                    type="text"
+                    value={videoSearchQuery}
+                    onChange={(e) => setVideoSearchQuery(e.target.value)}
+                    placeholder="Pretraži videe…"
+                    className="w-full pl-11 pr-10 py-2.5 rounded-xl bg-[rgb(var(--surface)/0.5)] border border-[rgb(var(--border))] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.6)] transition-colors text-sm"
+                  />
+                  {videoSearchQuery && (
+                    <button
+                      onClick={() => setVideoSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
                 {/* ── Style filter (only when multiple styles exist) ────────── */}
                 {availableStyles.length > 1 && (
                   <div className="flex items-center gap-2 mb-6 flex-wrap">
@@ -273,7 +321,7 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                     {availableStyles.map((style) => (
                       <button
                         key={style}
-                        onClick={() => setSelectedVideoStyle(style)}
+                        onClick={() => { setSelectedVideoStyle(style); setPlayingVideoId(null); }}
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                           selectedVideoStyle === style
@@ -288,53 +336,95 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                 )}
 
                 {/* ── Video grid ────────────────────────────────────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {videoList.map(({ id, title, embedId, channel }) => (
-                    <div
-                      key={id}
-                      className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] overflow-hidden group"
-                    >
-                      {/* Thumbnail */}
-                      <a
-                        href={`https://www.youtube.com/watch?v=${embedId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block relative aspect-video bg-[rgb(var(--border)/0.3)] overflow-hidden"
+                {filteredVideoList.length === 0 ? (
+                  <p className="text-sm text-[rgb(var(--muted))] py-8 text-center">
+                    Nema videa za upit &quot;{videoSearchQuery}&quot;.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {filteredVideoList.map(({ id, title, embedId, channel, isPinned }) => (
+                      <div
+                        key={id}
+                        className={cn(
+                          "rounded-2xl border overflow-hidden group relative",
+                          isPinned
+                            ? "border-[rgb(var(--primary)/0.4)] bg-[rgb(var(--surface)/0.6)]"
+                            : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)]"
+                        )}
                       >
-                        <img
-                          src={`https://img.youtube.com/vi/${embedId}/mqdefault.jpg`}
-                          alt={title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
-                            <PlayCircle className="w-7 h-7 text-white" />
+                        {/* Admin Pick badge */}
+                        {isPinned && (
+                          <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgb(var(--primary))] text-white text-[10px] font-bold shadow">
+                            <Pin className="w-2.5 h-2.5" />
+                            Admin Pick
+                          </div>
+                        )}
+
+                        {/* Thumbnail OR iframe embed */}
+                        {playingVideoId === id ? (
+                          /* ── Gated iframe embed ─── */
+                          <div className="relative aspect-video bg-black">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${embedId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&controls=1`}
+                              title={title}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="absolute inset-0 w-full h-full"
+                            />
+                          </div>
+                        ) : (
+                          /* ── Click-to-play thumbnail ─── */
+                          <button
+                            onClick={() => setPlayingVideoId(id)}
+                            className="block w-full relative aspect-video bg-[rgb(var(--border)/0.3)] overflow-hidden"
+                          >
+                            <img
+                              src={`https://img.youtube.com/vi/${embedId}/mqdefault.jpg`}
+                              alt={title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                                <PlayCircle className="w-7 h-7 text-white" />
+                              </div>
+                            </div>
+                          </button>
+                        )}
+
+                        {/* Info */}
+                        <div className="p-4">
+                          <h4 className="text-sm font-semibold text-[rgb(var(--foreground))] line-clamp-2 leading-snug mb-1">
+                            {title}
+                          </h4>
+                          <p className="text-xs text-[rgb(var(--muted))]">{channel}</p>
+                          <div className="mt-3 flex items-center gap-2">
+                            {playingVideoId !== id && (
+                              <button
+                                onClick={() => setPlayingVideoId(id)}
+                                className="flex items-center gap-1 text-xs text-[rgb(var(--primary))] hover:opacity-80 transition-opacity font-medium"
+                              >
+                                <PlayCircle className="w-3.5 h-3.5" />
+                                Pogledaj
+                              </button>
+                            )}
+                            <a
+                              href={`https://www.youtube.com/watch?v=${embedId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors ml-auto"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              YouTube
+                            </a>
                           </div>
                         </div>
-                      </a>
-
-                      {/* Info */}
-                      <div className="p-4">
-                        <h4 className="text-sm font-semibold text-[rgb(var(--foreground))] line-clamp-2 leading-snug mb-1">
-                          {title}
-                        </h4>
-                        <p className="text-xs text-[rgb(var(--muted))]">{channel}</p>
-                        <a
-                          href={`https://www.youtube.com/watch?v=${embedId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-3 flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Pogledaj na YouTubeu
-                        </a>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 <p className="text-[rgb(var(--muted))] text-xs mt-6 text-center opacity-50">
-                  Video sadržaj · {initialVideos.length} {initialVideos.length === 1 ? "video" : "videa"} dostupno
+                  {filteredVideoList.length} / {initialVideos.length} {initialVideos.length === 1 ? "video" : "videa"}
                 </p>
               </>
             )}

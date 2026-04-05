@@ -18,7 +18,8 @@ export interface Recipe {
   tips: string[];
   youtubeQuery: string; // search query for YouTube suggestions
   video_url?: string | null;
-  category?: string;    // "Glavno jelo" | "Prilog" | "Dodatak" — from DB
+  category?:  string;   // "Glavno jelo" | "Prilog" | "Dodatak" — from DB
+  is_pinned?: boolean;  // admin-pinned recipes float to the top with a badge
 }
 
 export const RECIPES: Recipe[] = [
@@ -213,7 +214,8 @@ export function mapDbRecipe(row: DbRecipe, locale: string): Recipe {
     tips: row.tips ?? [],
     youtubeQuery: row.youtube_query ?? "",
     video_url: row.video_url ?? null,
-    category: row.category,
+    category:  row.category,
+    is_pinned: (row as unknown as { is_pinned?: boolean }).is_pinned ?? false,
   };
 }
 

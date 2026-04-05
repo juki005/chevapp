@@ -162,7 +162,12 @@
     "photo": "Foto",
     "notes": "Notizen",
     "profileUpdated": "Profil aktualisiert!",
-    "changesSaved": "Änderungen erfolgreich gespeichert."
+    "changesSaved": "Änderungen erfolgreich gespeichert.",
+    "verifiedVisit": "Verifizierter Besuch",
+    "restaurantSearch": "Restaurant suchen…"
+  },
+  "routePlanner": {
+    "tripAdvisor": "Auf TripAdvisor ansehen"
   },
   "jukebox": {
     "title": "ChevApp Jukebox",
