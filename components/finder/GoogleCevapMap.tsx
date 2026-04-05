@@ -50,13 +50,14 @@ export interface MapRestaurant {
 }
 
 interface Props {
-  restaurants:          MapRestaurant[];
-  height?:              string;
-  activeStyle?:         string | null;
-  onStyleChange?:       (style: string) => void;
-  onOpenProfile?:       (r: MapRestaurant) => void;
-  defaultCenter?:       { lat: number; lng: number };
+  restaurants:           MapRestaurant[];
+  height?:               string;
+  activeStyle?:          string | null;
+  onStyleChange?:        (style: string) => void;
+  onOpenProfile?:        (r: MapRestaurant) => void;
+  defaultCenter?:        { lat: number; lng: number };
   initialDiscoveryMode?: boolean;
+  showStyleFilter?:      boolean;
 }
 
 // ── Style metadata ────────────────────────────────────────────────────────────
@@ -371,6 +372,7 @@ export default function GoogleCevapMap({
   onOpenProfile,
   defaultCenter        = { lat: 44.1, lng: 17.9 },
   initialDiscoveryMode = false,
+  showStyleFilter      = true,
 }: Props) {
   const [internalStyle, setInternalStyle] = useState<string>("");
 
@@ -484,7 +486,7 @@ export default function GoogleCevapMap({
       </APIProvider>
 
       {/* ── Floating style filter (top-right) ────────────────────────────── */}
-      <MapStyleFilter active={activeStyle} onChange={handleStyleChange} />
+      {showStyleFilter && <MapStyleFilter active={activeStyle} onChange={handleStyleChange} />}
 
       {/* ── Discovery Mode FAB (bottom-left) ─────────────────────────────── */}
       <button

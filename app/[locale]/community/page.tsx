@@ -577,6 +577,7 @@ export default function CommunityPage() {
                   height="380px"
                   defaultCenter={cityCenter}
                   initialDiscoveryMode={true}
+                  showStyleFilter={false}
                 />
               </div>
 
