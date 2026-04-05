@@ -5,15 +5,16 @@ import { useTranslations } from "next-intl";
 import {
   Users, Rss, Lightbulb, Calendar, Trophy,
   X, MapPin, Bell, Heart, MessageCircle, Share2, Filter, Flame,
-  Landmark, Star, ExternalLink, Search, Loader2,
+  Landmark, Star, ExternalLink, Search, Loader2, Plus, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommunityNews } from "@/components/community/CommunityNews";
 import { createClient } from "@/lib/supabase/client";
 import {
-  getLeaderboard, getActivityFeed,
-  type LeaderboardEntry, type FeedPost,
+  getLeaderboard, getActivityFeed, getGastroTips, addGastroTip, addFeedPost,
+  type LeaderboardEntry, type FeedPost, type GastroTip,
 } from "@/lib/actions/community";
+import { createEvent } from "@/lib/actions/admin";
 import {
   getLandmarksForCity, getCityFromCoords, getCoordsFromCity,
   type Landmark as LandmarkType,
@@ -62,7 +63,8 @@ const MOCK_POSTS: FeedPost[] = [
   },
 ];
 
-const GASTRO_TIPS = [
+// Fallback gastro tips shown when DB table is empty
+const FALLBACK_GASTRO_TIPS: GastroTip[] = [
   { id: "t1", city: "Sarajevo",   emoji: "🕌", tip: "Kod Žarkovića u Baščaršiji — naruči bez luka, ali zatraži dvostruki kajmak. Ne piše na meniju.", author: "SaraK",     votes: 88  },
   { id: "t2", city: "Banja Luka", emoji: "🏔️", tip: "Kod Muje ima poseban sto za stalne goste — uvijek slobodan oko 11:30 prije ručka navale.",        author: "ZoranB",    votes: 64  },
   { id: "t3", city: "Mostar",     emoji: "🌉", tip: "Ćevabdžinica ispod Starog mosta — sjedi na terasi, naruči domaći sok od šipka uz porciju.",        author: "TinaV",     votes: 42  },
@@ -79,7 +81,7 @@ const FALLBACK_EVENTS = [
 
 interface EventItem { id: string; title: string; date: string; location: string; emoji: string; desc: string; tag: string; tagColor: string; }
 
-const ALL_TIP_CITIES = ["Sve", ...Array.from(new Set(GASTRO_TIPS.map((t) => t.city)))];
+// ALL_TIP_CITIES is computed dynamically from loaded gastro tips
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(iso: string): string {
@@ -167,16 +169,63 @@ export default function CommunityPage() {
       });
   }, []);
 
-  // Tips
-  const [tipVotes,   setTipVotes]   = useState<Record<string, number>>(Object.fromEntries(GASTRO_TIPS.map((t) => [t.id, t.votes])));
-  const [votedTips,  setVotedTips]  = useState<Set<string>>(new Set());
-  const [cityFilter, setCityFilter] = useState("Sve");
+  // Gastro tips — DB-driven with fallback
+  const [gastroTips,  setGastroTips]  = useState<GastroTip[]>(FALLBACK_GASTRO_TIPS);
+  const [tipsLoading, setTipsLoading] = useState(true);
+  const [tipVotes,    setTipVotes]    = useState<Record<string, number>>(Object.fromEntries(FALLBACK_GASTRO_TIPS.map((t) => [t.id, t.votes])));
+  const [votedTips,   setVotedTips]   = useState<Set<string>>(new Set());
+  const [cityFilter,  setCityFilter]  = useState("Sve");
+
+  useEffect(() => {
+    getGastroTips().then((data) => {
+      const tips = data.length > 0 ? data : FALLBACK_GASTRO_TIPS;
+      setGastroTips(tips);
+      setTipVotes(Object.fromEntries(tips.map((t) => [t.id, t.votes])));
+      setTipsLoading(false);
+    });
+  }, []);
+
+  // Admin status
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await (supabase as any).from("profiles").select("is_admin").eq("id", user.id).single();
+      setIsAdmin(data?.is_admin === true);
+    });
+  }, []);
+
+  // Admin modals
+  const [showAddPost,  setShowAddPost]  = useState(false);
+  const [showAddTip,   setShowAddTip]   = useState(false);
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [adminSaving,  setAdminSaving]  = useState(false);
+  const [adminDone,    setAdminDone]    = useState(false);
+
+  // Add post form state
+  const [newPostContent,      setNewPostContent]      = useState("");
+  const [newPostIsInsiderTip, setNewPostIsInsiderTip] = useState(false);
+
+  // Add tip form state
+  const [newTipCity,  setNewTipCity]  = useState("");
+  const [newTipEmoji, setNewTipEmoji] = useState("💡");
+  const [newTipText,  setNewTipText]  = useState("");
+
+  // Add event form state
+  const [newEvTitle,    setNewEvTitle]    = useState("");
+  const [newEvDate,     setNewEvDate]     = useState("");
+  const [newEvLocation, setNewEvLocation] = useState("");
+  const [newEvEmoji,    setNewEvEmoji]    = useState("🔥");
+  const [newEvDesc,     setNewEvDesc]     = useState("");
+  const [newEvTag,      setNewEvTag]      = useState("");
 
   // Events modals
   const [notifiedEvents, setNotifiedEvents] = useState<Set<string>>(new Set());
   const [selectedEvent,  setSelectedEvent]  = useState<EventItem | null>(null);
 
-  const filteredTips = cityFilter === "Sve" ? GASTRO_TIPS : GASTRO_TIPS.filter((tip) => tip.city === cityFilter);
+  const allTipCities  = ["Sve", ...Array.from(new Set(gastroTips.map((t) => t.city)))];
+  const filteredTips  = cityFilter === "Sve" ? gastroTips : gastroTips.filter((tip) => tip.city === cityFilter);
 
   // ── Discovery ("Istraži grad") ──────────────────────────────────────────────
   const [discoveryCityName,  setDiscoveryCityName]  = useState<string>("");
@@ -293,6 +342,16 @@ export default function CommunityPage() {
           {/* ──────────── FEED TAB ──────────── */}
           {activeTab === "feed" && (
             <div className="space-y-4">
+              {/* Admin: add post */}
+              {isAdmin && (
+                <button
+                  onClick={() => { setShowAddPost(true); setAdminDone(false); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-[rgb(var(--primary)/0.4)] text-[rgb(var(--primary))] text-sm font-medium hover:bg-[rgb(var(--primary)/0.05)] transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Dodaj objavu
+                </button>
+              )}
               {feedLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)] p-5 animate-pulse">
@@ -373,10 +432,20 @@ export default function CommunityPage() {
           {/* ──────────── TIPS TAB ──────────── */}
           {activeTab === "tips" && (
             <div>
+              {/* Admin: add tip */}
+              {isAdmin && (
+                <button
+                  onClick={() => { setShowAddTip(true); setAdminDone(false); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 mb-4 rounded-xl border border-dashed border-[rgb(var(--primary)/0.4)] text-[rgb(var(--primary))] text-sm font-medium hover:bg-[rgb(var(--primary)/0.05)] transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Dodaj gastro tip
+                </button>
+              )}
               <div className="flex items-center gap-2 mb-5 flex-wrap">
                 <Filter className="w-3.5 h-3.5 text-[rgb(var(--muted))]" />
                 <span className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mr-1">Grad:</span>
-                {ALL_TIP_CITIES.map((city) => (
+                {allTipCities.map((city) => (
                   <button
                     key={city}
                     onClick={() => setCityFilter(city)}
@@ -432,6 +501,16 @@ export default function CommunityPage() {
           {/* ──────────── EVENTS TAB ──────────── */}
           {activeTab === "events" && (
             <div className="space-y-4">
+              {/* Admin: add event */}
+              {isAdmin && (
+                <button
+                  onClick={() => { setShowAddEvent(true); setAdminDone(false); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-[rgb(var(--primary)/0.4)] text-[rgb(var(--primary))] text-sm font-medium hover:bg-[rgb(var(--primary)/0.05)] transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Dodaj događaj
+                </button>
+              )}
               {events.map((event) => (
                 <div key={event.id} className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5">
                   <div className="flex items-start gap-4">
@@ -699,6 +778,193 @@ export default function CommunityPage() {
             >
               <Bell className="w-4 h-4" />
               {notifiedEvents.has(selectedEvent.id) ? "✓ Obavještenje aktivirano" : "🔔 Obavijesti me o ovom događaju"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADMIN MODAL: Add Feed Post ── */}
+      {showAddPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAddPost(false)} />
+          <div className="relative w-full max-w-lg rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-2xl p-6">
+            <button onClick={() => setShowAddPost(false)} className="absolute top-4 right-4 p-1.5 rounded-lg border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+            <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-5" style={{ fontFamily: "Oswald, sans-serif" }}>
+              Nova objava u Feed-u
+            </h2>
+            <textarea
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
+              placeholder="Napiši objavu…"
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] text-sm focus:outline-none focus:border-[rgb(var(--primary)/0.5)] resize-none mb-3"
+            />
+            <label className="flex items-center gap-2 text-sm text-[rgb(var(--muted))] mb-5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={newPostIsInsiderTip}
+                onChange={(e) => setNewPostIsInsiderTip(e.target.checked)}
+                className="rounded border-[rgb(var(--border))]"
+              />
+              Označi kao Insider Tip 💎
+            </label>
+            <button
+              disabled={adminSaving || !newPostContent.trim()}
+              onClick={async () => {
+                setAdminSaving(true);
+                const ok = await addFeedPost({ content: newPostContent.trim(), isInsiderTip: newPostIsInsiderTip });
+                if (ok) {
+                  setAdminDone(true);
+                  setNewPostContent("");
+                  setNewPostIsInsiderTip(false);
+                  getActivityFeed().then((data) => {
+                    const posts = data.length > 0 ? data : MOCK_POSTS;
+                    setFeed(posts);
+                    setLikes(Object.fromEntries(posts.map((p) => [p.id, p.likesCount])));
+                  });
+                  setTimeout(() => setShowAddPost(false), 1200);
+                }
+                setAdminSaving(false);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[rgb(var(--primary))] text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {adminSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : adminDone ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {adminSaving ? "Objavljujem…" : adminDone ? "Objavljeno!" : "Objavi"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADMIN MODAL: Add Gastro Tip ── */}
+      {showAddTip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAddTip(false)} />
+          <div className="relative w-full max-w-lg rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-2xl p-6">
+            <button onClick={() => setShowAddTip(false)} className="absolute top-4 right-4 p-1.5 rounded-lg border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+            <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-5" style={{ fontFamily: "Oswald, sans-serif" }}>
+              Novi Gastro Tip
+            </h2>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Grad</label>
+                <input
+                  value={newTipCity}
+                  onChange={(e) => setNewTipCity(e.target.value)}
+                  placeholder="npr. Sarajevo"
+                  className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Emoji</label>
+                <input
+                  value={newTipEmoji}
+                  onChange={(e) => setNewTipEmoji(e.target.value)}
+                  placeholder="💡"
+                  className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)]"
+                />
+              </div>
+            </div>
+            <textarea
+              value={newTipText}
+              onChange={(e) => setNewTipText(e.target.value)}
+              placeholder="Upiši insider tip…"
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] text-sm focus:outline-none focus:border-[rgb(var(--primary)/0.5)] resize-none mb-5"
+            />
+            <button
+              disabled={adminSaving || !newTipCity.trim() || !newTipText.trim()}
+              onClick={async () => {
+                setAdminSaving(true);
+                const ok = await addGastroTip({ city: newTipCity.trim(), emoji: newTipEmoji || "💡", tip: newTipText.trim() });
+                if (ok) {
+                  setAdminDone(true);
+                  setNewTipCity(""); setNewTipEmoji("💡"); setNewTipText("");
+                  getGastroTips().then((data) => {
+                    const tips = data.length > 0 ? data : FALLBACK_GASTRO_TIPS;
+                    setGastroTips(tips);
+                    setTipVotes(Object.fromEntries(tips.map((t) => [t.id, t.votes])));
+                  });
+                  setTimeout(() => setShowAddTip(false), 1200);
+                }
+                setAdminSaving(false);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[rgb(var(--primary))] text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {adminSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : adminDone ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {adminSaving ? "Dodajem…" : adminDone ? "Dodano!" : "Dodaj tip"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADMIN MODAL: Add Event ── */}
+      {showAddEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAddEvent(false)} />
+          <div className="relative w-full max-w-lg rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowAddEvent(false)} className="absolute top-4 right-4 p-1.5 rounded-lg border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+            <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-5" style={{ fontFamily: "Oswald, sans-serif" }}>
+              Novi Događaj
+            </h2>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Naziv događaja</label>
+                <input value={newEvTitle} onChange={(e) => setNewEvTitle(e.target.value)} placeholder="npr. Sarajevo Gastro Dani" className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)]" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Datum</label>
+                  <input value={newEvDate} onChange={(e) => setNewEvDate(e.target.value)} placeholder="npr. 22. – 24. rujna 2025." className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)]" />
+                </div>
+                <div>
+                  <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Emoji</label>
+                  <input value={newEvEmoji} onChange={(e) => setNewEvEmoji(e.target.value)} placeholder="🔥" className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)]" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Lokacija</label>
+                <input value={newEvLocation} onChange={(e) => setNewEvLocation(e.target.value)} placeholder="npr. Baščaršija, Sarajevo" className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)]" />
+              </div>
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Tag (npr. Festival, Gastro, Meetup)</label>
+                <input value={newEvTag} onChange={(e) => setNewEvTag(e.target.value)} placeholder="Festival" className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)]" />
+              </div>
+              <div>
+                <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Opis</label>
+                <textarea value={newEvDesc} onChange={(e) => setNewEvDesc(e.target.value)} placeholder="Kratki opis događaja…" rows={3} className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] text-sm focus:outline-none focus:border-[rgb(var(--primary)/0.5)] resize-none" />
+              </div>
+            </div>
+            <button
+              disabled={adminSaving || !newEvTitle.trim() || !newEvDate.trim() || !newEvLocation.trim()}
+              onClick={async () => {
+                setAdminSaving(true);
+                const ok = await createEvent({
+                  title: newEvTitle.trim(), dateLabel: newEvDate.trim(), location: newEvLocation.trim(),
+                  emoji: newEvEmoji || "🔥", description: newEvDesc.trim(), tag: newEvTag.trim() || "Događaj",
+                  tagColor: "text-amber-400 bg-amber-400/10 border-amber-400/30", sortOrder: 99,
+                });
+                if (ok) {
+                  setAdminDone(true);
+                  setNewEvTitle(""); setNewEvDate(""); setNewEvLocation(""); setNewEvEmoji("🔥"); setNewEvDesc(""); setNewEvTag("");
+                  const supabase = createClient();
+                  (supabase as any).from("events").select("id, title, description, location, date_label, emoji, tag, tag_color").eq("is_active", true).order("sort_order", { ascending: true })
+                    .then(({ data }: { data: any }) => {
+                      if (data && data.length > 0) setEvents(data.map((r: any) => ({ id: r.id, title: r.title, date: r.date_label, location: r.location, emoji: r.emoji, desc: r.description, tag: r.tag, tagColor: r.tag_color })));
+                    });
+                  setTimeout(() => setShowAddEvent(false), 1200);
+                }
+                setAdminSaving(false);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[rgb(var(--primary))] text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {adminSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : adminDone ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {adminSaving ? "Kreiram…" : adminDone ? "Kreirano!" : "Kreiraj događaj"}
             </button>
           </div>
         </div>

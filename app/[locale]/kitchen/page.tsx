@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { KitchenPageClient } from "@/components/kitchen/KitchenPageClient";
-import { mapDbRecipe, RECIPES, type DbRecipe } from "@/constants/recipes";
+import { mapDbRecipe, type DbRecipe } from "@/constants/recipes";
+import { getKitchenVideos } from "@/lib/actions/kitchen";
 import { getLocale } from "next-intl/server";
 
 export const revalidate = 0;
@@ -31,5 +32,8 @@ export default async function KitchenPage() {
       ? data.map((row) => mapDbRecipe(row as unknown as DbRecipe, locale))
       : [];
 
-  return <KitchenPageClient initialRecipes={initialRecipes} />;
+  // Fetch kitchen videos in parallel — safe fallback to [] on error
+  const initialVideos = await getKitchenVideos();
+
+  return <KitchenPageClient initialRecipes={initialRecipes} initialVideos={initialVideos} />;
 }

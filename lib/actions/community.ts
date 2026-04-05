@@ -2,6 +2,18 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getRank } from "@/lib/gamification";
+import { revalidatePath } from "next/cache";
+
+// ── Auth guard (community-scoped) ─────────────────────────────────────────────
+async function requireAdmin() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: profile } = await supabase
+    .from("profiles").select("is_admin").eq("id", user.id).single();
+  return profile?.is_admin === true ? user : null;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -141,6 +153,81 @@ export async function getActivityFeed(): Promise<FeedPost[]> {
   } catch {
     return [];
   }
+}
+
+// ── Gastro Tips ───────────────────────────────────────────────────────────────
+
+export interface GastroTip {
+  id:     string;
+  city:   string;
+  emoji:  string;
+  tip:    string;
+  author: string;
+  votes:  number;
+}
+
+export async function getGastroTips(): Promise<GastroTip[]> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = (await createClient()) as any;
+    const { data } = await supabase
+      .from("gastro_tips")
+      .select("id, city, emoji, tip, author, votes")
+      .order("votes", { ascending: false });
+    if (!data || data.length === 0) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data.map((t: any) => ({
+      id:     t.id,
+      city:   t.city   ?? "Balkan",
+      emoji:  t.emoji  ?? "💡",
+      tip:    t.tip,
+      author: t.author ?? "Anonimni",
+      votes:  t.votes  ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function addGastroTip(input: {
+  city: string; emoji: string; tip: string;
+}): Promise<boolean> {
+  const admin = await requireAdmin();
+  if (!admin) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any;
+  const { error } = await supabase.from("gastro_tips").insert({
+    city:   input.city,
+    emoji:  input.emoji  || "💡",
+    tip:    input.tip,
+    author: "Admin",
+    votes:  0,
+  });
+  revalidatePath("/[locale]/community", "page");
+  return !error;
+}
+
+// ── Feed Posts (admin-authored) ───────────────────────────────────────────────
+
+export async function addFeedPost(input: {
+  content:       string;
+  isInsiderTip?: boolean;
+  restaurantId?: string;
+}): Promise<boolean> {
+  const admin = await requireAdmin();
+  if (!admin) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any;
+  const { error } = await supabase.from("posts").insert({
+    content:        input.content,
+    user_id:        admin.id,
+    is_insider_tip: input.isInsiderTip ?? false,
+    restaurant_id:  input.restaurantId ?? null,
+    likes_count:    0,
+    is_hidden:      false,
+  });
+  revalidatePath("/[locale]/community", "page");
+  return !error;
 }
 
 // ── Recent Reviews (for activity sidebar / feed enrichment) ───────────────────
