@@ -76,7 +76,10 @@
     "mapView": "Map",
     "favoritesOnly": "Favourites only",
     "clearFilters": "Clear filters",
-    "openProfile": "PROFILE"
+    "openProfile": "PROFILE",
+    "heroTitle": "Find the best ćevapi in your city",
+    "heroSubtitle": "Search a city or pick a style above to start your adventure.",
+    "featuredTitle": "Featured spots"
   },
   "kitchen": {
     "title": "Master Kitchen",

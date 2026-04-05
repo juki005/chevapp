@@ -76,7 +76,10 @@
     "mapView": "Karte",
     "favoritesOnly": "Nur Favoriten",
     "clearFilters": "Filter zurücksetzen",
-    "openProfile": "PROFIL"
+    "openProfile": "PROFIL",
+    "heroTitle": "Finde die besten Ćevapi in deiner Stadt",
+    "heroSubtitle": "Suche eine Stadt oder wähle oben einen Stil, um dein Abenteuer zu starten.",
+    "featuredTitle": "Empfohlene Orte"
   },
   "kitchen": {
     "title": "Meisterküche",

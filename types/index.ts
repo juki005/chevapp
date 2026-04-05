@@ -20,6 +20,7 @@ export interface Restaurant {
   description?: string | null;
   tags_style?: string[];
   tags_meat?: string[];
+  is_pinned?: boolean;
 }
 
 export interface RestaurantReview {

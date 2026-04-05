@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import {
   MapPin, Loader2, ServerCrash, SlidersHorizontal,
-  CheckCircle, XCircle, RefreshCw,
+  CheckCircle, XCircle, RefreshCw, Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDebounce } from "@/lib/hooks/useDebounce";
@@ -235,6 +235,11 @@ export default function FinderPage() {
   // ── Derived ────────────────────────────────────────────────────────────────
   const hasActiveFilters = !!(searchTerm || selectedCity || activeStyle || favOnly);
 
+  // Top-4 for hero (pinned first, then by lepinja_rating — already sorted DESC by Supabase)
+  const featuredRestaurants = [...dbRestaurants]
+    .sort((a, b) => ((b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)))
+    .slice(0, 4);
+
   const visibleDbRestaurants = favOnly
     ? dbRestaurants.filter((r) => favDbIds.includes(r.id))
     : dbRestaurants;
@@ -425,8 +430,58 @@ export default function FinderPage() {
 
             ) : (
               <>
-                {/* Verified DB grid */}
-                {visibleDbRestaurants.length > 0 && (
+                {/* ── NO ACTIVE SEARCH → Hero + Top 4 ───────────────────── */}
+                {!hasActiveFilters && !placesSearched ? (
+                  <div>
+                    {/* Hero welcome */}
+                    <div className="mb-10 py-12 px-6 rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] text-center relative overflow-hidden">
+                      {/* decorative blur blob */}
+                      <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.08)] blur-3xl pointer-events-none" />
+                      <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.05)] blur-3xl pointer-events-none" />
+                      <div className="relative z-10">
+                        <div className="text-5xl mb-4">🥩</div>
+                        <h2
+                          className="text-3xl md:text-4xl font-bold text-[rgb(var(--foreground))] mb-3"
+                          style={{ fontFamily: "Oswald, sans-serif" }}
+                        >
+                          {t("heroTitle")}
+                        </h2>
+                        <p className="text-[rgb(var(--muted))] max-w-md mx-auto text-sm leading-relaxed">
+                          {t("heroSubtitle")}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Top 4 featured */}
+                    {featuredRestaurants.length > 0 && (
+                      <div>
+                        <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
+                          <Star className="w-3 h-3 text-amber-400" />
+                          {t("featuredTitle")}
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                          {featuredRestaurants.map((r) => (
+                            <div
+                              key={r.id}
+                              id={`card-${r.id}`}
+                              onClick={() => setSelectedMapKey(r.id === selectedMapKey ? null : r.id)}
+                              className={cn("rounded-2xl transition-all cursor-pointer", selectedMapKey === r.id ? "ring-2 ring-[rgb(var(--primary))] ring-offset-2 ring-offset-[rgb(var(--background))]" : "")}
+                            >
+                              <RestaurantCard
+                                restaurant={r}
+                                avgRating={avgRatings[r.id] ?? null}
+                                onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified, rating: avgRatings[r.id] ?? r.rating ?? null })}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                ) : (
+                  /* ── ACTIVE SEARCH → Full verified grid ──────────────── */
+                  visibleDbRestaurants.length > 0 && (
                   <div className="mb-8">
                     <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
                       <SlidersHorizontal className="w-3 h-3" />
@@ -450,6 +505,7 @@ export default function FinderPage() {
                       ))}
                     </div>
                   </div>
+                  )
                 )}
 
                 {/* Google Places loading skeleton */}

@@ -76,7 +76,10 @@
     "mapView": "Мапа",
     "favoritesOnly": "Само омиљени",
     "clearFilters": "Обриши филтере",
-    "openProfile": "ПРОФИЛ"
+    "openProfile": "ПРОФИЛ",
+    "heroTitle": "Пронађи најбоље ћевапе у свом граду",
+    "heroSubtitle": "Претражи град или одабери стил изнад да кренеш у авантуру.",
+    "featuredTitle": "Истакнута места"
   },
   "kitchen": {
     "title": "Мајсторска Кухиња",
