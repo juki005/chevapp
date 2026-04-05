@@ -14,12 +14,12 @@ const STYLE_EMOJIS: Record<string, string> = {
   Ostalo:       "🔥",
 };
 
-// Subtle per-style colour palette — border, background tint, badge text+border+bg
+// Subtle per-style colour palette
 const STYLE_PALETTE: Record<string, {
-  border:  string;
-  bg:      string;
-  badge:   string;
-  iconBg:  string;
+  border: string;
+  bg:     string;
+  badge:  string;
+  iconBg: string;
 }> = {
   Sarajevski:   {
     border:  "border-amber-500/35",
@@ -53,13 +53,6 @@ const STYLE_PALETTE: Record<string, {
   },
 };
 
-const DEFAULT_PALETTE = {
-  border:  "border-[rgb(var(--border))]",
-  bg:      "",
-  badge:   "text-[rgb(var(--primary))] border-[rgb(var(--primary)/0.3)] bg-[rgb(var(--primary)/0.08)]",
-  iconBg:  "bg-[rgb(var(--border))]",
-};
-
 interface RestaurantCardProps {
   restaurant:      Restaurant;
   avgRating?:      number | null;
@@ -73,11 +66,17 @@ export function RestaurantCard({
   className,
   onProfileClick,
 }: RestaurantCardProps) {
-  const emoji   = STYLE_EMOJIS[restaurant.style] ?? "🔥";
-  const palette = STYLE_PALETTE[restaurant.style] ?? DEFAULT_PALETTE;
+  // Normalise: null / unrecognised style → "Ostalo" so every card gets a tint
+  const styleKey = restaurant.style && STYLE_PALETTE[restaurant.style as string]
+    ? (restaurant.style as string)
+    : "Ostalo";
+  const emoji   = STYLE_EMOJIS[styleKey] ?? "🔥";
+  const palette = STYLE_PALETTE[styleKey];
 
-  // Rating is considered "real" only when > 0
+  // Only show a numeric rating when it's actually > 0
   const hasRating = avgRating != null && avgRating > 0;
+  // Only show lepinja number when the DB rating is > 0
+  const hasLepinja = restaurant.lepinja_rating > 0;
 
   return (
     <div
@@ -89,7 +88,7 @@ export function RestaurantCard({
         className
       )}
     >
-      {/* ── Admin-Pick pin strip ─────────────────────────────────────────── */}
+      {/* Admin-Pick strip */}
       {restaurant.is_pinned && (
         <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500/15 border-b border-amber-500/25 text-xs text-amber-400 font-semibold">
           <Sparkles className="w-3 h-3" />
@@ -97,12 +96,9 @@ export function RestaurantCard({
         </div>
       )}
 
-      {/* ── Clickable header ─────────────────────────────────────────────── */}
+      {/* Clickable header */}
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onProfileClick?.();
-        }}
+        onClick={(e) => { e.stopPropagation(); onProfileClick?.(); }}
         aria-label={`Otvori profil — ${restaurant.name}`}
         className="w-full text-left flex items-center gap-3 px-5 pt-5 pb-3 hover:bg-white/[0.02] transition-colors"
       >
@@ -115,7 +111,7 @@ export function RestaurantCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3
-              className="font-bold text-[rgb(var(--foreground))] text-base group-hover:text-[rgb(var(--primary))] transition-colors leading-tight"
+              className="font-bold text-[rgb(var(--foreground))] text-base group-hover:text-[rgb(var(--primary))] transition-colors leading-tight truncate"
               style={{ fontFamily: "Oswald, sans-serif" }}
             >
               {restaurant.name}
@@ -125,13 +121,13 @@ export function RestaurantCard({
             )}
           </div>
           <div className="flex items-center gap-1 text-xs text-[rgb(var(--muted))] mt-0.5">
-            <MapPin className="w-3 h-3" />
+            <MapPin className="w-3 h-3 flex-shrink-0" />
             <span className="truncate">{restaurant.city} · {restaurant.address}</span>
           </div>
         </div>
       </button>
 
-      {/* ── Middle ───────────────────────────────────────────────────────── */}
+      {/* Middle */}
       <div className="px-5 pb-3">
         {/* Style badge + tags */}
         <div className="flex flex-wrap gap-2 mb-3">
@@ -139,9 +135,9 @@ export function RestaurantCard({
             "text-xs px-2.5 py-1 rounded-full border font-medium",
             palette.badge
           )}>
-            {restaurant.style}
+            {restaurant.style ?? "Ostalo"}
           </span>
-          {restaurant.tags.slice(0, 3).map((tag) => (
+          {restaurant.tags?.slice(0, 3).map((tag) => (
             <span
               key={tag}
               className="text-xs px-2.5 py-1 rounded-full bg-[rgb(var(--border)/0.6)] text-[rgb(var(--muted))]"
@@ -153,7 +149,7 @@ export function RestaurantCard({
 
         {/* Lepinja rating + community avg / Novo badge */}
         <div className="flex items-center justify-between">
-          <LepinjaRating rating={restaurant.lepinja_rating} size="md" />
+          <LepinjaRating rating={restaurant.lepinja_rating} size="md" showNumber={hasLepinja} />
 
           {hasRating ? (
             <div className="flex items-center gap-1 text-xs">
@@ -178,7 +174,7 @@ export function RestaurantCard({
         </div>
       </div>
 
-      {/* ── Footer actions ────────────────────────────────────────────────── */}
+      {/* Footer actions */}
       <div className="px-5 py-3 border-t border-[rgb(var(--border)/0.5)] flex items-center justify-between gap-3">
         {/* Quick emoji reactions */}
         <div className="flex gap-1">
@@ -194,16 +190,13 @@ export function RestaurantCard({
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onProfileClick?.();
-            }}
+            onClick={(e) => { e.stopPropagation(); onProfileClick?.(); }}
             tabIndex={-1}
             aria-hidden="true"
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap",
               "border border-[rgb(var(--border))]",
               "text-[rgb(var(--muted))] hover:text-[rgb(var(--primary))] hover:border-[rgb(var(--primary)/0.4)] transition-all",
             )}

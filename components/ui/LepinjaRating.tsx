@@ -14,7 +14,7 @@ export function LepinjaRating({
   className,
 }: LepinjaRatingProps) {
   const sizes = { sm: "text-sm", md: "text-base", lg: "text-xl" };
-  const clampedRating = Math.max(0, Math.min(5, rating));
+  const clampedRating = Math.max(0, Math.min(5, rating ?? 0));
   const full = Math.floor(clampedRating);
   const hasHalf = clampedRating - full >= 0.25 && clampedRating - full < 0.75;
   const almostFull = clampedRating - full >= 0.75;
