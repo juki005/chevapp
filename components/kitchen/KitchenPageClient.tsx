@@ -276,20 +276,8 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
         {activeTab === "videos" && (
           <div>
             {initialVideos.length === 0 ? (
-              /* ── Empty state — no videos in DB yet ──────────────────────── */
-              <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[rgb(var(--primary)/0.1)] flex items-center justify-center">
-                  <Clapperboard className="w-8 h-8 text-[rgb(var(--primary)/0.5)]" />
-                </div>
-                <div>
-                  <p className="text-[rgb(var(--foreground))] font-semibold mb-1" style={{ fontFamily: "Oswald, sans-serif" }}>
-                    Video sadržaj dolazi uskoro
-                  </p>
-                  <p className="text-sm text-[rgb(var(--muted))]">
-                    Naš tim priprema kulinarske videe posebno za ChevApp zajednicu.
-                  </p>
-                </div>
-              </div>
+              /* ── YouTube search fallback — no DB videos yet ──────────────── */
+              <YouTubeSearchFallback recipes={initialRecipes} />
             ) : (
               <>
                 {/* ── Video search ──────────────────────────────────────────── */}
@@ -431,7 +419,7 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
           </div>
         )}
 
-        {/* SQUAD PLANER TAB */}
+        {/* SQUAD PLANER TAB (below videos) */}
         {activeTab === "squad" && (
           <GroupCalculator />
         )}
@@ -442,6 +430,101 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
         recipe={selectedRecipe}
         onClose={() => setSelectedRecipe(null)}
       />
+    </div>
+  );
+}
+
+// ── YouTube Search Fallback ────────────────────────────────────────────────────
+// Shown in the Videos tab when the kitchen_videos DB table is empty.
+// Lets users search YouTube directly for any ćevapi recipe, with one-click
+// chips generated from every recipe's youtubeQuery field.
+// ─────────────────────────────────────────────────────────────────────────────
+import { useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+
+function YouTubeSearchFallback({ recipes }: { recipes: Recipe[] }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const openYouTube = (query: string) => {
+    if (!query.trim()) return;
+    window.open(
+      `https://www.youtube.com/results?search_query=${encodeURIComponent(query.trim())}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  const handleKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") openYouTube(inputRef.current?.value ?? "");
+  };
+
+  // Deduplicated YouTube search chips from recipe data
+  const chips = Array.from(
+    new Set(recipes.map((r) => r.youtubeQuery).filter(Boolean))
+  ).slice(0, 12);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
+          <Clapperboard className="w-5 h-5 text-red-400" />
+        </div>
+        <div>
+          <p className="font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
+            Pretraži YouTube recepte
+          </p>
+          <p className="text-xs text-[rgb(var(--muted))]">
+            Pretraži direktno na YouTubeu — rezultati se otvaraju u novom tabu
+          </p>
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
+          <input
+            ref={inputRef}
+            type="text"
+            defaultValue="ćevapi recept"
+            onKeyDown={handleKey}
+            placeholder="npr. sarajevski ćevapi, leskovački roštilj…"
+            className="w-full pl-11 pr-4 py-3 rounded-xl bg-[rgb(var(--surface)/0.5)] border border-[rgb(var(--border))] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-red-500/50 transition-colors text-sm"
+          />
+        </div>
+        <button
+          onClick={() => openYouTube(inputRef.current?.value ?? "")}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors flex-shrink-0"
+        >
+          <ExternalLink className="w-4 h-4" />
+          <span className="hidden sm:inline">Pretraži</span>
+        </button>
+      </div>
+
+      {/* Quick-search chips from recipe data */}
+      {chips.length > 0 && (
+        <div>
+          <p className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3">
+            Brza pretraga po receptu
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {chips.map((q) => (
+              <button
+                key={q}
+                onClick={() => openYouTube(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-xs text-[rgb(var(--muted))] hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
+              >
+                <PlayCircle className="w-3 h-3 flex-shrink-0" />
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-[10px] text-[rgb(var(--muted))] opacity-50 text-center">
+        Video sadržaj s vlastite baze podataka dolazi uskoro · Za sada koristite YouTube pretragu
+      </p>
     </div>
   );
 }
