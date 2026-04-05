@@ -112,7 +112,7 @@
     "ytBackToResults": "Back to results",
     "ytLoading": "Fetching YouTube results…",
     "ytErrorTitle": "Could not load YouTube results",
-    "ytErrorGeneric": "We couldn't fetch YouTube results. Please try again or change your query.",
+    "ytErrorGeneric": "We're currently unable to fetch YouTube results. Please check your connection or try again later.",
     "ytRetry": "Try again",
     "ytEmpty": "No YouTube results found for this query.",
     "ytResultsLabel": "YouTube",

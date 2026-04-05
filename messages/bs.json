@@ -112,7 +112,7 @@
     "ytBackToResults": "Nazad na rezultate",
     "ytLoading": "Dohvaćam YouTube rezultate…",
     "ytErrorTitle": "Nije moguće učitati YouTube rezultate",
-    "ytErrorGeneric": "Nismo uspjeli dohvatiti YouTube rezultate. Pokušajte ponovo ili promijenite upit.",
+    "ytErrorGeneric": "Trenutno ne možemo dohvatiti YouTube rezultate. Molimo provjerite konekciju ili pokušajte kasnije.",
     "ytRetry": "Pokušaj ponovo",
     "ytEmpty": "Nema YouTube rezultata za ovaj upit.",
     "ytResultsLabel": "YouTube",

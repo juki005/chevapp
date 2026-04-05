@@ -112,7 +112,7 @@
     "ytBackToResults": "Zurück zu Ergebnissen",
     "ytLoading": "YouTube-Ergebnisse werden geladen…",
     "ytErrorTitle": "YouTube-Ergebnisse konnten nicht geladen werden",
-    "ytErrorGeneric": "Wir konnten keine YouTube-Ergebnisse abrufen. Bitte erneut versuchen oder Suchanfrage ändern.",
+    "ytErrorGeneric": "YouTube-Ergebnisse können derzeit nicht abgerufen werden. Bitte Verbindung prüfen oder später erneut versuchen.",
     "ytRetry": "Erneut versuchen",
     "ytEmpty": "Keine YouTube-Ergebnisse für diese Suchanfrage.",
     "ytResultsLabel": "YouTube",
