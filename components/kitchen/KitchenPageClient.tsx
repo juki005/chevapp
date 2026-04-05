@@ -436,25 +436,17 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
 
 // ── YouTube Search Fallback ────────────────────────────────────────────────────
 // Shown in the Videos tab when the kitchen_videos DB table is empty.
-// Lets users search YouTube directly for any ćevapi recipe, with one-click
-// chips generated from every recipe's youtubeQuery field.
+// Uses YouTube's listType=search embed to play results directly in-page —
+// no API key required. Quick-search chips are auto-generated from every
+// recipe's youtubeQuery field.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
-
 function YouTubeSearchFallback({ recipes }: { recipes: Recipe[] }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [inputValue,  setInputValue]  = useState("ćevapi recept");
+  const [activeQuery, setActiveQuery] = useState("ćevapi recept");
 
-  const openYouTube = (query: string) => {
-    if (!query.trim()) return;
-    window.open(
-      `https://www.youtube.com/results?search_query=${encodeURIComponent(query.trim())}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-  };
-
-  const handleKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") openYouTube(inputRef.current?.value ?? "");
+  const runSearch = (q: string) => {
+    const trimmed = q.trim();
+    if (trimmed) setActiveQuery(trimmed);
   };
 
   // Deduplicated YouTube search chips from recipe data
@@ -462,68 +454,78 @@ function YouTubeSearchFallback({ recipes }: { recipes: Recipe[] }) {
     new Set(recipes.map((r) => r.youtubeQuery).filter(Boolean))
   ).slice(0, 12);
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
-          <Clapperboard className="w-5 h-5 text-red-400" />
-        </div>
-        <div>
-          <p className="font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
-            Pretraži YouTube recepte
-          </p>
-          <p className="text-xs text-[rgb(var(--muted))]">
-            Pretraži direktno na YouTubeu — rezultati se otvaraju u novom tabu
-          </p>
-        </div>
-      </div>
+  // YouTube embed URL using listType=search — loads results inline, no API key needed
+  const embedSrc = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(activeQuery)}&rel=0&modestbranding=1&iv_load_policy=3&controls=1`;
 
+  return (
+    <div className="space-y-5">
       {/* Search bar */}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
           <input
-            ref={inputRef}
             type="text"
-            defaultValue="ćevapi recept"
-            onKeyDown={handleKey}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && runSearch(inputValue)}
             placeholder="npr. sarajevski ćevapi, leskovački roštilj…"
             className="w-full pl-11 pr-4 py-3 rounded-xl bg-[rgb(var(--surface)/0.5)] border border-[rgb(var(--border))] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-red-500/50 transition-colors text-sm"
           />
         </div>
         <button
-          onClick={() => openYouTube(inputRef.current?.value ?? "")}
+          onClick={() => runSearch(inputValue)}
           className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors flex-shrink-0"
         >
-          <ExternalLink className="w-4 h-4" />
+          <PlayCircle className="w-4 h-4" />
           <span className="hidden sm:inline">Pretraži</span>
         </button>
       </div>
 
       {/* Quick-search chips from recipe data */}
       {chips.length > 0 && (
-        <div>
-          <p className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3">
-            Brza pretraga po receptu
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {chips.map((q) => (
-              <button
-                key={q}
-                onClick={() => openYouTube(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-xs text-[rgb(var(--muted))] hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-all"
-              >
-                <PlayCircle className="w-3 h-3 flex-shrink-0" />
-                {q}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {chips.map((q) => (
+            <button
+              key={q}
+              onClick={() => { setInputValue(q); runSearch(q); }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-all",
+                activeQuery === q
+                  ? "border-red-500/50 bg-red-500/10 text-red-400"
+                  : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--muted))] hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5"
+              )}
+            >
+              <PlayCircle className="w-3 h-3 flex-shrink-0" />
+              {q}
+            </button>
+          ))}
         </div>
       )}
 
-      <p className="text-[10px] text-[rgb(var(--muted))] opacity-50 text-center">
-        Video sadržaj s vlastite baze podataka dolazi uskoro · Za sada koristite YouTube pretragu
+      {/* Inline YouTube search results — plays directly on this page */}
+      <div className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] bg-black">
+        <div className="px-4 py-2.5 bg-[rgb(var(--surface)/0.8)] border-b border-[rgb(var(--border))] flex items-center gap-2">
+          <div className="w-5 h-5 rounded flex items-center justify-center bg-red-600 flex-shrink-0">
+            <PlayCircle className="w-3 h-3 text-white" />
+          </div>
+          <span className="text-xs font-medium text-[rgb(var(--foreground))] truncate">
+            YouTube · <span className="text-[rgb(var(--muted))]">{activeQuery}</span>
+          </span>
+        </div>
+        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+          <iframe
+            key={activeQuery}
+            src={embedSrc}
+            title={`YouTube: ${activeQuery}`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="absolute inset-0 w-full h-full"
+          />
+        </div>
+      </div>
+
+      <p className="text-[10px] text-[rgb(var(--muted))] opacity-40 text-center">
+        Vlastite video recepte dodajemo uskoro · Pretraži i gledaj direktno ovdje
       </p>
     </div>
   );
