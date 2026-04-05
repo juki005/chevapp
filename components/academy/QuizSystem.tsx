@@ -38,21 +38,26 @@ interface Answer {
   xpEarned: number;
 }
 
-export function QuizSystem() {
+interface QuizSystemProps {
+  quizSlug?: string;  // which quiz to run; defaults to "cevapi-masterclass"
+  onBack?:   () => void;
+}
+
+export function QuizSystem({ quizSlug = "cevapi-masterclass", onBack }: QuizSystemProps) {
   const supabase = createClient();
 
-  // Questions — loaded from DB, fall back to hardcoded constants
   const [questions, setQuestions] = useState<QuizQuestion[]>(QUIZ_QUESTIONS);
   const [questionsLoading, setQuestionsLoading] = useState(true);
 
   useEffect(() => {
+    setQuestions(QUIZ_QUESTIONS);
+    setQuestionsLoading(true);
     (async () => {
       try {
-        // First get the quiz id for slug 'cevapi-masterclass'
         const { data: quizRaw } = await supabase
           .from("quizzes")
           .select("id")
-          .eq("slug", "cevapi-masterclass")
+          .eq("slug", quizSlug)
           .single();
 
         const quiz = quizRaw as unknown as { id: string } | null;
@@ -84,7 +89,7 @@ export function QuizSystem() {
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [quizSlug]);
 
   const TOTAL_XP = questions.reduce((sum, q) => sum + q.xp, 0);
 

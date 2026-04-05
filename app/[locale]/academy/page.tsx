@@ -1,13 +1,24 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { GraduationCap, Calculator, Brain, LayoutDashboard, Gamepad2, Loader2 } from "lucide-react";
+import { GraduationCap, Calculator, Brain, LayoutDashboard, Gamepad2, Loader2, Star, Zap, ArrowLeft } from "lucide-react";
 import { BurnoffCalculator } from "@/components/academy/BurnoffCalculator";
 import { QuizSystem } from "@/components/academy/QuizSystem";
 import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+
+// ── DB row from the quizzes table ─────────────────────────────────────────────
+interface DbQuiz {
+  id:          string;
+  slug:        string;
+  title:       string;
+  description: string | null;
+  difficulty:  string | null;
+  xp_reward:   number | null;
+}
 
 const GameLoader = () => (
   <div className="flex items-center justify-center py-20">
@@ -59,11 +70,36 @@ function GameCard({ emoji, title, description, xpReward, xpLabel, onClick }: Gam
   );
 }
 
+// ── Difficulty badge ──────────────────────────────────────────────────────────
+const DIFF_STYLE: Record<string, string> = {
+  beginner:     "text-emerald-400 bg-emerald-400/10 border-emerald-400/30",
+  intermediate: "text-amber-400 bg-amber-400/10 border-amber-400/30",
+  expert:       "text-red-400 bg-red-400/10 border-red-400/30",
+};
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function AcademyPage() {
   const t = useTranslations("academy");
-  const [activeTab,  setActiveTab]  = useState<AcademyTab>("dashboard");
-  const [activeGame, setActiveGame] = useState<ActiveGame>(null);
+  const [activeTab,      setActiveTab]      = useState<AcademyTab>("dashboard");
+  const [activeGame,     setActiveGame]     = useState<ActiveGame>(null);
+  const [quizList,       setQuizList]       = useState<DbQuiz[]>([]);
+  const [quizLoading,    setQuizLoading]    = useState(true);
+  const [selectedQuiz,   setSelectedQuiz]   = useState<DbQuiz | null>(null);
+
+  // Fetch quizzes from DB on mount
+  useEffect(() => {
+    const supabase = createClient();
+    (supabase.from("quizzes") as any)
+      .select("id, slug, title, description, difficulty, xp_reward")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .then(({ data }: { data: unknown }) => {
+        const rows = data as DbQuiz[] | null;
+        if (rows && rows.length > 0) setQuizList(rows);
+        setQuizLoading(false);
+      })
+      .catch(() => setQuizLoading(false));
+  }, []);
 
   const tabs: { key: AcademyTab; icon: React.ReactNode; label: string }[] = [
     { key: "dashboard", icon: <LayoutDashboard className="w-4 h-4" />, label: "XP & Rang" },
@@ -117,7 +153,90 @@ export default function AcademyPage() {
 
         {/* Tab content */}
         {activeTab === "dashboard" && <AcademyDashboard />}
-        {activeTab === "quiz"      && <QuizSystem />}
+        {activeTab === "quiz" && (
+          <>
+            {selectedQuiz ? (
+              <div>
+                {/* Back to list */}
+                <button
+                  onClick={() => setSelectedQuiz(null)}
+                  className="flex items-center gap-1.5 text-xs text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] mb-5 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  {t("quizBack")}
+                </button>
+                <QuizSystem quizSlug={selectedQuiz.slug} onBack={() => setSelectedQuiz(null)} />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
+                  {t("quizzes")}
+                </p>
+
+                {quizLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-[rgb(var(--muted))] py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t("quizLoading")}
+                  </div>
+                ) : quizList.length === 0 ? (
+                  // No DB quizzes — show the fallback hardcoded quiz as a single card
+                  <button
+                    onClick={() => setSelectedQuiz({ id: "fallback", slug: "cevapi-masterclass", title: t("quizTitle"), description: null, difficulty: "beginner", xp_reward: 50 })}
+                    className="text-left w-full rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <span className="text-4xl">🧠</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-bold text-[rgb(var(--foreground))] group-hover:text-[rgb(var(--primary))] transition-colors" style={{ fontFamily: "Oswald, sans-serif" }}>
+                          {t("quizTitle")}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", DIFF_STYLE.beginner)}>{t("quizDiffBeginner")}</span>
+                          <span className="flex items-center gap-1 text-xs text-[rgb(var(--primary))] font-semibold"><Zap className="w-3 h-3" /> +50 XP</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ) : (
+                  quizList.map((quiz) => {
+                    const diffKey = (quiz.difficulty ?? "beginner").toLowerCase() as keyof typeof DIFF_STYLE;
+                    const diffLabel = diffKey === "expert" ? t("quizDiffExpert") : diffKey === "intermediate" ? t("quizDiffIntermediate") : t("quizDiffBeginner");
+                    return (
+                      <button
+                        key={quiz.id}
+                        onClick={() => setSelectedQuiz(quiz)}
+                        className="text-left w-full rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all group"
+                      >
+                        <div className="flex items-start gap-4">
+                          <span className="text-4xl mt-0.5">🧠</span>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-[rgb(var(--foreground))] group-hover:text-[rgb(var(--primary))] transition-colors leading-snug" style={{ fontFamily: "Oswald, sans-serif" }}>
+                              {quiz.title}
+                            </h3>
+                            {quiz.description && (
+                              <p className="text-sm text-[rgb(var(--muted))] mt-1 leading-relaxed">{quiz.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                              <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", DIFF_STYLE[diffKey] ?? DIFF_STYLE.beginner)}>
+                                {diffLabel}
+                              </span>
+                              {(quiz.xp_reward ?? 0) > 0 && (
+                                <span className="flex items-center gap-1 text-xs text-[rgb(var(--primary))] font-semibold">
+                                  <Zap className="w-3 h-3" />
+                                  +{quiz.xp_reward} XP
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </>
+        )}
         {activeTab === "burnoff"   && <BurnoffCalculator />}
 
         {activeTab === "games" && (

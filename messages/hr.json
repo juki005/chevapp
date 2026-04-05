@@ -118,7 +118,16 @@
     "hours": "h",
     "quizTitle": "Kviz — Grill kultura",
     "signInRequired": "Prijava potrebna",
-    "signInForXP": "Prijavi se kako bi pratio/la XP, serije i rang u Akademiji."
+    "signInForXP": "Prijavi se kako bi pratio/la XP, serije i rang u Akademiji.",
+    "quizzes": "Kvizovi",
+    "quizAvailable": "dostupnih kvizova",
+    "quizStart": "Pokreni kviz",
+    "quizBack": "← Natrag",
+    "quizDiffBeginner": "Početnik",
+    "quizDiffIntermediate": "Napredni",
+    "quizDiffExpert": "Expert",
+    "quizLoading": "Učitavanje kvizova…",
+    "quizNone": "Nema dostupnih kvizova."
   },
   "community": {
     "title": "Zajednica",
@@ -229,5 +238,25 @@
     "darkMode": "Tamni mod",
     "lightMode": "Svjetli mod",
     "language": "Jezik"
+  },
+  "rulet": {
+    "title": "Ćevap-Rulet",
+    "subtitle": "Ne možeš se odlučiti? Pusti kolo da odluči!",
+    "modeGradLabel": "Gradski Rulet",
+    "modeGradDesc": "Google Places · odabrani grad",
+    "modeBlizuLabel": "Blizu Mene",
+    "modeBlizuDesc": "GPS + Google · okolica 100 km",
+    "modeWishlistLabel": "Moja Lista Želja",
+    "modeWishlistDesc": "Samo s tvoje liste želja",
+    "modeAventuraLabel": "Avantura!",
+    "modeAventuraDesc": "Google · nasumičan grad regije",
+    "searching": "Tražim restorane na Google Mapsu…",
+    "onWheel": "restorana na kotaču",
+    "spinBtn": "VRTI!",
+    "spinning": "VRTI SE…",
+    "winner": "Evo pobjednika:",
+    "navigate": "🧭 Navigiraj!",
+    "trySomethingElse": "Nešto drugo",
+    "reload": "Osvježi popis"
   }
 }

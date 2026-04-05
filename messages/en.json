@@ -118,7 +118,16 @@
     "hours": "h",
     "quizTitle": "Quiz — Grill Culture",
     "signInRequired": "Login Required",
-    "signInForXP": "Sign in to track XP, streaks and rank in the Academy."
+    "signInForXP": "Sign in to track XP, streaks and rank in the Academy.",
+    "quizzes": "Quizzes",
+    "quizAvailable": "available quizzes",
+    "quizStart": "Start quiz",
+    "quizBack": "← Back",
+    "quizDiffBeginner": "Beginner",
+    "quizDiffIntermediate": "Intermediate",
+    "quizDiffExpert": "Expert",
+    "quizLoading": "Loading quizzes…",
+    "quizNone": "No quizzes available."
   },
   "community": {
     "title": "Community",
@@ -229,5 +238,25 @@
     "darkMode": "Dark mode",
     "lightMode": "Light mode",
     "language": "Language"
+  },
+  "rulet": {
+    "title": "Ćevap Roulette",
+    "subtitle": "Can't decide? Let the wheel decide!",
+    "modeGradLabel": "City Roulette",
+    "modeGradDesc": "Google Places · selected city",
+    "modeBlizuLabel": "Near Me",
+    "modeBlizuDesc": "GPS + Google · 100 km radius",
+    "modeWishlistLabel": "My Wishlist",
+    "modeWishlistDesc": "From your wishlist only",
+    "modeAventuraLabel": "Adventure!",
+    "modeAventuraDesc": "Google · random Balkan city",
+    "searching": "Searching restaurants on Google Maps…",
+    "onWheel": "restaurants on the wheel",
+    "spinBtn": "SPIN!",
+    "spinning": "SPINNING…",
+    "winner": "The winner is:",
+    "navigate": "🧭 Navigate!",
+    "trySomethingElse": "Something else",
+    "reload": "Reload list"
   }
 }

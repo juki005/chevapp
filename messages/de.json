@@ -118,7 +118,16 @@
     "hours": "Std.",
     "quizTitle": "Quiz — Grillkultur",
     "signInRequired": "Anmeldung erforderlich",
-    "signInForXP": "Melde dich an, um XP, Serien und Rang in der Akademie zu verfolgen."
+    "signInForXP": "Melde dich an, um XP, Serien und Rang in der Akademie zu verfolgen.",
+    "quizzes": "Quizze",
+    "quizAvailable": "verfügbare Quizze",
+    "quizStart": "Quiz starten",
+    "quizBack": "← Zurück",
+    "quizDiffBeginner": "Anfänger",
+    "quizDiffIntermediate": "Fortgeschritten",
+    "quizDiffExpert": "Experte",
+    "quizLoading": "Quizze werden geladen…",
+    "quizNone": "Keine Quizze verfügbar."
   },
   "community": {
     "title": "Community",
@@ -229,5 +238,25 @@
     "darkMode": "Dunkelmodus",
     "lightMode": "Hellmodus",
     "language": "Sprache"
+  },
+  "rulet": {
+    "title": "Ćevap-Roulette",
+    "subtitle": "Kannst dich nicht entscheiden? Lass das Rad entscheiden!",
+    "modeGradLabel": "Stadt-Roulette",
+    "modeGradDesc": "Google Places · ausgewählte Stadt",
+    "modeBlizuLabel": "In meiner Nähe",
+    "modeBlizuDesc": "GPS + Google · Umkreis 100 km",
+    "modeWishlistLabel": "Meine Wunschliste",
+    "modeWishlistDesc": "Nur von deiner Wunschliste",
+    "modeAventuraLabel": "Abenteuer!",
+    "modeAventuraDesc": "Google · zufällige Balkan-Stadt",
+    "searching": "Suche Restaurants auf Google Maps…",
+    "onWheel": "Restaurants auf dem Rad",
+    "spinBtn": "DREHEN!",
+    "spinning": "DREHT SICH…",
+    "winner": "Der Gewinner ist:",
+    "navigate": "🧭 Navigieren!",
+    "trySomethingElse": "Etwas anderes",
+    "reload": "Liste neu laden"
   }
 }

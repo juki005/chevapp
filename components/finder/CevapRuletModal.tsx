@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Navigation, RefreshCw, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface RouletteItem {
@@ -237,7 +238,16 @@ async function fireConfetti() {
 export function CevapRuletModal({
   isOpen, onClose, currentCity, searchTerm, userId,
 }: Props) {
+  const t       = useTranslations("rulet");
   const supabase = createClient();
+
+  // Translated mode definitions (must be inside component to use t())
+  const MODES_T: { key: RuletMode; emoji: string; label: string; desc: string }[] = [
+    { key: "grad",     emoji: "🏙️", label: t("modeGradLabel"),     desc: t("modeGradDesc")     },
+    { key: "blizu",    emoji: "📍", label: t("modeBlizuLabel"),    desc: t("modeBlizuDesc")    },
+    { key: "wishlist", emoji: "🔖", label: t("modeWishlistLabel"), desc: t("modeWishlistDesc") },
+    { key: "avantura", emoji: "🎲", label: t("modeAventuraLabel"), desc: t("modeAventuraDesc") },
+  ];
 
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const tickTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -492,41 +502,38 @@ export function CevapRuletModal({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="rulet-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={handleClose}
-            style={{
-              position: "fixed", inset: 0,
-              background: "rgba(0,0,0,0.75)",
-              backdropFilter: "blur(4px)",
-              zIndex: 9998,
-            }}
-          />
-
-          {/* Modal panel */}
+        /* ── Backdrop — also the flex centering container ──────────────────── */
+        <motion.div
+          key="rulet-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={handleClose}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9998,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "12px",
+            background: "rgba(0,0,0,0.80)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          {/* ── Modal panel — no top/left/transform math needed ──────────── */}
           <motion.div
             key="rulet-panel"
-            initial={{ opacity: 0, scale: 0.92, y: 30 }}
+            initial={{ opacity: 0, scale: 0.93, y: 24 }}
             animate={{ opacity: 1, scale: 1,    y: 0  }}
-            exit={{   opacity: 0, scale: 0.92, y: 30  }}
+            exit={{   opacity: 0, scale: 0.93, y: 24  }}
             transition={{ duration: 0.3, ease: [0.34, 1.56, 0.64, 1] }}
             style={{
-              position: "fixed", zIndex: 9999,
-              top: "50%", left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "min(96vw, 560px)",
-              maxHeight: "92vh",
+              position: "relative", zIndex: 9999,
+              width: "100%", maxWidth: 560,
+              maxHeight: "90vh",
               overflowY: "auto",
               background: "rgb(var(--surface))",
               border: "1px solid rgba(232,78,15,0.25)",
               borderRadius: "24px",
-              boxShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,78,15,0.1)",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,78,15,0.12)",
               scrollbarWidth: "none",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -542,10 +549,10 @@ export function CevapRuletModal({
                   <span style={{ fontSize: 28 }}>🎡</span>
                   <div>
                     <p style={{ fontFamily: "Oswald, sans-serif", fontWeight: 800, fontSize: 20, color: "rgb(var(--foreground))", letterSpacing: "0.05em", margin: 0, lineHeight: 1 }}>
-                      ĆEVAP-RULET
+                      {t("title").toUpperCase()}
                     </p>
                     <p style={{ fontSize: 11, color: "rgb(var(--muted))", margin: 0, marginTop: 2 }}>
-                      Ne možeš se odlučiti? Pusti kolo da odluči!
+                      {t("subtitle")}
                     </p>
                   </div>
                 </div>
@@ -559,7 +566,7 @@ export function CevapRuletModal({
 
               {/* ── Mode selector ──────────────────────────────────────── */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-                {MODES.map((m) => (
+                {MODES_T.map((m) => (
                   <button
                     key={m.key}
                     onClick={() => { setMode(m.key); setWinner(null); setWinnerIdx(-1); }}
@@ -636,7 +643,7 @@ export function CevapRuletModal({
 
                     {/* Segment count pill */}
                     <p style={{ fontSize: 11, color: "rgb(var(--muted))", textAlign: "center" }}>
-                      {segments.length} restorana na kolu · {MODES.find(m => m.key === mode)?.emoji} {MODES.find(m => m.key === mode)?.label}
+                      {segments.length} {t("onWheel")} · {MODES_T.find(m => m.key === mode)?.emoji} {MODES_T.find(m => m.key === mode)?.label}
                     </p>
                   </>
                 ) : null}
@@ -673,10 +680,10 @@ export function CevapRuletModal({
                   {isSpinning ? (
                     <>
                       <Loader2 style={{ width: 20, height: 20, animation: "spin 0.6s linear infinite" }} />
-                      VRTEEEEE SE…
+                      {t("spinning")}
                     </>
                   ) : (
-                    <>🎡 VRTI!</>
+                    <>🎡 {t("spinBtn")}</>
                   )}
                 </button>
               )}
@@ -709,7 +716,7 @@ export function CevapRuletModal({
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: 10, color: "#FBBF24", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", margin: "0 0 4px" }}>
-                            ✨ KOLO JE ODLUČILO!
+                            ✨ {t("winner")}
                           </p>
                           <p style={{ fontFamily: "Oswald, sans-serif", fontWeight: 800, fontSize: 20, color: "rgb(var(--foreground))", margin: 0, lineHeight: 1.1 }}>
                             {winner.name}
@@ -744,7 +751,7 @@ export function CevapRuletModal({
                           }}
                         >
                           <Navigation style={{ width: 15, height: 15 }} />
-                          KRENI ODMAH
+                          {t("navigate")}
                         </a>
                         <button
                           onClick={handleRespin}
@@ -776,7 +783,7 @@ export function CevapRuletModal({
 
             </div>{/* end inner padding */}
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>,
     document.body,
