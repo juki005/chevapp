@@ -15,9 +15,10 @@ import {
   type LeaderboardEntry, type FeedPost,
 } from "@/lib/actions/community";
 import {
-  getLandmarksForCity, getCityFromCoords, getTripAdvisorUrl,
+  getLandmarksForCity, getCityFromCoords,
   type Landmark as LandmarkType,
 } from "@/lib/actions/discovery";
+import { getTripAdvisorUrl } from "@/lib/tripadvisor";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type CommunityTab = "feed" | "tips" | "events";

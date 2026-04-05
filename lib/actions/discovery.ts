@@ -7,7 +7,8 @@
 // getLandmarksForBounds  — map Discovery Mode (bounds → nearby landmarks)
 // getLandmarksForCity    — Community page card (city name → top landmarks)
 // getCityFromCoords      — reverse geocode lat/lng → city name
-// getTripAdvisorUrl      — builds the TripAdvisor search URL
+//
+// getTripAdvisorUrl is NOT a server action — see lib/tripadvisor.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface Landmark {
@@ -153,11 +154,6 @@ export async function getCityFromCoords(lat: number, lng: number): Promise<strin
   } catch {
     return "Sarajevo";
   }
-}
-
-// ── TripAdvisor URL builder ───────────────────────────────────────────────────
-export function getTripAdvisorUrl(cityName: string): string {
-  return `https://www.tripadvisor.com/Search?q=${encodeURIComponent(cityName)}`;
 }
 
 // ── Internal response types ───────────────────────────────────────────────────

@@ -29,9 +29,9 @@ import {
 import { MapPin, X, Star, ExternalLink } from "lucide-react";
 import {
   getLandmarksForBounds,
-  getTripAdvisorUrl,
   type Landmark,
 } from "@/lib/actions/discovery";
+import { getTripAdvisorUrl } from "@/lib/tripadvisor";
 
 // ── Public types ──────────────────────────────────────────────────────────────
 export interface MapRestaurant {
