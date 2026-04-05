@@ -189,7 +189,18 @@
     "profileUpdated": "Profil ažuriran!",
     "changesSaved": "Promjene su uspješno spremljene.",
     "verifiedVisit": "Verificirana posjeta",
-    "restaurantSearch": "Pretraži restoran…"
+    "restaurantSearch": "Pretraži restoran…",
+    "newEntryTitle": "Novi unos u dnevnik",
+    "restaurantLabel": "Restoran",
+    "cityLabel": "Grad",
+    "styleLabel": "Stil",
+    "ratingLabel": "Ocjena",
+    "saveEntry": "Spremi unos",
+    "cancelBtn": "Odustani",
+    "savingEntry": "Sprema se…",
+    "verifiedGoogleBiz": "Google Business",
+    "journalEmpty": "Dnevnik je prazan. Dodaj prvu posjetu!",
+    "journalCount": "{count} unosa u dnevniku"
   },
   "routePlanner": {
     "tripAdvisor": "Vidi na TripAdvisoru"

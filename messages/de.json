@@ -189,7 +189,18 @@
     "profileUpdated": "Profil aktualisiert!",
     "changesSaved": "Änderungen erfolgreich gespeichert.",
     "verifiedVisit": "Verifizierter Besuch",
-    "restaurantSearch": "Restaurant suchen…"
+    "restaurantSearch": "Restaurant suchen…",
+    "newEntryTitle": "Neuer Tagebucheintrag",
+    "restaurantLabel": "Restaurant",
+    "cityLabel": "Stadt",
+    "styleLabel": "Stil",
+    "ratingLabel": "Bewertung",
+    "saveEntry": "Eintrag speichern",
+    "cancelBtn": "Abbrechen",
+    "savingEntry": "Speichert…",
+    "verifiedGoogleBiz": "Google Business",
+    "journalEmpty": "Tagebuch ist leer. Ersten Besuch eintragen!",
+    "journalCount": "{count} Einträge im Tagebuch"
   },
   "routePlanner": {
     "tripAdvisor": "Auf TripAdvisor ansehen"

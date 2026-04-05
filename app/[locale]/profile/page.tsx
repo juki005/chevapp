@@ -201,6 +201,8 @@ export default function ProfilePage() {
   const [formPlaceId,     setFormPlaceId]     = useState("");
   const [formIsVerified,  setFormIsVerified]  = useState(false);
   const [verifyChecking,  setVerifyChecking]  = useState(false);
+  const [savingEntry,     setSavingEntry]     = useState(false);
+  const [journalLoaded,   setJournalLoaded]   = useState(false);
 
   /** Called when user picks a restaurant from Google Places Autocomplete */
   const handleRestaurantSelect = async (name: string, city: string, placeId: string) => {
@@ -229,25 +231,80 @@ export default function ProfilePage() {
     setVerifyChecking(false);
   };
 
-  const handleAddEntry = () => {
+  const handleAddEntry = async () => {
     if (!formRestaurant.trim() || !formCity.trim()) return;
-    setEntries((prev) => [{
-      id:         Date.now().toString(),
+    setSavingEntry(true);
+    const today        = new Date().toISOString().split("T")[0];
+    const optimisticId = `opt-${Date.now()}`;
+    const newEntry: JournalEntry = {
+      id:         optimisticId,
       restaurant: formRestaurant.trim(),
       city:       formCity.trim(),
       style:      formStyle,
       rating:     formRating,
       note:       formNote.trim(),
-      date:       new Date().toISOString().split("T")[0],
+      date:       today,
       placeId:    formPlaceId || undefined,
       isVerified: formIsVerified,
-    }, ...prev]);
+    };
+
+    // Optimistic UI update — instant feedback
+    setEntries((prev) => [newEntry, ...prev]);
     setFormRestaurant(""); setFormCity(""); setFormStyle(STYLE_OPTIONS[0]);
     setFormRating(5); setFormNote("");
     setFormPlaceId(""); setFormIsVerified(false);
     setShowForm(false);
+    setSavingEntry(false);
+
+    // Persist to user_journal table (best-effort, non-blocking)
+    if (userId) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase.from("user_journal") as any)
+          .insert({
+            user_id:         userId,
+            restaurant_name: newEntry.restaurant,
+            city:            newEntry.city,
+            style:           newEntry.style,
+            rating:          newEntry.rating,
+            note:            newEntry.note || null,
+            visit_date:      today,
+            google_place_id: newEntry.placeId ?? null,
+            is_verified:     newEntry.isVerified ?? false,
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          console.error("[journal] insert failed", error);
+        } else if (data?.id) {
+          // Swap optimistic ID for real DB UUID
+          setEntries((prev) =>
+            prev.map((e) => e.id === optimisticId ? { ...e, id: data.id } : e)
+          );
+        }
+      } catch (err) {
+        console.error("[journal] insert exception", err);
+      }
+    }
   };
-  const deleteEntry = (id: string) => setEntries((p) => p.filter((e) => e.id !== id));
+
+  const deleteEntry = async (id: string) => {
+    // Optimistic removal — instant UI
+    setEntries((p) => p.filter((e) => e.id !== id));
+    // Remove from DB (skip temp / demo IDs)
+    if (userId && !id.startsWith("demo-") && !id.startsWith("opt-")) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("user_journal") as any)
+          .delete()
+          .eq("id", id)
+          .eq("user_id", userId);
+      } catch (err) {
+        console.error("[journal] delete exception", err);
+      }
+    }
+  };
 
   // ── City totals (for progress bar denominator in GastroCityList) ────────
   const [statsByCity, setStatsByCity] = useState<Record<string, number>>({});
@@ -288,6 +345,42 @@ export default function ProfilePage() {
         );
       });
   }, [userId, statsByCity]);
+
+  // ── Load journal entries from user_journal DB table ──────────────────────
+  useEffect(() => {
+    if (!userId || journalLoaded) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("user_journal") as any)
+      .select("id, restaurant_name, city, style, rating, note, visit_date, google_place_id, is_verified")
+      .eq("user_id", userId)
+      .order("visit_date", { ascending: false })
+      .then(({ data, error }: { data: Record<string, unknown>[] | null; error: unknown }) => {
+        if (error) {
+          // Table may not exist yet — silently fall back to demo data
+          console.warn("[journal] could not load entries (run migration 015?):", error);
+          return;
+        }
+        if (data && data.length > 0) {
+          setEntries(
+            data.map((row) => ({
+              id:         row.id as string,
+              restaurant: row.restaurant_name as string,
+              city:       row.city as string,
+              style:      (row.style as string) ?? "Ostalo",
+              rating:     (row.rating as number) ?? 3,
+              note:       (row.note as string) ?? "",
+              date:       row.visit_date as string,
+              placeId:    (row.google_place_id as string | null) ?? undefined,
+              isVerified: (row.is_verified as boolean) ?? false,
+            }))
+          );
+        } else {
+          // Logged-in user with no entries → clear demo data
+          setEntries([]);
+        }
+        setJournalLoaded(true);
+      });
+  }, [userId, journalLoaded]);
 
   // ── Music state ──────────────────────────────────────────────────────────
   const [songUrl,      setSongUrl]      = useState("");
@@ -636,13 +729,13 @@ export default function ProfilePage() {
               <div className="rounded-2xl border border-[rgb(var(--primary)/0.3)] bg-[rgb(var(--surface)/0.5)] p-5 mb-5">
                 <h3 className="font-bold text-[rgb(var(--foreground))] mb-4 text-sm uppercase tracking-wide"
                     style={{ fontFamily: "Oswald, sans-serif" }}>
-                  Novi unos u dnevnik
+                  {t("newEntryTitle")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  {/* Restaurant field — uses Google Places Autocomplete */}
+                  {/* Restaurant — Google Places Autocomplete */}
                   <div>
                     <label className="text-xs text-[rgb(var(--muted))] mb-1 flex items-center gap-2">
-                      Restoran *
+                      {t("restaurantLabel")} *
                       {verifyChecking && (
                         <span className="text-[10px] text-[rgb(var(--muted))] animate-pulse">Provjeravam…</span>
                       )}
@@ -661,9 +754,11 @@ export default function ProfilePage() {
                       placeholder="npr. Željo 1"
                     />
                   </div>
-                  {/* City field — auto-filled from autocomplete, editable */}
+                  {/* City — auto-filled from autocomplete, editable */}
                   <div>
-                    <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Grad *</label>
+                    <label className="text-xs text-[rgb(var(--muted))] mb-1 block">
+                      {t("cityLabel")} *
+                    </label>
                     <input
                       type="text"
                       value={formCity}
@@ -675,7 +770,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Stil</label>
+                    <label className="text-xs text-[rgb(var(--muted))] mb-1 block">{t("styleLabel")}</label>
                     <select
                       value={formStyle}
                       onChange={(e) => setFormStyle(e.target.value)}
@@ -685,7 +780,7 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Ocjena</label>
+                    <label className="text-xs text-[rgb(var(--muted))] mb-1 block">{t("ratingLabel")}</label>
                     <div className="flex items-center gap-2">
                       {[1, 2, 3, 4, 5].map((n) => (
                         <button
@@ -706,7 +801,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div className="mb-4">
-                  <label className="text-xs text-[rgb(var(--muted))] mb-1 block">Bilješka</label>
+                  <label className="text-xs text-[rgb(var(--muted))] mb-1 block">{t("notes")}</label>
                   <textarea
                     value={formNote}
                     onChange={(e) => setFormNote(e.target.value)}
@@ -716,16 +811,23 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <button onClick={() => setShowForm(false)}
-                    className="px-4 py-2 rounded-lg border border-[rgb(var(--border))] text-[rgb(var(--muted))] text-sm hover:text-[rgb(var(--foreground))] transition-colors">
-                    Odustani
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="px-4 py-2 rounded-lg border border-[rgb(var(--border))] text-[rgb(var(--muted))] text-sm hover:text-[rgb(var(--foreground))] transition-colors"
+                  >
+                    {t("cancelBtn")}
                   </button>
                   <button
                     onClick={handleAddEntry}
-                    disabled={!formRestaurant.trim() || !formCity.trim()}
-                    className="px-4 py-2 rounded-lg bg-[rgb(var(--primary))] text-white text-sm font-semibold hover:bg-[rgb(var(--primary)/0.85)] transition-colors disabled:opacity-40"
+                    disabled={!formRestaurant.trim() || !formCity.trim() || savingEntry}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[rgb(var(--primary))] text-white text-sm font-semibold hover:bg-[rgb(var(--primary)/0.85)] transition-colors disabled:opacity-40"
                   >
-                    Spremi unos
+                    {savingEntry ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        {t("savingEntry")}
+                      </>
+                    ) : t("saveEntry")}
                   </button>
                 </div>
               </div>
@@ -766,10 +868,25 @@ export default function ProfilePage() {
                             {entry.restaurant}
                           </span>
                           {entry.isVerified && (
-                            <span className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                              <CheckCircle className="w-2.5 h-2.5" />
-                              {t("verifiedVisit")}
-                            </span>
+                            entry.placeId ? (
+                              <a
+                                href={`https://www.google.com/maps/place/?q=place_id:${entry.placeId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title={t("verifiedGoogleBiz")}
+                                className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded-full flex-shrink-0 hover:bg-emerald-400/20 transition-colors"
+                              >
+                                <CheckCircle className="w-2.5 h-2.5" />
+                                {t("verifiedVisit")}
+                                <ExternalLink className="w-2 h-2 ml-0.5 opacity-60" />
+                              </a>
+                            ) : (
+                              <span className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                                <CheckCircle className="w-2.5 h-2.5" />
+                                {t("verifiedVisit")}
+                              </span>
+                            )
                           )}
                           <span className="text-xs px-2 py-0.5 rounded-full bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))] flex-shrink-0">
                             {entry.style}

@@ -189,7 +189,18 @@
     "profileUpdated": "Profile updated!",
     "changesSaved": "Changes saved successfully.",
     "verifiedVisit": "Verified Visit",
-    "restaurantSearch": "Search restaurant…"
+    "restaurantSearch": "Search restaurant…",
+    "newEntryTitle": "New Journal Entry",
+    "restaurantLabel": "Restaurant",
+    "cityLabel": "City",
+    "styleLabel": "Style",
+    "ratingLabel": "Rating",
+    "saveEntry": "Save Entry",
+    "cancelBtn": "Cancel",
+    "savingEntry": "Saving…",
+    "verifiedGoogleBiz": "Google Business",
+    "journalEmpty": "Journal is empty. Log your first visit!",
+    "journalCount": "{count} entries in journal"
   },
   "routePlanner": {
     "tripAdvisor": "View on TripAdvisor"
