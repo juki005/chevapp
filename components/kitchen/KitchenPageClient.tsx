@@ -1,28 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import {
   ChefHat, BookOpen, Video, Users, PlayCircle, ExternalLink,
   Search, X, Clapperboard, Pin, Sparkles, Youtube,
+  Loader2, AlertCircle, ChevronLeft,
 } from "lucide-react";
 import { type Recipe } from "@/constants/recipes";
 import { type KitchenVideo } from "@/lib/actions/kitchen";
+import {
+  fetchYouTubeMetadata,
+  type YtSearchResult,
+} from "@/lib/actions/youtube";
 import { RecipeModal } from "@/components/kitchen/RecipeModal";
 import { GroupCalculator } from "@/components/kitchen/GroupCalculator";
 import { cn } from "@/lib/utils";
 
 type KitchenTab = "recipes" | "videos" | "squad";
-
-// ── Kitchen Gate: keywords appended to every YouTube search ──────────────────
-// Keeps results scoped to food/recipe content; user never sees these appended.
-const YT_GATE_SUFFIX = "recepti food recipe";
-
-/** Build a gated YouTube search embed URL — NEVER uses v= (video ID) format. */
-function ytGateUrl(rawQuery: string): string {
-  const gated = `${rawQuery.trim()} ${YT_GATE_SUFFIX}`;
-  return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(gated)}&rel=0&modestbranding=1&iv_load_policy=3&controls=1`;
-}
 
 // Category chips — values map to DB "category" field
 const CATEGORY_CHIPS = [
@@ -65,12 +60,9 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
   const [searchQuery,        setSearchQuery]        = useState("");
   const [videoSearchQuery,   setVideoSearchQuery]   = useState("");
   const [categoryFilter,     setCategoryFilter]     = useState<CategoryFilter>("");
+  const [playingVideoId,     setPlayingVideoId]     = useState<string | null>(null);
 
-  // Track which DB video is currently playing (shows iframe instead of thumbnail)
-  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
-
-  // ── YouTube Gate Search state ─────────────────────────────────────────────
-  // Only opened by explicit user action — never triggered automatically.
+  // ── YouTube Gate state ────────────────────────────────────────────────────
   const [ytGateOpen,  setYtGateOpen]  = useState(false);
   const [ytGateQuery, setYtGateQuery] = useState("");
 
@@ -83,22 +75,18 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
     setYtGateQuery("");
   };
 
-  // ── Video helpers (derived from DB data) ──────────────────────────────────
+  // ── Video helpers ─────────────────────────────────────────────────────────
   const videosByStyle = useMemo<Record<string, KitchenVideo[]>>(() => {
     const map: Record<string, KitchenVideo[]> = {};
-    for (const v of initialVideos) {
-      (map[v.style] ??= []).push(v);
-    }
+    for (const v of initialVideos) (map[v.style] ??= []).push(v);
     return map;
   }, [initialVideos]);
 
   const availableStyles = useMemo(() => Object.keys(videosByStyle), [videosByStyle]);
 
-  // Active video list for the selected style tab
   const videoList: KitchenVideo[] =
     videosByStyle[selectedVideoStyle] ?? videosByStyle["default"] ?? [];
 
-  // Admin-pinned DB videos — always surfaced as "Official Picks"
   const pinnedVideos = useMemo(
     () => initialVideos.filter((v) => v.isPinned),
     [initialVideos]
@@ -133,12 +121,11 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
           );
         })()
       : videoList;
-    // Pinned always first
     return [...base].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
   }, [videoList, videoSearchQuery]);
 
-  const hasVideoSearch  = videoSearchQuery.trim().length > 0;
-  const dbHasNoMatches  = hasVideoSearch && filteredVideoList.length === 0;
+  const hasVideoSearch = videoSearchQuery.trim().length > 0;
+  const dbHasNoMatches = hasVideoSearch && filteredVideoList.length === 0;
 
   return (
     <div className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
@@ -167,10 +154,10 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
         <div className="flex gap-2 mb-8 flex-wrap">
           {(
             [
-              { id: "recipes", icon: <BookOpen className="w-4 h-4" />, label: t("recipes") },
-              { id: "videos",  icon: <Video    className="w-4 h-4" />, label: t("videos")  },
-              { id: "squad",   icon: <Users    className="w-4 h-4" />, label: "Squad Planer" },
-            ] as const
+              { id: "recipes" as const, icon: <BookOpen className="w-4 h-4" />, label: t("recipes")   },
+              { id: "videos"  as const, icon: <Video    className="w-4 h-4" />, label: t("videos")    },
+              { id: "squad"   as const, icon: <Users    className="w-4 h-4" />, label: "Squad Planer" },
+            ]
           ).map(({ id, icon, label }) => (
             <button
               key={id}
@@ -182,8 +169,7 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                   : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
               )}
             >
-              {icon}
-              {label}
+              {icon}{label}
             </button>
           ))}
         </div>
@@ -296,11 +282,10 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
         {activeTab === "videos" && (
           <div>
             {initialVideos.length === 0 ? (
-              /* ── Zero DB videos: coming-soon state with YouTube gate search ── */
               <VideosComingSoon t={t} onYouTubeSearch={openYtGate} />
             ) : (
               <>
-                {/* ── Video search bar ──────────────────────────────────── */}
+                {/* ── Search bar ────────────────────────────────────────── */}
                 <div className="relative mb-4">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
                   <input
@@ -320,7 +305,7 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                   )}
                 </div>
 
-                {/* ── Style filter (only when multiple styles exist) ────── */}
+                {/* ── Style filter ──────────────────────────────────────── */}
                 {availableStyles.length > 1 && (
                   <div className="flex items-center gap-2 mb-6 flex-wrap">
                     <span className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mr-1">
@@ -345,14 +330,13 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
 
                 {/* ── DB video grid OR "no match" prompt ───────────────── */}
                 {dbHasNoMatches ? (
-                  /* No DB matches → offer YouTube gate search */
                   <div className="flex flex-col items-center gap-4 py-10 text-center">
                     <span className="text-4xl">🔍</span>
                     <p className="text-[rgb(var(--foreground))] font-semibold" style={{ fontFamily: "Oswald, sans-serif" }}>
-                      Nema videa u bazi za &quot;{videoSearchQuery}&quot;
+                      {t("ytNoDbResults", { query: videoSearchQuery })}
                     </p>
                     <p className="text-sm text-[rgb(var(--muted))] max-w-xs">
-                      Naš tim još nije dodao ovaj sadržaj. Možeš pretražiti YouTube direktno ispod.
+                      {t("ytNoDbResultsSub")}
                     </p>
                     {!ytGateOpen && (
                       <button
@@ -360,7 +344,7 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors"
                       >
                         <Youtube className="w-4 h-4" />
-                        Pretraži YouTube za &quot;{videoSearchQuery}&quot; recepte
+                        {t("ytSearchBtn", { query: videoSearchQuery })}
                       </button>
                     )}
                   </div>
@@ -381,7 +365,6 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                   </div>
                 )}
 
-                {/* ── Count footer ──────────────────────────────────────── */}
                 {!dbHasNoMatches && (
                   <p className="text-[rgb(var(--muted))] text-xs mt-6 text-center opacity-50">
                     {filteredVideoList.length} / {initialVideos.length}{" "}
@@ -391,17 +374,15 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
               </>
             )}
 
-            {/* ── YouTube Gate Panel ─────────────────────────────────────────
-                Rendered when the user explicitly requests YouTube search.
-                Admin pinned DB videos always shown above the iframe as
-                "Official Picks" so curated content is never buried.
+            {/* ── YouTube Gate Panel — fetch → grid → play ───────────────────
+                Only mounted when the user explicitly requests it.
+                Admin pinned DB videos always rendered above the results.
             ──────────────────────────────────────────────────────────────── */}
             {ytGateOpen && ytGateQuery && (
               <YouTubeGatePanel
                 query={ytGateQuery}
                 pinnedVideos={pinnedVideos}
-                playingVideoId={playingVideoId}
-                onPlay={setPlayingVideoId}
+                t={t}
                 onClose={closeYtGate}
               />
             )}
@@ -412,14 +393,13 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
         {activeTab === "squad" && <GroupCalculator />}
       </div>
 
-      {/* Recipe Modal */}
       <RecipeModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoCard — reusable card for a single DB video
+// VideoCard — DB video card (thumbnail + click-to-play iframe)
 // ─────────────────────────────────────────────────────────────────────────────
 interface VideoCardProps {
   id:        string;
@@ -508,53 +488,112 @@ function VideoCard({ id, title, embedId, channel, isPinned, isPlaying, onPlay }:
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// YouTubeGatePanel
-// Opened only by explicit user action. Always shows pinned DB videos ("Official
-// Picks") above the iframe so curated content is never buried by the global
-// search. The query is silently gated with YT_GATE_SUFFIX before sending.
+// YouTubeGatePanel — fetch → grid → play
+//
+// State machine:
+//   "loading"  → spinner while server action runs
+//   "error"    → error message + retry button
+//   "empty"    → no results message
+//   "results"  → thumbnail grid; clicking a card transitions to "playing"
+//   "playing"  → full-width iframe with verified videoId; back button returns
+//
+// Admin-pinned DB videos always shown above the results grid as "Naše preporuke".
 // ─────────────────────────────────────────────────────────────────────────────
+type GateStatus = "loading" | "error" | "empty" | "results" | "playing";
+type TFn = ReturnType<typeof import("next-intl").useTranslations<"kitchen">>;
+
 interface YtGatePanelProps {
-  query:         string;
-  pinnedVideos:  KitchenVideo[];
-  playingVideoId: string | null;
-  onPlay:        (id: string) => void;
-  onClose:       () => void;
+  query:        string;
+  pinnedVideos: KitchenVideo[];
+  t:            TFn;
+  onClose:      () => void;
 }
 
-function YouTubeGatePanel({ query, pinnedVideos, playingVideoId, onPlay, onClose }: YtGatePanelProps) {
-  const embedSrc = ytGateUrl(query);
+function YouTubeGatePanel({ query, pinnedVideos, t, onClose }: YtGatePanelProps) {
+  const [status,          setStatus]          = useState<GateStatus>("loading");
+  const [results,         setResults]         = useState<YtSearchResult[]>([]);
+  const [errorMsg,        setErrorMsg]        = useState("");
+  const [activeVideoId,   setActiveVideoId]   = useState<string | null>(null);
+  const [activeVideoTitle,setActiveVideoTitle]= useState("");
+
+  const runFetch = useCallback(async () => {
+    setStatus("loading");
+    setResults([]);
+    setErrorMsg("");
+    setActiveVideoId(null);
+
+    const { results: res, error } = await fetchYouTubeMetadata(query);
+
+    if (error) {
+      setErrorMsg(error);
+      setStatus("error");
+      return;
+    }
+    if (res.length === 0) {
+      setStatus("empty");
+      return;
+    }
+    setResults(res);
+    setStatus("results");
+  }, [query]);
+
+  // Fetch immediately when the panel mounts or query changes
+  useEffect(() => { runFetch(); }, [runFetch]);
+
+  const playVideo = (id: string, title: string) => {
+    setActiveVideoId(id);
+    setActiveVideoTitle(title);
+    setStatus("playing");
+  };
+
+  const backToResults = () => {
+    setActiveVideoId(null);
+    setStatus("results");
+  };
 
   return (
-    <div className="mt-8 space-y-6">
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded flex items-center justify-center bg-red-600">
+    <div className="mt-8 space-y-5">
+      {/* ── Panel header ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="w-6 h-6 rounded flex items-center justify-center bg-red-600 flex-shrink-0">
             <Youtube className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="text-sm font-semibold text-[rgb(var(--foreground))]">
-            YouTube rezultati za{" "}
-            <span className="text-[rgb(var(--primary))]">&quot;{query}&quot;</span>
+            {t("ytPanelTitle")}{" "}
+            <span className="text-[rgb(var(--primary))]">&ldquo;{query}&rdquo;</span>
           </span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-medium">
-            Vanjski sadržaj
+          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-medium whitespace-nowrap">
+            {t("ytExternalBadge")}
           </span>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Zatvori YouTube pretragu"
-          className="p-1.5 rounded-lg text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)] transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {status === "playing" && (
+            <button
+              onClick={backToResults}
+              className="flex items-center gap-1 text-xs text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              {t("ytBackToResults")}
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Zatvori"
+            className="p-1.5 rounded-lg text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* ── Admin Picks strip (pinned DB videos — always on top) ──────────── */}
-      {pinnedVideos.length > 0 && (
+      {/* ── Admin Picks — always on top ────────────────────────────────────── */}
+      {pinnedVideos.length > 0 && status !== "playing" && (
         <div>
           <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-amber-400" />
-            Naše preporuke
+            {t("ytOfficialPicks")}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {pinnedVideos.map(({ id, title, embedId, channel, isPinned }) => (
@@ -565,62 +604,161 @@ function YouTubeGatePanel({ query, pinnedVideos, playingVideoId, onPlay, onClose
                 embedId={embedId}
                 channel={channel}
                 isPinned={isPinned}
-                isPlaying={playingVideoId === id}
-                onPlay={() => onPlay(id)}
+                isPlaying={false}
+                onPlay={() => playVideo(embedId, title)}
               />
             ))}
           </div>
+          <div className="mt-5 border-t border-[rgb(var(--border)/0.5)]" />
         </div>
       )}
 
-      {/* ── Gated YouTube search iframe ────────────────────────────────────── */}
-      <div className="rounded-2xl overflow-hidden border border-red-500/20 bg-black">
-        {/* Bar */}
-        <div className="px-4 py-2.5 bg-[rgb(var(--surface)/0.9)] border-b border-[rgb(var(--border))] flex items-center gap-2">
-          <div className="w-5 h-5 rounded flex items-center justify-center bg-red-600 flex-shrink-0">
-            <Youtube className="w-3 h-3 text-white" />
+      {/* ── State views ───────────────────────────────────────────────────── */}
+
+      {/* LOADING */}
+      {status === "loading" && (
+        <div className="flex flex-col items-center gap-3 py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" />
+          <p className="text-sm text-[rgb(var(--muted))]">{t("ytLoading")}</p>
+        </div>
+      )}
+
+      {/* ERROR */}
+      {status === "error" && (
+        <div className="flex flex-col items-center gap-4 py-10 text-center">
+          <AlertCircle className="w-10 h-10 text-red-400" />
+          <div>
+            <p className="text-sm font-semibold text-[rgb(var(--foreground))] mb-1">
+              {t("ytErrorTitle")}
+            </p>
+            <p className="text-xs text-[rgb(var(--muted))] max-w-sm mx-auto">
+              {errorMsg || t("ytErrorGeneric")}
+            </p>
           </div>
-          <span className="text-xs font-medium text-[rgb(var(--foreground))] truncate flex-1">
-            YouTube · <span className="text-[rgb(var(--muted))]">{query} recepti</span>
-          </span>
-          <span className="text-[10px] text-[rgb(var(--muted))] opacity-60 hidden sm:block">
-            Filtrirano na kuhinjski sadržaj
-          </span>
+          <button
+            onClick={runFetch}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[rgb(var(--border))] text-sm text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.4)] transition-colors"
+          >
+            {t("ytRetry")}
+          </button>
         </div>
+      )}
 
-        {/* Iframe — key forces remount on every new query */}
-        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-          <iframe
-            key={embedSrc}
-            src={embedSrc}
-            title={`YouTube pretraga: ${query} recepti`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="absolute inset-0 w-full h-full"
-          />
+      {/* EMPTY */}
+      {status === "empty" && (
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <span className="text-4xl">🎬</span>
+          <p className="text-sm text-[rgb(var(--muted))] max-w-xs">{t("ytEmpty")}</p>
         </div>
-      </div>
+      )}
 
-      <p className="text-[10px] text-[rgb(var(--muted))] opacity-40 text-center">
-        Prikazani sadržaj dolazi s YouTubea i nije pod kontrolom ChevAppa.
-        Vlastite video tutorijale dodajemo uskoro.
-      </p>
+      {/* RESULTS GRID */}
+      {status === "results" && results.length > 0 && (
+        <>
+          <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium flex items-center gap-1.5">
+            <Youtube className="w-3 h-3 text-red-400" />
+            {t("ytResultsLabel")} · {results.length} {t("ytResultsCount")}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {results.map((video) => (
+              <YtResultCard
+                key={video.id}
+                video={video}
+                onPlay={() => playVideo(video.id, video.title)}
+              />
+            ))}
+          </div>
+          <p className="text-[10px] text-[rgb(var(--muted))] opacity-40 text-center pt-2">
+            {t("ytDisclaimer")}
+          </p>
+        </>
+      )}
+
+      {/* PLAYING — verified videoId embed */}
+      {status === "playing" && activeVideoId && (
+        <div className="rounded-2xl overflow-hidden border border-red-500/20 bg-black">
+          <div className="px-4 py-2.5 bg-[rgb(var(--surface)/0.9)] border-b border-[rgb(var(--border))] flex items-center gap-2">
+            <div className="w-5 h-5 rounded flex items-center justify-center bg-red-600 flex-shrink-0">
+              <Youtube className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-xs text-[rgb(var(--foreground))] truncate flex-1 font-medium">
+              {activeVideoTitle}
+            </span>
+            <a
+              href={`https://www.youtube.com/watch?v=${activeVideoId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors flex-shrink-0 ml-2"
+            >
+              <ExternalLink className="w-3 h-3" />
+              YouTube
+            </a>
+          </div>
+          <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+            <iframe
+              key={activeVideoId}
+              src={`https://www.youtube.com/embed/${activeVideoId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&controls=1`}
+              title={activeVideoTitle}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="absolute inset-0 w-full h-full"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideosComingSoon
-// Shown when the kitchen_videos DB table is empty. Includes a search bar
-// so the user can still reach the YouTube gate search from this state.
+// YtResultCard — thumbnail card for a single YouTube search result
 // ─────────────────────────────────────────────────────────────────────────────
-type TFunction = ReturnType<typeof import("next-intl").useTranslations<"kitchen">>;
+function YtResultCard({
+  video,
+  onPlay,
+}: {
+  video:  YtSearchResult;
+  onPlay: () => void;
+}) {
+  return (
+    <button
+      onClick={onPlay}
+      className="group rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] overflow-hidden hover:border-red-500/40 hover:bg-red-500/[0.03] transition-all text-left w-full"
+    >
+      {/* Thumbnail */}
+      <div className="relative aspect-video overflow-hidden bg-[rgb(var(--border)/0.3)]">
+        <img
+          src={video.thumbnail}
+          alt={video.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+            <PlayCircle className="w-6 h-6 text-white" />
+          </div>
+        </div>
+      </div>
 
+      {/* Info */}
+      <div className="p-3">
+        <h4 className="text-sm font-semibold text-[rgb(var(--foreground))] line-clamp-2 leading-snug mb-1 group-hover:text-red-400 transition-colors">
+          {video.title}
+        </h4>
+        <p className="text-xs text-[rgb(var(--muted))] truncate">{video.channelTitle}</p>
+      </div>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VideosComingSoon — shown when kitchen_videos DB table is empty.
+// Includes opt-in YouTube search so the gate is reachable from zero-DB state.
+// ─────────────────────────────────────────────────────────────────────────────
 function VideosComingSoon({
   t,
   onYouTubeSearch,
 }: {
-  t: TFunction;
+  t:               TFn;
   onYouTubeSearch: (query: string) => void;
 }) {
   const [inputValue, setInputValue] = useState("");
@@ -641,7 +779,6 @@ function VideosComingSoon({
           <div className="w-20 h-20 rounded-2xl bg-[rgb(var(--primary)/0.12)] border border-[rgb(var(--primary)/0.2)] flex items-center justify-center">
             <Clapperboard className="w-10 h-10 text-[rgb(var(--primary))]" />
           </div>
-
           <div>
             <h3
               className="text-2xl font-bold text-[rgb(var(--foreground))] mb-2"
@@ -653,12 +790,10 @@ function VideosComingSoon({
               {t("videosComingSoonSub")}
             </p>
           </div>
-
           <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[rgb(var(--primary)/0.1)] border border-[rgb(var(--primary)/0.25)] text-[rgb(var(--primary))] text-sm font-semibold">
             <Sparkles className="w-4 h-4" />
             {t("videosComingSoonBadge")}
           </div>
-
           <div className="flex flex-wrap justify-center gap-2">
             {(["🥩 Ćevapi", "🥯 Lepinja", "🧅 Luk & Kajmak", "🔥 Roštilj"] as const).map((label) => (
               <span
@@ -672,10 +807,10 @@ function VideosComingSoon({
         </div>
       </div>
 
-      {/* YouTube gate search — explicit opt-in ──────────────────────────── */}
+      {/* YouTube search opt-in */}
       <div className="w-full max-w-md">
         <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium text-center mb-3">
-          U međuvremenu — pretraži YouTube
+          {t("ytComingSoonSearchLabel")}
         </p>
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -695,7 +830,7 @@ function VideosComingSoon({
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-sm font-semibold transition-colors flex-shrink-0"
           >
             <Youtube className="w-4 h-4" />
-            <span className="hidden sm:inline">Pretraži</span>
+            <span className="hidden sm:inline">{t("ytSearchAction")}</span>
           </button>
         </div>
         <p className="text-[10px] text-[rgb(var(--muted))] opacity-50 mt-2 text-center">
