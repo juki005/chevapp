@@ -9,11 +9,16 @@
 //
 // Floating style-filter overlay (top-right) is synced with the main StyleFilter.
 //
+// Discovery Mode (🏛️ FAB, bottom-left):
+//   When ON, fetches tourist landmarks for the current map bounds and renders
+//   them as smaller grey markers on a lower z-layer. Clicking a landmark opens
+//   a minimal popup with name, rating, and a TripAdvisor link.
+//
 // Stack: @vis.gl/react-google-maps v1.7.1
 // Loaded via dynamic({ ssr: false }) from RestaurantMap.tsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   APIProvider,
   Map,
@@ -21,7 +26,12 @@ import {
   Pin,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { MapPin } from "lucide-react";
+import { MapPin, X, Star, ExternalLink } from "lucide-react";
+import {
+  getLandmarksForBounds,
+  getTripAdvisorUrl,
+  type Landmark,
+} from "@/lib/actions/discovery";
 
 // ── Public types ──────────────────────────────────────────────────────────────
 export interface MapRestaurant {
@@ -58,6 +68,15 @@ const STYLE_PILLS = [
 ];
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+
+// ── Landmark type icons ───────────────────────────────────────────────────────
+function landmarkEmoji(types: string[]): string {
+  if (types.includes("museum"))  return "🏛";
+  if (types.includes("church"))  return "⛪";
+  if (types.includes("mosque"))  return "🕌";
+  if (types.includes("park"))    return "🌳";
+  return "📍";
+}
 
 // ── Charcoal dark map style ───────────────────────────────────────────────────
 const CHARCOAL_STYLE: google.maps.MapTypeStyle[] = [
@@ -115,6 +134,51 @@ function BoundsUpdater({ restaurants }: { restaurants: MapRestaurant[] }) {
   return null;
 }
 
+// ── BoundsTracker — fires onBoundsChange when map becomes idle ────────────────
+// Computes center + radius from map bounds so the caller can fetch landmarks.
+function BoundsTracker({
+  enabled,
+  onBoundsChange,
+}: {
+  enabled:        boolean;
+  onBoundsChange: (lat: number, lng: number, radiusMeters: number) => void;
+}) {
+  const map         = useMap();
+  const callbackRef = useRef(onBoundsChange);
+  callbackRef.current = onBoundsChange;
+
+  useEffect(() => {
+    if (!map || !enabled) return;
+
+    const compute = () => {
+      const bounds = map.getBounds();
+      const center = map.getCenter();
+      if (!bounds || !center) return;
+
+      const ne   = bounds.getNorthEast();
+      // Haversine: distance from center to NE corner (= visible radius)
+      const R    = 6_371_000;
+      const lat1 = center.lat() * (Math.PI / 180);
+      const lat2 = ne.lat()     * (Math.PI / 180);
+      const dLat = lat2 - lat1;
+      const dLng = (ne.lng() - center.lng()) * (Math.PI / 180);
+      const a    = Math.sin(dLat / 2) ** 2
+                 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      const dist = 2 * R * Math.asin(Math.sqrt(a));
+      const radius = Math.min(dist, 50_000); // cap at 50 km
+
+      callbackRef.current(center.lat(), center.lng(), radius);
+    };
+
+    // Fire once immediately, then on every "idle" (after pan/zoom settles)
+    compute();
+    const listener = map.addListener("idle", compute);
+    return () => google.maps.event.removeListener(listener);
+  }, [map, enabled]);
+
+  return null;
+}
+
 // ── Floating map style filter ─────────────────────────────────────────────────
 function MapStyleFilter({ active, onChange }: { active: string; onChange: (s: string) => void }) {
   return (
@@ -160,6 +224,142 @@ function MapStyleFilter({ active, onChange }: { active: string; onChange: (s: st
   );
 }
 
+// ── Landmark mini-marker ──────────────────────────────────────────────────────
+function LandmarkPin({ landmark, onClick }: { landmark: Landmark; onClick: () => void }) {
+  return (
+    <AdvancedMarker
+      position={{ lat: landmark.lat, lng: landmark.lng }}
+      onClick={onClick}
+      title={landmark.name}
+      zIndex={0}
+    >
+      <div
+        style={{
+          width:           24,
+          height:          24,
+          borderRadius:    "50%",
+          background:      "rgba(190,190,190,0.82)",
+          border:          "1.5px solid rgba(160,160,160,0.9)",
+          display:         "flex",
+          alignItems:      "center",
+          justifyContent:  "center",
+          fontSize:        11,
+          cursor:          "pointer",
+          boxShadow:       "0 1px 5px rgba(0,0,0,0.35)",
+          transition:      "transform 0.12s ease",
+          backdropFilter:  "blur(4px)",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.25)")}
+        onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+      >
+        {landmarkEmoji(landmark.types)}
+      </div>
+    </AdvancedMarker>
+  );
+}
+
+// ── Landmark popup (absolute overlay) ────────────────────────────────────────
+function LandmarkPopup({
+  landmark,
+  onClose,
+}: {
+  landmark: Landmark;
+  onClose:  () => void;
+}) {
+  const tripUrl = getTripAdvisorUrl(landmark.name);
+  return (
+    <div
+      style={{
+        position:       "absolute",
+        bottom:         72,
+        left:           "50%",
+        transform:      "translateX(-50%)",
+        zIndex:         20,
+        width:          260,
+        borderRadius:   14,
+        background:     "rgba(20,18,16,0.94)",
+        border:         "1px solid rgba(255,255,255,0.10)",
+        padding:        "14px 14px 12px",
+        boxShadow:      "0 8px 32px rgba(0,0,0,0.6)",
+        backdropFilter: "blur(16px)",
+      }}
+    >
+      {/* Close */}
+      <button
+        onClick={onClose}
+        style={{
+          position:   "absolute",
+          top:        8,
+          right:      8,
+          background: "none",
+          border:     "none",
+          cursor:     "pointer",
+          color:      "rgba(180,170,160,0.8)",
+          padding:    2,
+        }}
+      >
+        <X size={14} />
+      </button>
+
+      {/* Landmark type badge */}
+      <div style={{ fontSize: 9, color: "#a09070", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6, fontWeight: 600 }}>
+        {landmarkEmoji(landmark.types)}&nbsp;
+        {landmark.types.find(t => ["museum","church","park","tourist_attraction"].includes(t))?.replace("_"," ") ?? "Atrakcija"}
+      </div>
+
+      {/* Name */}
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#f5f0e8", lineHeight: 1.3, marginBottom: 6, paddingRight: 20 }}>
+        {landmark.name}
+      </div>
+
+      {/* Rating row */}
+      {landmark.rating !== null && (
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10 }}>
+          <Star size={12} style={{ color: "#f59e0b", fill: "#f59e0b" }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#f5f0e8" }}>{landmark.rating.toFixed(1)}</span>
+          <span style={{ fontSize: 11, color: "#8a7a68" }}>
+            ({landmark.userRatingCount >= 1000
+              ? `${(landmark.userRatingCount / 1000).toFixed(1)}k`
+              : landmark.userRatingCount} ocjena)
+          </span>
+        </div>
+      )}
+
+      {/* Vicinity */}
+      {landmark.vicinity && (
+        <div style={{ fontSize: 11, color: "#7a6a58", marginBottom: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {landmark.vicinity}
+        </div>
+      )}
+
+      {/* TripAdvisor CTA */}
+      <a
+        href={tripUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          gap:            6,
+          padding:        "8px 12px",
+          borderRadius:   8,
+          background:     "rgba(0,170,75,0.15)",
+          border:         "1px solid rgba(0,170,75,0.3)",
+          color:          "#34d399",
+          fontSize:       11,
+          fontWeight:     600,
+          textDecoration: "none",
+          transition:     "background 0.15s",
+        }}
+      >
+        <ExternalLink size={11} />
+        Vidi na TripAdvisor-u
+      </a>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function GoogleCevapMap({
   restaurants,
@@ -174,6 +374,27 @@ export default function GoogleCevapMap({
   const handleStyleChange = (s: string) => {
     setInternalStyle(s);
     onStyleChange?.(s);
+  };
+
+  // ── Discovery Mode ─────────────────────────────────────────────────────────
+  const [discoveryMode,     setDiscoveryMode]     = useState(false);
+  const [landmarks,         setLandmarks]         = useState<Landmark[]>([]);
+  const [landmarksLoading,  setLandmarksLoading]  = useState(false);
+  const [selectedLandmark,  setSelectedLandmark]  = useState<Landmark | null>(null);
+
+  const handleBoundsChange = useCallback(async (lat: number, lng: number, radius: number) => {
+    setLandmarksLoading(true);
+    const results = await getLandmarksForBounds(lat, lng, radius);
+    setLandmarks(results);
+    setLandmarksLoading(false);
+  }, []);
+
+  // Clear landmarks + popup when discovery mode is turned off
+  const toggleDiscovery = () => {
+    setDiscoveryMode(prev => {
+      if (prev) { setLandmarks([]); setSelectedLandmark(null); }
+      return !prev;
+    });
   };
 
   const mapped = restaurants.filter((r) => r.latitude != null && r.longitude != null);
@@ -217,10 +438,21 @@ export default function GoogleCevapMap({
           fullscreenControl
           zoomControl
           gestureHandling="cooperative"
+          onClick={() => setSelectedLandmark(null)}
         >
           <BoundsUpdater restaurants={restaurants} />
+          <BoundsTracker enabled={discoveryMode} onBoundsChange={handleBoundsChange} />
 
-          {/* ── Pin markers — click opens full profile modal ────────────── */}
+          {/* ── Landmark markers — lower z-index, smaller, grey ────────── */}
+          {discoveryMode && landmarks.map((lm) => (
+            <LandmarkPin
+              key={lm.id}
+              landmark={lm}
+              onClick={() => setSelectedLandmark(prev => prev?.id === lm.id ? null : lm)}
+            />
+          ))}
+
+          {/* ── Restaurant pin markers — click opens full profile modal ── */}
           {mapped.map((r) => {
             const key    = r.id ?? r.fsq_id ?? r.name;
             const isDb   = r.source === "supabase";
@@ -230,8 +462,9 @@ export default function GoogleCevapMap({
               <AdvancedMarker
                 key={key}
                 position={{ lat: r.latitude as number, lng: r.longitude as number }}
-                onClick={() => onOpenProfile?.(r)}
+                onClick={() => { setSelectedLandmark(null); onOpenProfile?.(r); }}
                 title={r.name}
+                zIndex={5}
               >
                 <div style={{ opacity: dimmed ? 0.3 : 1, transition: "opacity 0.2s" }}>
                   <Pin
@@ -246,8 +479,74 @@ export default function GoogleCevapMap({
         </Map>
       </APIProvider>
 
-      {/* ── Floating style filter ─────────────────────────────────────────── */}
+      {/* ── Floating style filter (top-right) ────────────────────────────── */}
       <MapStyleFilter active={activeStyle} onChange={handleStyleChange} />
+
+      {/* ── Discovery Mode FAB (bottom-left) ─────────────────────────────── */}
+      <button
+        onClick={toggleDiscovery}
+        title={discoveryMode ? "Isključi Discovery Mode" : "Uključi Discovery Mode"}
+        style={{
+          position:       "absolute",
+          bottom:         16,
+          left:           16,
+          zIndex:         10,
+          width:          40,
+          height:         40,
+          borderRadius:   "50%",
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          fontSize:       18,
+          cursor:         "pointer",
+          backdropFilter: "blur(10px)",
+          transition:     "all 0.2s ease",
+          background:     discoveryMode
+            ? "rgba(99,102,241,0.85)"
+            : "rgba(16,14,12,0.82)",
+          border:         discoveryMode
+            ? "1px solid rgba(165,180,252,0.6)"
+            : "1px solid rgba(255,255,255,0.10)",
+          boxShadow:      discoveryMode
+            ? "0 2px 16px rgba(99,102,241,0.5)"
+            : "0 1px 5px rgba(0,0,0,0.45)",
+        }}
+      >
+        {landmarksLoading ? (
+          <span style={{ fontSize: 14, animation: "spin 0.8s linear infinite", display: "inline-block" }}>⟳</span>
+        ) : "🏛️"}
+      </button>
+
+      {/* Loading hint text next to FAB */}
+      {discoveryMode && (
+        <div style={{
+          position:       "absolute",
+          bottom:         22,
+          left:           64,
+          zIndex:         10,
+          background:     "rgba(16,14,12,0.82)",
+          border:         "1px solid rgba(255,255,255,0.10)",
+          borderRadius:   20,
+          padding:        "4px 10px",
+          fontSize:       10,
+          color:          "rgba(180,170,160,0.9)",
+          backdropFilter: "blur(10px)",
+          whiteSpace:     "nowrap",
+          pointerEvents:  "none",
+        }}>
+          {landmarksLoading
+            ? "Učitavanje atrakcija…"
+            : `${landmarks.length} atrakcija u vidnom polju`}
+        </div>
+      )}
+
+      {/* ── Landmark popup ───────────────────────────────────────────────── */}
+      {selectedLandmark && (
+        <LandmarkPopup
+          landmark={selectedLandmark}
+          onClose={() => setSelectedLandmark(null)}
+        />
+      )}
 
       {/* ── Empty-state overlay ───────────────────────────────────────────── */}
       {mapped.length === 0 && (
