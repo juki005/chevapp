@@ -129,6 +129,29 @@ export async function getLandmarksForCity(
   }
 }
 
+// ── Forward geocoding (city name → lat/lng) ───────────────────────────────────
+export async function getCoordsFromCity(
+  cityName: string,
+): Promise<{ lat: number; lng: number } | null> {
+  const key = apiKey();
+  if (!key) return null;
+
+  try {
+    const params = new URLSearchParams({ address: cityName, key });
+    const res  = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?${params}`,
+      { next: { revalidate: 86_400 } },
+    );
+    const body = await res.json() as {
+      results?: { geometry: { location: { lat: number; lng: number } } }[];
+    };
+    const loc = body.results?.[0]?.geometry?.location;
+    return loc ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Reverse geocoding ─────────────────────────────────────────────────────────
 export async function getCityFromCoords(lat: number, lng: number): Promise<string> {
   const key = apiKey();

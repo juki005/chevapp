@@ -78,6 +78,9 @@ export default function FinderPage() {
   useEffect(() => {
     if (!filtersRestored) return;
     localStorage.setItem("chevapp:finder_state", JSON.stringify({ searchTerm, selectedCity, activeStyle }));
+    // Mirror city so Community "Istraži grad" tab stays in sync
+    if (selectedCity) localStorage.setItem("chevapp_last_city", selectedCity);
+    else              localStorage.removeItem("chevapp_last_city");
   }, [searchTerm, selectedCity, activeStyle, filtersRestored]);
 
   const debouncedSearch = useDebounce(searchTerm, 500);

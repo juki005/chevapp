@@ -28,14 +28,16 @@ const GoogleCevapMap = dynamic(
 );
 
 interface Props {
-  restaurants:    MapRestaurant[];
-  height?:        string;
-  activeStyle?:   string | null;
-  onStyleChange?: (style: string) => void;
-  onOpenProfile?: (r: MapRestaurant) => void;
+  restaurants:           MapRestaurant[];
+  height?:               string;
+  activeStyle?:          string | null;
+  onStyleChange?:        (style: string) => void;
+  onOpenProfile?:        (r: MapRestaurant) => void;
+  defaultCenter?:        { lat: number; lng: number };
+  initialDiscoveryMode?: boolean;
 }
 
-export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange, onOpenProfile }: Props) {
+export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange, onOpenProfile, defaultCenter, initialDiscoveryMode }: Props) {
   return (
     // suppressHydrationWarning: Google Maps injects <style> tags after hydration
     <div suppressHydrationWarning>
@@ -45,6 +47,8 @@ export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange,
         activeStyle={activeStyle}
         onStyleChange={onStyleChange}
         onOpenProfile={onOpenProfile}
+        defaultCenter={defaultCenter}
+        initialDiscoveryMode={initialDiscoveryMode}
       />
     </div>
   );

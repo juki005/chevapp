@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   Users, Rss, Lightbulb, Calendar, Trophy,
   X, MapPin, Bell, Heart, MessageCircle, Share2, Filter, Flame,
-  Landmark, Star, ExternalLink,
+  Landmark, Star, ExternalLink, Search, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommunityNews } from "@/components/community/CommunityNews";
@@ -15,13 +15,27 @@ import {
   type LeaderboardEntry, type FeedPost,
 } from "@/lib/actions/community";
 import {
-  getLandmarksForCity, getCityFromCoords,
+  getLandmarksForCity, getCityFromCoords, getCoordsFromCity,
   type Landmark as LandmarkType,
 } from "@/lib/actions/discovery";
 import { getTripAdvisorUrl } from "@/lib/tripadvisor";
+import dynamic from "next/dynamic";
+import type { MapRestaurant } from "@/components/finder/RestaurantMap";
+
+const RestaurantMap = dynamic(
+  () => import("@/components/finder/RestaurantMap").then(m => ({ default: m.RestaurantMap })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-[380px] rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)]">
+        <Loader2 className="w-7 h-7 animate-spin text-[rgb(var(--primary))]" />
+      </div>
+    ),
+  },
+);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type CommunityTab = "feed" | "tips" | "events";
+type CommunityTab = "feed" | "tips" | "events" | "explore";
 
 // ── Mock fallback posts (shown when DB feed is empty) ─────────────────────────
 const MOCK_POSTS: FeedPost[] = [
@@ -79,7 +93,6 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-// Avatar renders an <img> if URL, emoji if short string, or initial letter
 function Avatar({ src, name, size = "md" }: { src: string | null; name: string; size?: "sm" | "md" | "lg" }) {
   const dim = size === "sm" ? "w-7 h-7 text-sm" : size === "lg" ? "w-12 h-12 text-2xl" : "w-9 h-9 text-base";
   const isUrl = src && (src.startsWith("http://") || src.startsWith("https://"));
@@ -159,22 +172,40 @@ export default function CommunityPage() {
   const [votedTips,  setVotedTips]  = useState<Set<string>>(new Set());
   const [cityFilter, setCityFilter] = useState("Sve");
 
-  // Discovery city card
-  const [discoveryCityName,     setDiscoveryCityName]     = useState<string>("");
-  const [discoveryLandmarks,    setDiscoveryLandmarks]    = useState<LandmarkType[]>([]);
-  const [discoveryLoading,      setDiscoveryLoading]      = useState(true);
+  // Events modals
+  const [notifiedEvents, setNotifiedEvents] = useState<Set<string>>(new Set());
+  const [selectedEvent,  setSelectedEvent]  = useState<EventItem | null>(null);
+
+  const filteredTips = cityFilter === "Sve" ? GASTRO_TIPS : GASTRO_TIPS.filter((tip) => tip.city === cityFilter);
+
+  // ── Discovery ("Istraži grad") ──────────────────────────────────────────────
+  const [discoveryCityName,  setDiscoveryCityName]  = useState<string>("");
+  const [discoveryLandmarks, setDiscoveryLandmarks] = useState<LandmarkType[]>([]);
+  const [discoveryLoading,   setDiscoveryLoading]   = useState(true);
+  const [cityCenter,         setCityCenter]         = useState<{ lat: number; lng: number }>({ lat: 44.1, lng: 17.9 });
+  const [cityInput,          setCityInput]          = useState<string>("");
+  const [citySearching,      setCitySearching]      = useState(false);
+  const cityInputRef = useRef<HTMLInputElement>(null);
+
+  // Load city data (landmarks + coords) for a given city name
+  const loadCityData = async (cityName: string, showLoadingSpinner = false) => {
+    if (showLoadingSpinner) setCitySearching(true);
+    setDiscoveryCityName(cityName);
+    setCityInput(cityName);
+    const [landmarks, coords] = await Promise.all([
+      getLandmarksForCity(cityName, 3),
+      getCoordsFromCity(cityName),
+    ]);
+    setDiscoveryLandmarks(landmarks);
+    if (coords) setCityCenter(coords);
+    setDiscoveryLoading(false);
+    setCitySearching(false);
+  };
 
   useEffect(() => {
-    async function loadDiscovery(cityName: string) {
-      setDiscoveryCityName(cityName);
-      const landmarks = await getLandmarksForCity(cityName, 3);
-      setDiscoveryLandmarks(landmarks);
-      setDiscoveryLoading(false);
-    }
-
-    // 1. Try last known city from localStorage
+    // 1. Try last known city from localStorage (set by Finder on city change)
     const cached = typeof window !== "undefined" ? localStorage.getItem("chevapp_last_city") : null;
-    if (cached) { loadDiscovery(cached); return; }
+    if (cached) { loadCityData(cached); return; }
 
     // 2. Try geolocation → reverse geocode
     if (typeof window !== "undefined" && navigator.geolocation) {
@@ -182,21 +213,23 @@ export default function CommunityPage() {
         async (pos) => {
           const city = await getCityFromCoords(pos.coords.latitude, pos.coords.longitude);
           if (city) localStorage.setItem("chevapp_last_city", city);
-          loadDiscovery(city);
+          loadCityData(city);
         },
-        () => loadDiscovery("Sarajevo"), // denied → default
+        () => loadCityData("Sarajevo"),
         { timeout: 5000 },
       );
     } else {
-      loadDiscovery("Sarajevo");
+      loadCityData("Sarajevo");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Events
-  const [notifiedEvents, setNotifiedEvents] = useState<Set<string>>(new Set());
-  const [selectedEvent,  setSelectedEvent]  = useState<EventItem | null>(null);
-
-  const filteredTips = cityFilter === "Sve" ? GASTRO_TIPS : GASTRO_TIPS.filter((tip) => tip.city === cityFilter);
+  const handleCitySearch = async () => {
+    const city = cityInput.trim();
+    if (!city || city === discoveryCityName) return;
+    localStorage.setItem("chevapp_last_city", city);
+    await loadCityData(city, true);
+  };
 
   const toggleLike = (postId: string) => {
     setLikedPosts((prev) => {
@@ -208,9 +241,10 @@ export default function CommunityPage() {
   };
 
   const tabs: { key: CommunityTab; icon: React.ReactNode; label: string }[] = [
-    { key: "feed",   icon: <Rss       className="w-4 h-4" />, label: t("feed")        },
-    { key: "tips",   icon: <Lightbulb className="w-4 h-4" />, label: t("insiderTips") },
-    { key: "events", icon: <Calendar  className="w-4 h-4" />, label: t("events")      },
+    { key: "feed",    icon: <Rss       className="w-4 h-4" />, label: t("feed")        },
+    { key: "tips",    icon: <Lightbulb className="w-4 h-4" />, label: t("insiderTips") },
+    { key: "events",  icon: <Calendar  className="w-4 h-4" />, label: t("events")      },
+    { key: "explore", icon: <Landmark  className="w-4 h-4" />, label: discoveryCityName ? `Istraži ${discoveryCityName}` : "Istraži grad" },
   ];
 
   return (
@@ -238,99 +272,6 @@ export default function CommunityPage() {
         {/* ═══════════════ MAIN AREA ═══════════════ */}
         <div className="lg:col-span-2">
 
-          {/* ──────────── ISTRAŽI [GRAD] CARD ──────────── */}
-          {(discoveryLoading || discoveryLandmarks.length > 0 || discoveryCityName) && (
-            <div className="mb-6 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] overflow-hidden">
-              {/* Card header */}
-              <div className="px-5 pt-4 pb-3 flex items-center gap-2.5 border-b border-[rgb(var(--border))]">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center flex-shrink-0">
-                  <Landmark className="w-4 h-4 text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-[rgb(var(--foreground))] text-sm leading-tight" style={{ fontFamily: "Oswald, sans-serif" }}>
-                    {discoveryLoading || !discoveryCityName
-                      ? "Istraži grad"
-                      : `Istraži ${discoveryCityName}`}
-                  </h3>
-                  <p className="text-[10px] text-[rgb(var(--muted))] leading-tight">Top atrakcije · TripAdvisor ocjene</p>
-                </div>
-              </div>
-
-              {/* Landmark rows */}
-              <div className="px-5 py-3 space-y-2.5">
-                {discoveryLoading ? (
-                  // Skeleton
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 animate-pulse">
-                      <div className="w-7 h-7 rounded-full bg-[rgb(var(--border)/0.5)] flex-shrink-0" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="h-3 bg-[rgb(var(--border)/0.5)] rounded w-40" />
-                        <div className="h-2.5 bg-[rgb(var(--border)/0.3)] rounded w-24" />
-                      </div>
-                    </div>
-                  ))
-                ) : discoveryLandmarks.length === 0 ? (
-                  <p className="text-xs text-[rgb(var(--muted))] py-2 text-center">
-                    Nema pronađenih atrakcija za ovaj grad.
-                  </p>
-                ) : (
-                  discoveryLandmarks.map((lm, i) => {
-                    const typeLabel = lm.types.includes("museum") ? "Muzej"
-                      : lm.types.includes("church") ? "Crkva / džamija"
-                      : lm.types.includes("park")   ? "Park"
-                      : "Turistička atrakcija";
-                    const emoji = lm.types.includes("museum") ? "🏛"
-                      : lm.types.includes("church") ? "⛪"
-                      : lm.types.includes("park")   ? "🌳"
-                      : "📍";
-                    return (
-                      <div key={lm.id} className="flex items-center gap-3">
-                        {/* Rank + emoji */}
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-[rgb(var(--surface))] border border-[rgb(var(--border))] text-sm">
-                          {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm font-semibold text-[rgb(var(--foreground))] truncate">{emoji} {lm.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-[rgb(var(--muted))]">{typeLabel}</span>
-                            {lm.rating !== null && (
-                              <span className="flex items-center gap-0.5 text-[10px] text-amber-400 font-medium">
-                                <Star className="w-2.5 h-2.5 fill-current" />
-                                {lm.rating.toFixed(1)}
-                                <span className="text-[rgb(var(--muted))] font-normal">
-                                  ({lm.userRatingCount >= 1000
-                                    ? `${(lm.userRatingCount / 1000).toFixed(1)}k`
-                                    : lm.userRatingCount})
-                                </span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* TripAdvisor CTA */}
-              {!discoveryLoading && discoveryCityName && (
-                <div className="px-5 pb-4">
-                  <a
-                    href={getTripAdvisorUrl(discoveryCityName)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/15 transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Istraži puni vodič za {discoveryCityName} na TripAdvisor-u
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Tab bar */}
           <div className="flex gap-2 mb-6 flex-wrap">
             {tabs.map(({ key, icon, label }) => (
@@ -341,10 +282,13 @@ export default function CommunityPage() {
                   "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
                   activeTab === key
                     ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
-                    : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                    : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]",
+                  key === "explore" && activeTab !== key && "border-indigo-500/20 text-indigo-400/70 hover:text-indigo-300",
                 )}
               >
-                {icon} {label}
+                {icon}
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{key === "explore" ? "Istraži" : label}</span>
               </button>
             ))}
           </div>
@@ -353,7 +297,6 @@ export default function CommunityPage() {
           {activeTab === "feed" && (
             <div className="space-y-4">
               {feedLoading ? (
-                // Skeleton
                 Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)] p-5 animate-pulse">
                     <div className="flex gap-3">
@@ -527,6 +470,124 @@ export default function CommunityPage() {
               ))}
             </div>
           )}
+
+          {/* ──────────── ISTRAŽI GRAD TAB ──────────── */}
+          {activeTab === "explore" && (
+            <div className="space-y-5">
+
+              {/* City search input */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
+                  <input
+                    ref={cityInputRef}
+                    type="text"
+                    value={cityInput}
+                    onChange={(e) => setCityInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
+                    placeholder="Upiši grad (npr. Mostar, Beograd…)"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-colors"
+                  />
+                </div>
+                <button
+                  onClick={handleCitySearch}
+                  disabled={citySearching || !cityInput.trim() || cityInput.trim() === discoveryCityName}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {citySearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  <span className="hidden sm:inline">Istraži</span>
+                </button>
+              </div>
+
+              {/* Top landmarks list */}
+              {(discoveryLoading || discoveryLandmarks.length > 0) && (
+                <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] overflow-hidden">
+                  <div className="px-5 py-3.5 border-b border-[rgb(var(--border))] flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-indigo-400" />
+                    <span className="text-sm font-semibold text-[rgb(var(--foreground))]">
+                      Top atrakcije{discoveryCityName ? ` — ${discoveryCityName}` : ""}
+                    </span>
+                    <span className="text-xs text-[rgb(var(--muted))] ml-auto">Google Places · 500+ ocjena</span>
+                  </div>
+                  <div className="px-5 py-3 space-y-3">
+                    {discoveryLoading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 animate-pulse">
+                          <div className="w-7 h-7 rounded-full bg-[rgb(var(--border)/0.5)] flex-shrink-0" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3 bg-[rgb(var(--border)/0.5)] rounded w-44" />
+                            <div className="h-2.5 bg-[rgb(var(--border)/0.3)] rounded w-28" />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      discoveryLandmarks.map((lm, i) => {
+                        const typeLabel = lm.types.includes("museum") ? "Muzej"
+                          : lm.types.includes("church") ? "Crkva / džamija"
+                          : lm.types.includes("park")   ? "Park"
+                          : "Turistička atrakcija";
+                        const emoji = lm.types.includes("museum") ? "🏛"
+                          : lm.types.includes("church") ? "⛪"
+                          : lm.types.includes("park")   ? "🌳" : "📍";
+                        return (
+                          <div key={lm.id} className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-[rgb(var(--surface))] border border-[rgb(var(--border))] text-base">
+                              {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-semibold text-[rgb(var(--foreground))] truncate block">{emoji} {lm.name}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-[rgb(var(--muted))]">{typeLabel}</span>
+                                {lm.rating !== null && (
+                                  <span className="flex items-center gap-0.5 text-[10px] text-amber-400 font-medium">
+                                    <Star className="w-2.5 h-2.5 fill-current" />
+                                    {lm.rating.toFixed(1)}
+                                    <span className="text-[rgb(var(--muted))] font-normal">
+                                      ({lm.userRatingCount >= 1000
+                                        ? `${(lm.userRatingCount / 1000).toFixed(1)}k`
+                                        : lm.userRatingCount})
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Landmark map — key forces remount when city changes so map recenters */}
+              <div>
+                <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-2 flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3" />
+                  Karta atrakcija · klikni 🏛️ za aktivaciju
+                </p>
+                <RestaurantMap
+                  key={discoveryCityName}
+                  restaurants={[] as MapRestaurant[]}
+                  height="380px"
+                  defaultCenter={cityCenter}
+                  initialDiscoveryMode={true}
+                />
+              </div>
+
+              {/* TripAdvisor CTA */}
+              {discoveryCityName && (
+                <a
+                  href={getTripAdvisorUrl(discoveryCityName)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/15 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Istraži puni vodič za {discoveryCityName} na TripAdvisor-u
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ═══════════════ SIDEBAR ═══════════════ */}
@@ -570,15 +631,10 @@ export default function CommunityPage() {
                       "border-transparent"
                     )}
                   >
-                    {/* Medal or rank number */}
                     <span className={cn("w-6 text-center text-sm font-bold flex-shrink-0", rank <= 3 ? "text-lg" : MEDAL_RANK_COLOR[rank - 1] ?? "text-[rgb(var(--muted))]")}>
                       {rank <= 3 ? MEDALS[rank - 1] : rank}
                     </span>
-
-                    {/* Avatar */}
                     <Avatar src={avatarUrl} name={name} size="sm" />
-
-                    {/* Name + badge */}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-[rgb(var(--foreground))] truncate">{name}</div>
                       <div className="flex items-center gap-2">
@@ -590,8 +646,6 @@ export default function CommunityPage() {
                         )}
                       </div>
                     </div>
-
-                    {/* XP */}
                     <div className={cn("text-xs font-bold tabular-nums flex-shrink-0",
                       rank === 1 ? "text-yellow-400" :
                       rank === 2 ? "text-slate-300" :

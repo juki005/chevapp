@@ -50,11 +50,13 @@ export interface MapRestaurant {
 }
 
 interface Props {
-  restaurants:    MapRestaurant[];
-  height?:        string;
-  activeStyle?:   string | null;
-  onStyleChange?: (style: string) => void;
-  onOpenProfile?: (r: MapRestaurant) => void;
+  restaurants:          MapRestaurant[];
+  height?:              string;
+  activeStyle?:         string | null;
+  onStyleChange?:       (style: string) => void;
+  onOpenProfile?:       (r: MapRestaurant) => void;
+  defaultCenter?:       { lat: number; lng: number };
+  initialDiscoveryMode?: boolean;
 }
 
 // ── Style metadata ────────────────────────────────────────────────────────────
@@ -363,10 +365,12 @@ function LandmarkPopup({
 // ── Main component ────────────────────────────────────────────────────────────
 export default function GoogleCevapMap({
   restaurants,
-  height        = "500px",
-  activeStyle:  controlledStyle,
+  height               = "500px",
+  activeStyle:         controlledStyle,
   onStyleChange,
   onOpenProfile,
+  defaultCenter        = { lat: 44.1, lng: 17.9 },
+  initialDiscoveryMode = false,
 }: Props) {
   const [internalStyle, setInternalStyle] = useState<string>("");
 
@@ -377,7 +381,7 @@ export default function GoogleCevapMap({
   };
 
   // ── Discovery Mode ─────────────────────────────────────────────────────────
-  const [discoveryMode,     setDiscoveryMode]     = useState(false);
+  const [discoveryMode,     setDiscoveryMode]     = useState(initialDiscoveryMode);
   const [landmarks,         setLandmarks]         = useState<Landmark[]>([]);
   const [landmarksLoading,  setLandmarksLoading]  = useState(false);
   const [selectedLandmark,  setSelectedLandmark]  = useState<Landmark | null>(null);
@@ -430,7 +434,7 @@ export default function GoogleCevapMap({
       <APIProvider apiKey={API_KEY}>
         <Map
           mapId="9a4d0b5aaa7f88a18d6286ed"
-          defaultCenter={{ lat: 44.1, lng: 17.9 }}
+          defaultCenter={defaultCenter}
           defaultZoom={mapped.length === 0 ? 6 : 8}
           styles={CHARCOAL_STYLE}
           mapTypeControl={false}
