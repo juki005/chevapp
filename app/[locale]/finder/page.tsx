@@ -429,9 +429,9 @@ export default function FinderPage() {
 
             ) : (
               <>
-                {/* ── Hero banner — only when no filters active ──────────── */}
+                {/* ── Hero banner — idle state (no filters) ─────────────── */}
                 {!hasActiveFilters && !placesSearched && (
-                  <div className="mb-8 py-12 px-6 rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] text-center relative overflow-hidden">
+                  <div className="py-16 px-6 rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] text-center relative overflow-hidden">
                     <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.08)] blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.05)] blur-3xl pointer-events-none" />
                     <div className="relative z-10">
@@ -442,15 +442,18 @@ export default function FinderPage() {
                       >
                         {t("heroTitle")}
                       </h2>
-                      <p className="text-[rgb(var(--muted))] max-w-md mx-auto text-sm leading-relaxed">
+                      <p className="text-[rgb(var(--muted))] max-w-md mx-auto text-sm leading-relaxed mb-6">
                         {t("heroSubtitle")}
+                      </p>
+                      <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
+                        ↑ Upiši grad ili odaberi stil ćevapa iznad da počneš
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* ── Full verified grid — always shown ─────────────────── */}
-                {visibleDbRestaurants.length > 0 && (
+                {/* ── Full verified grid — only shown when filters are active */}
+                {(hasActiveFilters || placesSearched) && visibleDbRestaurants.length > 0 && (
                   <div className="mb-8">
                     <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
                       <SlidersHorizontal className="w-3 h-3" />
