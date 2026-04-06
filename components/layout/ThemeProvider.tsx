@@ -10,14 +10,14 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "dark",
+  theme: "light",
   toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Read the class already set by the inline <head> script — no flash, no mismatch.
   const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof document === "undefined") return "dark";
+    if (typeof document === "undefined") return "light";
     return document.documentElement.classList.contains("dark") ? "dark" : "light";
   });
 

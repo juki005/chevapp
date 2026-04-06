@@ -40,7 +40,7 @@ export async function generateMetadata({
       type: "website",
     },
     manifest: "/manifest.json",
-    themeColor: "#D35400",
+    themeColor: "#FF6B00",
   };
 }
 

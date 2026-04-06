@@ -11,6 +11,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ── Sprint 1: Premium SaaS Brand Tokens ──────────────────────────────
+        "brand-orange": "#FF6B00",
+        "brand-red":    "#E63946",
+        "brand-dark":   "#121212",
+        "app-bg":       "#F9FAFB",
+
         // --- Industrial & Traditional Palette ---
         charcoal: {
           DEFAULT: "#1A1A1A",
@@ -84,6 +90,14 @@ const config: Config = {
           "accent-hover": "#B45309",
           "accent-light": "#FEF3C7",
         },
+      },
+      borderRadius: {
+        "extra-rounded": "20px",
+      },
+      boxShadow: {
+        "soft-xl": "0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)",
+        "soft-md": "0 4px 16px -2px rgba(0,0,0,0.07), 0 2px 6px -2px rgba(0,0,0,0.04)",
+        "brand":   "0 4px 14px 0 rgba(255,107,0,0.30)",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

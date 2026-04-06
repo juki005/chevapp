@@ -11,33 +11,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&family=Press+Start+2P&display=swap');
 
 @layer base {
-  /* ---- DARK MODE (default) — Ugljen ---- */
+  /* ── LIGHT MODE DEFAULT — Premium SaaS ───────────────────────────────── */
   :root {
-    --background: 13 13 13;
-    --foreground: 176 176 176;
-    --surface: 26 26 26;
-    --border: 42 42 42;
-    --muted: 83 83 83;
-    --primary: 211 84 0;
-    --primary-foreground: 245 245 220;
+    --background: 249 250 251;       /* #F9FAFB — app-bg */
+    --surface:    255 255 255;       /* #FFFFFF — card bg */
+    --border:     229 231 235;       /* #E5E7EB — very subtle */
+    --foreground: 17 24 39;          /* #111827 — near-black */
+    --muted:      107 114 128;       /* #6B7280 — gray-500 */
+    --primary:            255 107 0; /* #FF6B00 — brand-orange */
+    --primary-foreground: 255 255 255;
     --radius: 0.5rem;
   }
 
-  /* ---- LIGHT MODE — Somun & Wood ---- */
-  html:not(.dark) {
-    --background: 249 247 242;
-    --foreground: 28 25 23;
-    --surface: 229 225 216;
-    --border: 214 208 199;
-    --muted: 120 113 108;
-    --primary: 217 119 6;
-    --primary-foreground: 28 25 23;
+  /* ── DARK MODE — Ugljen ──────────────────────────────────────────────── */
+  .dark {
+    --background: 13 13 13;
+    --foreground: 176 176 176;
+    --surface:    26 26 26;
+    --border:     42 42 42;
+    --muted:      83 83 83;
+    --primary:    211 84 0;
+    --primary-foreground: 245 245 220;
   }
 
   * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+  }
+
+  /* Global smooth transition on all interactive elements */
+  a, button, [role="button"], input, select, textarea {
+    transition: all 0.2s ease-in-out;
   }
 
   html {
@@ -67,38 +72,56 @@
     background-color: rgb(var(--primary));
   }
 
-  /* ---- Card ---- */
+  /* ── Card ──────────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-2xl border transition-all duration-150;
+    @apply rounded-[20px] border transition-all duration-200;
+    background-color: rgb(var(--surface));
     border-color: rgb(var(--border));
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02);
+  }
+  .dark .card {
     background-color: rgb(var(--surface) / 0.4);
+    box-shadow: none;
   }
   .card:hover {
+    box-shadow: 0 24px 30px -5px rgba(0,0,0,0.08), 0 12px 14px -5px rgba(0,0,0,0.04);
+    border-color: rgb(var(--primary) / 0.35);
+    transform: translateY(-1px);
+  }
+  .dark .card:hover {
+    box-shadow: none;
     border-color: rgb(var(--primary) / 0.4);
+    transform: none;
   }
 
-  /* ---- CTA Button Primary ---- */
-  /* min-h-[48px] ensures WCAG 2.5.5 / Apple HIG touch target on mobile */
+  /* ── Button Primary ─────────────────────────────────────────────────────
+     min-h-[48px] = WCAG 2.5.5 / Apple HIG touch target                   */
   .btn-primary {
     @apply inline-flex items-center gap-2 px-6 py-3 min-h-[48px] font-semibold
-           rounded-xl transition-all duration-200 hover:scale-[1.02]
-           active:scale-[0.97] shadow-lg font-sans tracking-wide;
+           rounded-[20px] transition-all duration-200
+           active:scale-95 font-sans tracking-wide;
     background-color: rgb(var(--primary));
     color: rgb(var(--primary-foreground));
-    box-shadow: 0 4px 14px rgb(var(--primary) / 0.3);
+    box-shadow: 0 4px 14px rgba(255,107,0,0.30);
   }
-  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 6px 20px rgba(255,107,0,0.40);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: scale(0.95); box-shadow: none; }
 
-  /* ---- CTA Button Secondary ---- */
+  /* ── Button Secondary ───────────────────────────────────────────────── */
   .btn-secondary {
     @apply inline-flex items-center gap-2 px-6 py-3 min-h-[48px] bg-transparent
-           font-semibold rounded-xl transition-all duration-200 active:scale-[0.97];
-    border: 1px solid rgb(var(--border));
+           font-semibold rounded-[20px] transition-all duration-200 active:scale-95;
+    border: 1.5px solid rgb(var(--border));
     color: rgb(var(--foreground) / 0.8);
   }
   .btn-secondary:hover {
     border-color: rgb(var(--primary) / 0.5);
-    color: rgb(var(--foreground));
+    color: rgb(var(--primary));
+    background-color: rgb(var(--primary) / 0.05);
   }
 
   /* ---- Section heading ---- */
@@ -165,8 +188,8 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  html:not(.dark) .text-gradient-fire {
-    background: linear-gradient(135deg, #D97706 0%, #D35400 60%, #B45309 100%);
+  :root:not(.dark) .text-gradient-fire {
+    background: linear-gradient(135deg, #FF6B00 0%, #E63946 60%, #FF8C42 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
