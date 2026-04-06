@@ -4,11 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   X, MapPin, BedDouble, ExternalLink, CheckCircle,
-  Navigation, Star, Clock, Globe, Phone, Heart, Bookmark,
+  Navigation, Star, Clock, Globe, Phone, Heart, Bookmark, BookOpen,
 } from "lucide-react";
 import { AccommodationModal } from "@/components/finder/AccommodationModal";
 import { StyleTagSection, type CevapStyle } from "@/components/finder/modal/StyleTagSection";
+import { QuickLogModal } from "@/components/journal/QuickLogModal";
 import { createClient } from "@/lib/supabase/client";
+import type { Restaurant } from "@/types";
 
 // ── Shared type ────────────────────────────────────────────────────────────────
 export interface ProfileTarget {
@@ -87,10 +89,11 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   const [userId,            setUserId]            = useState<string | null>(null);
 
   // Favorites / wishlist
-  const [isFav,       setIsFav]       = useState(false);
-  const [isWish,      setIsWish]      = useState(false);
-  const [favLoading,  setFavLoading]  = useState(false);
-  const [wishLoading, setWishLoading] = useState(false);
+  const [isFav,        setIsFav]        = useState(false);
+  const [isWish,       setIsWish]       = useState(false);
+  const [favLoading,   setFavLoading]   = useState(false);
+  const [wishLoading,  setWishLoading]  = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
 
   // Crowdsourced style tag
   const [dbStyleTag,     setDbStyleTag]     = useState<CevapStyle | null>(null);
@@ -520,6 +523,21 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
                 <Bookmark style={{ width: "13px", height: "13px", fill: isWish ? "#D35400" : "transparent", flexShrink: 0 }} />
                 {isWish ? "Na listi ✓" : "Želim ići"}
               </button>
+
+              <button
+                onClick={() => setQuickLogOpen(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: "5px",
+                  padding: "5px 14px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600,
+                  border: "1px solid rgba(var(--primary), 0.4)",
+                  background: "rgba(var(--primary), 0.08)",
+                  color: "rgb(var(--primary))",
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+              >
+                <BookOpen style={{ width: "13px", height: "13px", flexShrink: 0 }} />
+                Dodaj u dnevnik
+              </button>
             </div>
           </div>
 
@@ -650,6 +668,25 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         restaurantName={restaurant.name}
         city={restaurant.city ?? ""}
       />
+
+      {quickLogOpen && (
+        <QuickLogModal
+          restaurant={{
+            id:             restaurant.id ?? "",
+            name:           restaurant.name,
+            city:           restaurant.city,
+            address:        restaurant.address ?? "",
+            latitude:       restaurant.lat ?? null,
+            longitude:      restaurant.lng ?? null,
+            style:          null as unknown as Restaurant["style"],
+            lepinja_rating: 0,
+            tags:           [],
+            is_verified:    restaurant.is_verified ?? false,
+            google_place_id: restaurant.google_place_id ?? null,
+          }}
+          onClose={() => setQuickLogOpen(false)}
+        />
+      )}
     </>
   );
 
