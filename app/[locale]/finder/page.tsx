@@ -14,6 +14,7 @@ import { RestaurantCard } from "@/components/finder/RestaurantCard";
 import { RestaurantGridSkeleton } from "@/components/finder/RestaurantCardSkeleton";
 import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/RestaurantDetailModal";
 import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
+import { QuickLogModal } from "@/components/journal/QuickLogModal";
 import { FinderFilterBar } from "@/components/finder/FinderFilterBar";
 import { PlaceResultCard } from "@/components/finder/PlaceResultCard";
 import dynamic from "next/dynamic";
@@ -93,6 +94,9 @@ export default function FinderPage() {
 
   // ── Profile modal ──────────────────────────────────────────────────────────
   const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
+
+  // ── Quick Journal Log ──────────────────────────────────────────────────────
+  const [quickLogRestaurant, setQuickLogRestaurant] = useState<Restaurant | null>(null);
 
   // ── Ćevap-Rulet ───────────────────────────────────────────────────────────
   const [ruletOpen, setRuletOpen] = useState(false);
@@ -471,6 +475,7 @@ export default function FinderPage() {
                                 restaurant={r}
                                 avgRating={avgRatings[r.id] ?? null}
                                 onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified, rating: avgRatings[r.id] ?? r.rating ?? null })}
+                                onAddToJournal={() => setQuickLogRestaurant(r)}
                               />
                             </div>
                           ))}
@@ -500,6 +505,7 @@ export default function FinderPage() {
                             restaurant={r}
                             avgRating={avgRatings[r.id] ?? null}
                             onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified, rating: avgRatings[r.id] ?? r.rating ?? null })}
+                            onAddToJournal={() => setQuickLogRestaurant(r)}
                           />
                         </div>
                       ))}
@@ -580,6 +586,12 @@ export default function FinderPage() {
         currentCity={selectedCity}
         searchTerm={searchTerm}
         userId={userId}
+      />
+
+      {/* Quick Journal Log modal */}
+      <QuickLogModal
+        restaurant={quickLogRestaurant}
+        onClose={() => setQuickLogRestaurant(null)}
       />
     </div>
   );

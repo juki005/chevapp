@@ -21,6 +21,7 @@ export interface Restaurant {
   tags_style?: string[];
   tags_meat?: string[];
   is_pinned?: boolean;
+  google_place_id?: string | null;
 }
 
 export interface RestaurantReview {

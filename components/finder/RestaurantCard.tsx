@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, CheckCircle, LayoutList, Sparkles } from "lucide-react";
+import { MapPin, CheckCircle, LayoutList, Sparkles, BookOpen } from "lucide-react";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "./DirectionsButton";
 import type { Restaurant } from "@/types";
@@ -54,10 +54,11 @@ const STYLE_PALETTE: Record<string, {
 };
 
 interface RestaurantCardProps {
-  restaurant:      Restaurant;
-  avgRating?:      number | null;
-  className?:      string;
-  onProfileClick?: () => void;
+  restaurant:       Restaurant;
+  avgRating?:       number | null;
+  className?:       string;
+  onProfileClick?:  () => void;
+  onAddToJournal?:  () => void;
 }
 
 export function RestaurantCard({
@@ -65,6 +66,7 @@ export function RestaurantCard({
   avgRating,
   className,
   onProfileClick,
+  onAddToJournal,
 }: RestaurantCardProps) {
   // Normalise: null / unrecognised style → "Ostalo" so every card gets a tint
   const styleKey = restaurant.style && STYLE_PALETTE[restaurant.style as string]
@@ -191,6 +193,21 @@ export function RestaurantCard({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {onAddToJournal && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAddToJournal(); }}
+              aria-label={`Dodaj u dnevnik — ${restaurant.name}`}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap",
+                "border border-[rgb(var(--primary)/0.35)]",
+                "text-[rgb(var(--primary))] hover:bg-[rgb(var(--primary)/0.1)] transition-all",
+              )}
+              style={{ fontFamily: "Oswald, sans-serif" }}
+            >
+              <BookOpen className="w-3 h-3" />
+              DNEVNIK
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onProfileClick?.(); }}
             tabIndex={-1}

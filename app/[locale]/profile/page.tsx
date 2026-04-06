@@ -1,7 +1,7 @@
 // DEPLOYMENT_VERSION: 3.0_NUCLEAR_REFRESH_NO_CACHE
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   User, BookOpen, Map as MapIcon, Edit3, Plus, Star, Trash2, MapPin,
@@ -203,6 +203,11 @@ export default function ProfilePage() {
   const [verifyChecking,  setVerifyChecking]  = useState(false);
   const [savingEntry,     setSavingEntry]     = useState(false);
   const [journalLoaded,   setJournalLoaded]   = useState(false);
+
+  // ── Journal filters ──────────────────────────────────────────────────────
+  const [jFilterSearch,   setJFilterSearch]   = useState("");
+  const [jFilterCity,     setJFilterCity]     = useState("");
+  const [jFilterStyle,    setJFilterStyle]    = useState("");
 
   /** Called when user picks a restaurant from Google Places Autocomplete */
   const handleRestaurantSelect = async (name: string, city: string, placeId: string) => {
@@ -464,6 +469,20 @@ export default function ProfilePage() {
   }, [userId]);
 
   // ── Derived values ───────────────────────────────────────────────────────
+  const filteredEntries = useMemo(() => {
+    return entries.filter((e) => {
+      if (jFilterSearch && !e.restaurant.toLowerCase().includes(jFilterSearch.toLowerCase())) return false;
+      if (jFilterCity  && e.city  !== jFilterCity)  return false;
+      if (jFilterStyle && e.style !== jFilterStyle) return false;
+      return true;
+    });
+  }, [entries, jFilterSearch, jFilterCity, jFilterStyle]);
+
+  const journalCities = useMemo(() =>
+    [...new Set(entries.map((e) => e.city))].sort(),
+    [entries]
+  );
+
   const tasteData    = buildTasteData(entries);
   const totalVisits  = entries.length;
   const xp           = userStats?.xp_points ?? userStats?.xp_total ?? entries.reduce((s, e) => s + e.rating * 10, 0);
@@ -714,8 +733,13 @@ export default function ProfilePage() {
         {/* ═══════════════════════════════════════════════════════════════ */}
         {activeTab === "journal" && (
           <div>
-            <div className="flex items-center justify-between mb-5">
-              <p className="text-sm text-[rgb(var(--muted))]">{entries.length} unosa u dnevniku</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-[rgb(var(--muted))]">
+                {filteredEntries.length !== entries.length
+                  ? <>{filteredEntries.length} <span className="opacity-60">/ {entries.length}</span> unosa</>
+                  : <>{entries.length} unosa u dnevniku</>
+                }
+              </p>
               <button
                 onClick={() => setShowForm((v) => !v)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[rgb(var(--primary))] text-white text-xs font-semibold hover:bg-[rgb(var(--primary)/0.85)] transition-colors"
@@ -723,6 +747,49 @@ export default function ProfilePage() {
                 <Plus className="w-3.5 h-3.5" />
                 {t("addEntry")}
               </button>
+            </div>
+
+            {/* Filter bar */}
+            <div className="flex flex-wrap gap-2 mb-5">
+              <input
+                type="text"
+                value={jFilterSearch}
+                onChange={(e) => setJFilterSearch(e.target.value)}
+                placeholder="Pretraži restoran…"
+                className="flex-1 min-w-[160px] px-3 py-1.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-xs placeholder:text-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+              />
+              <select
+                value={jFilterCity}
+                onChange={(e) => setJFilterCity(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface))] text-[rgb(var(--foreground))] text-xs outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+              >
+                <option value="">Svi gradovi</option>
+                {journalCities.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <div className="flex gap-1">
+                {STYLE_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setJFilterStyle(jFilterStyle === s ? "" : s)}
+                    className={cn(
+                      "px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors",
+                      jFilterStyle === s
+                        ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
+                        : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {(jFilterSearch || jFilterCity || jFilterStyle) && (
+                <button
+                  onClick={() => { setJFilterSearch(""); setJFilterCity(""); setJFilterStyle(""); }}
+                  className="px-2.5 py-1.5 rounded-lg border border-[rgb(var(--border))] text-xs text-[rgb(var(--muted))] hover:text-red-400 hover:border-red-400/30 transition-colors"
+                >
+                  Obriši filtere ×
+                </button>
+              )}
             </div>
 
             {showForm && (
@@ -833,14 +900,18 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {entries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[rgb(var(--border))] p-12 text-center">
                 <BookOpen className="w-10 h-10 text-[rgb(var(--muted))] mx-auto mb-3 opacity-30" />
-                <p className="text-[rgb(var(--muted))] text-sm">Dnevnik je prazan. Dodaj prvi unos!</p>
+                <p className="text-[rgb(var(--muted))] text-sm">
+                  {entries.length === 0
+                    ? "Dnevnik je prazan. Dodaj prvi unos!"
+                    : "Nema unosa koji odgovaraju filterima."}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {entries.map((entry) => (
+                {filteredEntries.map((entry) => (
                   <div
                     key={entry.id}
                     className={cn(
