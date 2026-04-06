@@ -39,7 +39,7 @@ export async function generateMetadata({
       description: t("tagline"),
       type: "website",
     },
-    manifest: "/manifest.json",
+    // manifest is served automatically from app/manifest.ts by Next.js
     themeColor: "#FF6B00",
   };
 }

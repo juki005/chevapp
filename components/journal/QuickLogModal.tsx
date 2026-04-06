@@ -110,10 +110,28 @@ export function QuickLogModal({ restaurant, onClose, onSaved }: QuickLogModalPro
   return (
     /* Backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-sm rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+      {/*
+        Mobile  → full-width, snapped to bottom, rounded-t-3xl (bottom sheet)
+        Desktop → max-w-sm centred card, rounded-2xl
+      */}
+      <div
+        className={cn(
+          "w-full bg-[rgb(var(--surface))] shadow-2xl overflow-hidden",
+          "animate-in fade-in slide-in-from-bottom-4 duration-250",
+          // Mobile: bottom sheet
+          "rounded-t-3xl border-t border-x border-[rgb(var(--border))]",
+          // Desktop: floating card
+          "sm:max-w-sm sm:rounded-2xl sm:border sm:border-[rgb(var(--border))]",
+        )}
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        {/* ── Drag handle (mobile only) ───────────────────────────────────── */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-[rgb(var(--border))]" />
+        </div>
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgb(var(--border))]">
@@ -255,17 +273,17 @@ export function QuickLogModal({ restaurant, onClose, onSaved }: QuickLogModalPro
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         {!authChecking && userId && !saved && (
-          <div className="px-5 pb-5 flex gap-2 justify-end">
+          <div className="px-5 pb-5 pt-1 flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-[rgb(var(--border))] text-[rgb(var(--muted))] text-sm hover:text-[rgb(var(--foreground))] transition-colors"
+              className="px-4 py-2.5 rounded-[14px] border border-[rgb(var(--border))] text-[rgb(var(--muted))] text-sm font-medium hover:text-[rgb(var(--foreground))] transition-colors"
             >
               Odustani
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[rgb(var(--primary))] text-white text-sm font-semibold hover:bg-[rgb(var(--primary)/0.85)] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-[14px] bg-[rgb(var(--primary))] text-white text-sm font-semibold hover:bg-[rgb(var(--primary)/0.85)] active:scale-[0.97] transition-all disabled:opacity-50"
             >
               {saving
                 ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sprema se…</>
