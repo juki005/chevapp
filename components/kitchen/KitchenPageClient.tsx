@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import {
   ChefHat, BookOpen, Video, Users, PlayCircle, ExternalLink,
-  Search, X, Clapperboard, Pin, Sparkles, Youtube,
+  Search, X, Clapperboard, Sparkles, Youtube,
   Loader2, AlertCircle, ChevronLeft,
 } from "lucide-react";
 import { type Recipe } from "@/constants/recipes";
@@ -15,6 +15,7 @@ import {
 } from "@/lib/actions/youtube";
 import { RecipeModal } from "@/components/kitchen/RecipeModal";
 import { GroupCalculator } from "@/components/kitchen/GroupCalculator";
+import { VibrantBadge } from "@/components/ui/VibrantBadge";
 import { cn } from "@/lib/utils";
 
 type KitchenTab = "recipes" | "videos" | "squad";
@@ -219,58 +220,70 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                 : `${filteredRecipes.length} ${filteredRecipes.length === 1 ? "recept" : "recepata"} · Klikni za detalje i upute`}
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filteredRecipes.map((recipe) => (
                 <button
                   key={recipe.id}
                   onClick={() => setSelectedRecipe(recipe)}
                   className={cn(
-                    "group rounded-2xl border p-6 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all text-left cursor-pointer relative",
-                    recipe.is_pinned
-                      ? "border-[rgb(var(--primary)/0.4)] bg-[rgb(var(--primary)/0.04)]"
-                      : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)]"
+                    // ── Base ──────────────────────────────────────────────
+                    "group rounded-[20px] overflow-hidden text-left cursor-pointer relative transition-all duration-200 active:scale-[0.98]",
+                    // ── Light: white card + shadow + coloured left accent ─
+                    "bg-white border border-[rgb(var(--border))] border-l-4 border-l-[rgb(var(--primary)/0.35)]",
+                    "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
+                    "hover:shadow-[0_24px_30px_-5px_rgba(0,0,0,0.09),_0_12px_14px_-5px_rgba(0,0,0,0.04)]",
+                    "hover:-translate-y-0.5",
+                    // ── Dark: transparent + border ────────────────────────
+                    "dark:bg-transparent dark:shadow-none dark:hover:translate-y-0 dark:border-[rgb(var(--border))] dark:hover:brightness-110",
+                    recipe.is_pinned && "dark:border-[rgb(var(--primary)/0.35)] dark:bg-[rgb(var(--primary)/0.04)]",
                   )}
                 >
+                  {/* Admin Pick strip */}
                   {recipe.is_pinned && (
-                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgb(var(--primary))] text-white text-[10px] font-bold">
-                      <Pin className="w-2.5 h-2.5" />
-                      Admin Pick
+                    <div className="flex items-center gap-1.5 px-5 py-1.5 bg-orange-50 dark:bg-amber-500/15 border-b border-orange-200 dark:border-amber-500/25">
+                      <VibrantBadge variant="admin" />
                     </div>
                   )}
-                  <div className="flex items-start gap-4">
-                    <div className="text-5xl leading-none flex-shrink-0">{recipe.emoji}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3
-                          className="text-xl font-bold text-[rgb(var(--foreground))] group-hover:text-[rgb(var(--primary))] transition-colors"
-                          style={{ fontFamily: "Oswald, sans-serif" }}
-                        >
-                          {recipe.title}
-                        </h3>
-                        <div
-                          className={cn("w-2 h-2 rounded-full flex-shrink-0", DIFFICULTY_DOT[recipe.difficulty])}
-                          title={DIFFICULTY_LABEL[recipe.difficulty]}
-                        />
+
+                  <div className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 bg-orange-50 dark:bg-[rgb(var(--primary)/0.1)]">
+                        {recipe.emoji}
                       </div>
-                      <p className="text-[rgb(var(--muted))] text-sm leading-relaxed line-clamp-2">
-                        {recipe.desc}
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[rgb(var(--border)/0.5)] text-[rgb(var(--muted))]">
-                          ⏱ {recipe.prepTime}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[rgb(var(--border)/0.5)] text-[rgb(var(--muted))]">
-                          👥 {recipe.servings} osobe
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))/0.8]">
-                          {DIFFICULTY_LABEL[recipe.difficulty]}
-                        </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3
+                            className="text-xl font-bold text-[rgb(var(--foreground))] group-hover:text-[rgb(var(--primary))] transition-colors"
+                            style={{ fontFamily: "Oswald, sans-serif" }}
+                          >
+                            {recipe.title}
+                          </h3>
+                          <div
+                            className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", DIFFICULTY_DOT[recipe.difficulty])}
+                            title={DIFFICULTY_LABEL[recipe.difficulty]}
+                          />
+                        </div>
+                        <p className="text-[rgb(var(--muted))] text-sm leading-relaxed line-clamp-2">
+                          {recipe.desc}
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[rgb(var(--border)/0.5)] text-[rgb(var(--muted))]">
+                            ⏱ {recipe.prepTime}
+                          </span>
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[rgb(var(--border)/0.5)] text-[rgb(var(--muted))]">
+                            👥 {recipe.servings} osobe
+                          </span>
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-[rgb(var(--primary)/0.08)] text-[rgb(var(--primary))] font-medium">
+                            {DIFFICULTY_LABEL[recipe.difficulty]}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="mt-4 flex items-center gap-1.5 text-xs text-[rgb(var(--primary))] opacity-0 group-hover:opacity-100 transition-opacity">
-                    <PlayCircle className="w-3.5 h-3.5" />
-                    <span>Otvori recept →</span>
+
+                    <div className="mt-4 flex items-center gap-1.5 text-xs text-[rgb(var(--primary))] opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+                      <PlayCircle className="w-3.5 h-3.5" />
+                      <span>Otvori recept →</span>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -349,7 +362,7 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredVideoList.map(({ id, title, embedId, channel, isPinned }) => (
                       <VideoCard
                         key={id}
@@ -415,19 +428,28 @@ function VideoCard({ id, title, embedId, channel, isPinned, isPlaying, onPlay }:
   return (
     <div
       className={cn(
-        "rounded-2xl border overflow-hidden group relative",
+        // ── Base shape ──────────────────────────────────────────────
+        "group rounded-[20px] overflow-hidden transition-all duration-200",
+        // ── Light: white card + soft shadow ───────────────────────
+        "bg-white border border-[rgb(var(--border))]",
+        "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
+        "hover:shadow-[0_24px_30px_-5px_rgba(0,0,0,0.09),_0_12px_14px_-5px_rgba(0,0,0,0.04)]",
+        "hover:-translate-y-0.5",
+        // ── Dark: transparent + border ────────────────────────────
+        "dark:bg-transparent dark:shadow-none dark:hover:translate-y-0 dark:hover:brightness-110",
         isPinned
-          ? "border-[rgb(var(--primary)/0.4)] bg-[rgb(var(--surface)/0.6)]"
-          : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)]"
+          ? "border-t-4 border-t-[rgb(var(--primary))] dark:border-[rgb(var(--primary)/0.4)]"
+          : "dark:border-[rgb(var(--border))]",
       )}
     >
+      {/* Admin Pick strip */}
       {isPinned && (
-        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgb(var(--primary))] text-white text-[10px] font-bold shadow">
-          <Pin className="w-2.5 h-2.5" />
-          Admin Pick
+        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-orange-50 dark:bg-amber-500/15 border-b border-orange-200 dark:border-amber-500/25">
+          <VibrantBadge variant="admin" />
         </div>
       )}
 
+      {/* Thumbnail / iframe */}
       {isPlaying ? (
         <div className="relative aspect-video bg-black">
           <iframe
@@ -441,22 +463,29 @@ function VideoCard({ id, title, embedId, channel, isPinned, isPlaying, onPlay }:
       ) : (
         <button
           onClick={onPlay}
-          className="block w-full relative aspect-video bg-[rgb(var(--border)/0.3)] overflow-hidden"
+          className="block w-full relative aspect-video bg-gray-100 dark:bg-[rgb(var(--border)/0.3)] overflow-hidden active:scale-[0.98] transition-transform"
         >
           <img
             src={`https://img.youtube.com/vi/${embedId}/mqdefault.jpg`}
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+          {/* Play overlay — 60% opacity by default, full on hover */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm transition-all duration-200 group-hover:scale-110"
+              style={{ background: "rgba(255,107,0,0.6)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgb(255,107,0)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,107,0,0.6)"; }}
+            >
               <PlayCircle className="w-7 h-7 text-white" />
             </div>
           </div>
         </button>
       )}
 
-      <div className="p-4">
+      {/* Info row */}
+      <div className="px-4 py-3">
         <h4 className="text-sm font-semibold text-[rgb(var(--foreground))] line-clamp-2 leading-snug mb-1">
           {title}
         </h4>

@@ -8,6 +8,7 @@ import {
   Landmark, Star, ExternalLink, Search, Loader2, Plus, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VibrantBadge } from "@/components/ui/VibrantBadge";
 import { CommunityNews } from "@/components/community/CommunityNews";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -370,56 +371,70 @@ export default function CommunityPage() {
                   <div
                     key={post.id}
                     className={cn(
-                      "rounded-2xl border p-5 transition-colors",
+                      // ── Base ──────────────────────────────────────────────────
+                      "rounded-[20px] overflow-hidden transition-all duration-200",
+                      // ── Light: white card + soft shadow ──────────────────────
+                      "bg-white border border-[rgb(var(--border))]",
+                      "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
+                      // ── Dark: transparent ─────────────────────────────────────
+                      "dark:bg-transparent dark:shadow-none",
                       post.isInsiderTip
-                        ? "border-[rgb(var(--primary)/0.4)] bg-[rgb(var(--primary)/0.04)]"
-                        : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)]"
+                        ? "border-l-4 border-l-amber-400 dark:border-[rgb(var(--primary)/0.4)] dark:bg-[rgb(var(--primary)/0.02)]"
+                        : "dark:border-[rgb(var(--border))]",
                     )}
                   >
+                    {/* Insider tip strip */}
                     {post.isInsiderTip && (
-                      <div className="flex items-center gap-2 text-[rgb(var(--primary))] text-xs font-semibold mb-3">
-                        <Lightbulb className="w-3.5 h-3.5" />
-                        {t("hiddenGem")} 💎
+                      <div className="flex items-center gap-2 px-4 py-1.5 bg-amber-50 dark:bg-amber-500/15 border-b border-amber-200 dark:border-amber-500/25">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">{t("hiddenGem")} 💎</span>
                       </div>
                     )}
-                    <div className="flex items-start gap-3">
-                      <Avatar src={post.userAvatar} name={post.userName} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-semibold text-[rgb(var(--foreground))] text-sm">{post.userName}</span>
-                          {post.userXP > 0 && (
-                            <span className="text-xs text-[rgb(var(--primary))] font-medium">{post.userXP.toLocaleString()} XP</span>
-                          )}
-                          {post.createdAt && (
-                            <span className="text-xs text-[rgb(var(--muted))] ml-auto">{timeAgo(post.createdAt)}</span>
-                          )}
-                        </div>
-                        {(post.restaurantName ?? post.restaurantCity) && (
-                          <div className="flex items-center gap-1 text-xs text-[rgb(var(--muted))] mb-2">
-                            <MapPin className="w-3 h-3" />
-                            {[post.restaurantName, post.restaurantCity].filter(Boolean).join(", ")}
-                          </div>
-                        )}
-                        <p className="text-[rgb(var(--foreground)/0.85)] text-sm leading-relaxed">{post.content}</p>
-                        <div className="flex items-center gap-4 mt-3">
-                          <button
-                            onClick={() => toggleLike(post.id)}
-                            className={cn(
-                              "flex items-center gap-1 text-xs transition-colors",
-                              likedPosts.has(post.id) ? "text-red-400" : "text-[rgb(var(--muted))] hover:text-red-400"
+
+                    <div className="p-5">
+                      <div className="flex items-start gap-3">
+                        <Avatar src={post.userAvatar} name={post.userName} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="font-bold text-[rgb(var(--foreground))] text-sm">{post.userName}</span>
+                            {post.userXP > 0 && (
+                              <span className="text-xs text-[rgb(var(--primary))] font-semibold">{post.userXP.toLocaleString()} XP</span>
                             )}
-                          >
-                            <Heart className={cn("w-3.5 h-3.5", likedPosts.has(post.id) && "fill-current")} />
-                            {likes[post.id] ?? 0}
-                          </button>
-                          <button className="flex items-center gap-1 text-xs text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors">
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            {t("comment")}
-                          </button>
-                          <button className="flex items-center gap-1 text-xs text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors">
-                            <Share2 className="w-3.5 h-3.5" />
-                            {t("share")}
-                          </button>
+                            {post.createdAt && (
+                              <span className="text-xs text-[rgb(var(--muted))] ml-auto">{timeAgo(post.createdAt)}</span>
+                            )}
+                          </div>
+                          {(post.restaurantName ?? post.restaurantCity) && (
+                            <div className="flex items-center gap-1 text-xs text-[rgb(var(--muted))] mb-2">
+                              <MapPin className="w-3 h-3" />
+                              {[post.restaurantName, post.restaurantCity].filter(Boolean).join(", ")}
+                            </div>
+                          )}
+                          <p className="text-[rgb(var(--foreground))] text-sm leading-relaxed opacity-85">{post.content}</p>
+
+                          {/* Action row */}
+                          <div className="flex items-center gap-1 mt-4 pt-3 border-t border-[rgb(var(--border)/0.5)]">
+                            <button
+                              onClick={() => toggleLike(post.id)}
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all",
+                                likedPosts.has(post.id)
+                                  ? "text-red-500 bg-red-50 dark:bg-red-400/10"
+                                  : "text-[rgb(var(--muted))] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-400/10"
+                              )}
+                            >
+                              <Heart className={cn("w-3.5 h-3.5", likedPosts.has(post.id) && "fill-current")} />
+                              {likes[post.id] ?? 0}
+                            </button>
+                            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-gray-100 dark:hover:bg-white/5 transition-all">
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              {t("comment")}
+                            </button>
+                            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-gray-100 dark:hover:bg-white/5 transition-all ml-auto">
+                              <Share2 className="w-3.5 h-3.5" />
+                              {t("share")}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -465,31 +480,49 @@ export default function CommunityPage() {
               </p>
               <div className="space-y-3">
                 {filteredTips.map((tip) => (
-                  <div key={tip.id} className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-4">
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl flex-shrink-0">{tip.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-semibold text-[rgb(var(--primary))]">{tip.city}</span>
-                          <span className="text-xs text-[rgb(var(--muted))]">· {tip.author}</span>
+                  <div
+                    key={tip.id}
+                    className={cn(
+                      // ── Base ─────────────────────────────────────────────────
+                      "rounded-[20px] overflow-hidden transition-all duration-200",
+                      // ── Light: white card + soft shadow + amber left accent ──
+                      "bg-white border border-[rgb(var(--border))] border-l-4 border-l-amber-400",
+                      "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
+                      // ── Dark: transparent ─────────────────────────────────────
+                      "dark:bg-transparent dark:shadow-none dark:border-amber-500/35 dark:bg-amber-500/[0.03]",
+                    )}
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        {/* Emoji pop */}
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-amber-50 dark:bg-amber-500/15">
+                          {tip.emoji}
                         </div>
-                        <p className="text-sm text-[rgb(var(--foreground)/0.85)] leading-relaxed">{tip.tip}</p>
-                        <button
-                          onClick={() => setVotedTips((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(tip.id)) { next.delete(tip.id); setTipVotes((v) => ({ ...v, [tip.id]: (v[tip.id] ?? 0) - 1 })); }
-                            else                  { next.add(tip.id);    setTipVotes((v) => ({ ...v, [tip.id]: (v[tip.id] ?? 0) + 1 })); }
-                            return next;
-                          })}
-                          className={cn(
-                            "mt-2.5 flex items-center gap-1 text-xs transition-colors px-2.5 py-1 rounded-full border",
-                            votedTips.has(tip.id)
-                              ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
-                              : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
-                          )}
-                        >
-                          🔥 {tipVotes[tip.id]} korisno
-                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border border-amber-300 dark:border-amber-500/30 px-2 py-0.5 rounded-full">
+                              {tip.city}
+                            </span>
+                            <span className="text-xs text-[rgb(var(--muted))]">{tip.author}</span>
+                          </div>
+                          <p className="text-sm text-[rgb(var(--foreground))] opacity-85 leading-relaxed">{tip.tip}</p>
+                          <button
+                            onClick={() => setVotedTips((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(tip.id)) { next.delete(tip.id); setTipVotes((v) => ({ ...v, [tip.id]: (v[tip.id] ?? 0) - 1 })); }
+                              else                  { next.add(tip.id);    setTipVotes((v) => ({ ...v, [tip.id]: (v[tip.id] ?? 0) + 1 })); }
+                              return next;
+                            })}
+                            className={cn(
+                              "mt-3 flex items-center gap-1.5 text-xs font-semibold transition-all px-3 py-1.5 rounded-full border active:scale-95",
+                              votedTips.has(tip.id)
+                                ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.08)] text-[rgb(var(--primary))]"
+                                : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-[rgb(var(--primary)/0.4)] hover:text-[rgb(var(--primary))]"
+                            )}
+                          >
+                            🔥 {tipVotes[tip.id]} korisno
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -512,34 +545,65 @@ export default function CommunityPage() {
                 </button>
               )}
               {events.map((event) => (
-                <div key={event.id} className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5">
-                  <div className="flex items-start gap-4">
-                    <span className="text-4xl flex-shrink-0">{event.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="font-bold text-[rgb(var(--foreground))] text-base leading-snug" style={{ fontFamily: "Oswald, sans-serif" }}>{event.title}</h3>
-                        <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium flex-shrink-0", event.tagColor)}>{event.tag}</span>
+                <div
+                  key={event.id}
+                  className={cn(
+                    // ── Base ────────────────────────────────────────────────
+                    "rounded-[20px] overflow-hidden transition-all duration-200",
+                    // ── Light: white card + soft shadow ─────────────────────
+                    "bg-white border border-[rgb(var(--border))]",
+                    "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
+                    "hover:shadow-[0_24px_30px_-5px_rgba(0,0,0,0.09),_0_12px_14px_-5px_rgba(0,0,0,0.04)]",
+                    "hover:-translate-y-0.5",
+                    // ── Dark: transparent ──────────────────────────────────
+                    "dark:bg-transparent dark:shadow-none dark:hover:translate-y-0 dark:border-[rgb(var(--border))] dark:hover:brightness-110",
+                  )}
+                >
+                  <div className="p-5">
+                    <div className="flex items-start gap-4">
+                      {/* Emoji icon */}
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 bg-gray-50 dark:bg-[rgb(var(--border)/0.3)]">
+                        {event.emoji}
                       </div>
-                      <div className="flex items-center gap-3 mb-2 flex-wrap">
-                        <span className="flex items-center gap-1 text-xs text-[rgb(var(--muted))]"><Calendar className="w-3 h-3" />{event.date}</span>
-                        <span className="flex items-center gap-1 text-xs text-[rgb(var(--muted))]"><MapPin className="w-3 h-3" />{event.location}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="font-bold text-[rgb(var(--foreground))] text-base leading-snug" style={{ fontFamily: "Oswald, sans-serif" }}>
+                            {event.title}
+                          </h3>
+                          <span className={cn("text-xs px-2.5 py-1 rounded-full border font-semibold flex-shrink-0", event.tagColor)}>
+                            {event.tag}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                          <span className="flex items-center gap-1 text-xs text-[rgb(var(--muted))]"><Calendar className="w-3 h-3" />{event.date}</span>
+                          <span className="flex items-center gap-1 text-xs text-[rgb(var(--muted))]"><MapPin className="w-3 h-3" />{event.location}</span>
+                        </div>
+                        <p className="text-sm text-[rgb(var(--muted))] leading-relaxed mb-4">{event.desc}</p>
                       </div>
-                      <p className="text-sm text-[rgb(var(--muted))] leading-relaxed mb-3">{event.desc}</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => setSelectedEvent(event)} className="px-3 py-1.5 rounded-lg text-xs border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.3)] transition-colors">
-                          Više informacija →
-                        </button>
-                        <button
-                          onClick={() => setNotifiedEvents((prev) => { const n = new Set(prev); n.has(event.id) ? n.delete(event.id) : n.add(event.id); return n; })}
-                          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border font-medium transition-all",
-                            notifiedEvents.has(event.id)
-                              ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
-                              : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]")}
-                        >
-                          <Bell className={cn("w-3 h-3", notifiedEvents.has(event.id) && "fill-current")} />
-                          {notifiedEvents.has(event.id) ? "Obavještenje aktivno" : "Obavijesti me"}
-                        </button>
-                      </div>
+                    </div>
+
+                    {/* Footer actions */}
+                    <div className="flex gap-2 pt-3 border-t border-[rgb(var(--border)/0.5)]">
+                      <button
+                        onClick={() => setSelectedEvent(event)}
+                        className="px-3 py-1.5 rounded-[14px] text-xs font-semibold border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--primary))] hover:border-[rgb(var(--primary)/0.4)] transition-all"
+                        style={{ fontFamily: "Oswald, sans-serif" }}
+                      >
+                        Više informacija →
+                      </button>
+                      <button
+                        onClick={() => setNotifiedEvents((prev) => { const n = new Set(prev); n.has(event.id) ? n.delete(event.id) : n.add(event.id); return n; })}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-[14px] text-xs font-semibold border transition-all",
+                          notifiedEvents.has(event.id)
+                            ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.08)] text-[rgb(var(--primary))]"
+                            : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                        )}
+                        style={{ fontFamily: "Oswald, sans-serif" }}
+                      >
+                        <Bell className={cn("w-3 h-3", notifiedEvents.has(event.id) && "fill-current")} />
+                        {notifiedEvents.has(event.id) ? "Obavještenje aktivno" : "Obavijesti me"}
+                      </button>
                     </div>
                   </div>
                 </div>
