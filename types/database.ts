@@ -388,6 +388,47 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_journal: {
+        Row: {
+          id:              string;
+          user_id:         string;
+          restaurant_name: string;
+          city:            string;
+          style:           CevapStyle;
+          rating:          number;
+          note:            string | null;
+          visit_date:      string;
+          google_place_id: string | null;
+          is_verified:     boolean;
+          created_at:      string;
+        };
+        Insert: {
+          id?:              string;
+          user_id:          string;
+          restaurant_name:  string;
+          city:             string;
+          style?:           CevapStyle;
+          rating:           number;
+          note?:            string | null;
+          visit_date?:      string;
+          google_place_id?: string | null;
+          is_verified?:     boolean;
+          created_at?:      string;
+        };
+        Update: {
+          id?:              string;
+          user_id?:         string;
+          restaurant_name?: string;
+          city?:            string;
+          style?:           CevapStyle;
+          rating?:          number;
+          note?:            string | null;
+          visit_date?:      string;
+          google_place_id?: string | null;
+          is_verified?:     boolean;
+        };
+        Relationships: [];
+      };
       journal_entries: {
         Row: {
           id: string;

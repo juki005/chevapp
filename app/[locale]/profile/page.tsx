@@ -270,7 +270,7 @@ export default function ProfilePage() {
             user_id:         userId,
             restaurant_name: newEntry.restaurant,
             city:            newEntry.city,
-            style:           newEntry.style,
+            style:           newEntry.style ?? "Ostalo",
             rating:          newEntry.rating,
             note:            newEntry.note || null,
             visit_date:      today,

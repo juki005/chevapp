@@ -55,12 +55,16 @@ function haptic(style: "light" | "medium" = "light") {
   }
 }
 
-// ── XP helper ─────────────────────────────────────────────────────────────────
-async function awardXP(userId: string, amount: number) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createClient() as any;
-  await supabase.rpc("award_xp", { p_user_id: userId, p_points: amount });
-  window.dispatchEvent(new CustomEvent("chevapp:stats_updated", { detail: {} }));
+// ── XP + community toast helper ───────────────────────────────────────────────
+// createClient() cast to `any` is intentional: supabase-js v2.47 RPC overloads
+// do not resolve correctly against our hand-written Database type.
+async function awardCommunityXP(userId: string, setToast: (msg: string) => void) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (createClient() as any).rpc("award_xp", { p_user_id: userId, p_points: 15 });
+    window.dispatchEvent(new CustomEvent("chevapp:stats_updated", { detail: {} }));
+  } catch { /* non-critical */ }
+  setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
 }
 
 // ── Star rating ───────────────────────────────────────────────────────────────
@@ -326,8 +330,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         if (error) throw error;
         setDbStyleTag(style);
         if (hadNoStyle) {
-          try { await awardXP(userId, 15); } catch { /* non-critical */ }
-          setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+          await awardCommunityXP(userId, setToast);
         } else {
           setToast(`Stil ažuriran: ${style} ✓`);
         }
@@ -351,8 +354,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         setDbRestaurantId(existing.id);
         setDbStyleTag(style);
         if (hadNoStyle) {
-          try { await awardXP(userId, 15); } catch { /* non-critical */ }
-          setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+          await awardCommunityXP(userId, setToast);
         } else {
           setToast(`Stil ažuriran: ${style} ✓`);
         }
@@ -379,8 +381,7 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
         // Update state regardless of newRow (RLS timing can make it null on success)
         if (newRow) setDbRestaurantId((newRow as { id: string }).id);
         setDbStyleTag(style);
-        try { await awardXP(userId, 15); } catch { /* non-critical */ }
-        setToast("Hvala! Pomogao si zajednici i zaradio 15 XP! 🌯");
+        await awardCommunityXP(userId, setToast);
         window.dispatchEvent(new CustomEvent("chevapp:restaurant_tagged", {
           detail: { google_place_id: placeId, style, name: restaurant.name, city: restaurant.city },
         }));
@@ -672,16 +673,16 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
       {quickLogOpen && (
         <QuickLogModal
           restaurant={{
-            id:             restaurant.id ?? "",
-            name:           restaurant.name,
-            city:           restaurant.city,
-            address:        restaurant.address ?? "",
-            latitude:       restaurant.lat ?? null,
-            longitude:      restaurant.lng ?? null,
-            style:          null as unknown as Restaurant["style"],
-            lepinja_rating: 0,
-            tags:           [],
-            is_verified:    restaurant.is_verified ?? false,
+            id:              restaurant.id ?? "",
+            name:            restaurant.name,
+            city:            restaurant.city,
+            address:         restaurant.address ?? "",
+            latitude:        restaurant.lat ?? null,
+            longitude:       restaurant.lng ?? null,
+            style:           (dbStyleTag ?? "Ostalo") as Restaurant["style"],
+            lepinja_rating:  0,
+            tags:            [],
+            is_verified:     restaurant.is_verified ?? false,
             google_place_id: restaurant.google_place_id ?? null,
           }}
           onClose={() => setQuickLogOpen(false)}
