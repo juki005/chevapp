@@ -386,20 +386,30 @@ export default function FinderPage() {
 
         {/* MAP VIEW */}
         {viewMode === "map" && (
-          <RestaurantMap
-            restaurants={mapPins}
-            height="520px"
-            activeStyle={activeStyle || null}
-            onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
-            onOpenProfile={(pin) => {
-              if (pin.id) {
-                const r = dbRestaurants.find((db) => db.id === pin.id);
-                setSelectedRestaurant({ id: pin.id, name: pin.name, city: pin.city, address: pin.address, lat: pin.latitude, lng: pin.longitude, is_verified: r?.is_verified ?? pin.is_verified, rating: (r ? (avgRatings[r.id] ?? r.rating) : null) ?? null });
-              } else if (pin.fsq_id) {
-                setSelectedRestaurant({ google_place_id: pin.fsq_id, name: pin.name, city: pin.city, address: pin.address, lat: pin.latitude, lng: pin.longitude });
-              }
-            }}
-          />
+          hasActiveFilters || placesSearched ? (
+            <RestaurantMap
+              restaurants={mapPins}
+              height="520px"
+              activeStyle={activeStyle || null}
+              onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
+              onOpenProfile={(pin) => {
+                if (pin.id) {
+                  const r = dbRestaurants.find((db) => db.id === pin.id);
+                  setSelectedRestaurant({ id: pin.id, name: pin.name, city: pin.city, address: pin.address, lat: pin.latitude, lng: pin.longitude, is_verified: r?.is_verified ?? pin.is_verified, rating: (r ? (avgRatings[r.id] ?? r.rating) : null) ?? null });
+                } else if (pin.fsq_id) {
+                  setSelectedRestaurant({ google_place_id: pin.fsq_id, name: pin.name, city: pin.city, address: pin.address, lat: pin.latitude, lng: pin.longitude });
+                }
+              }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-2xl border border-dashed border-[rgb(var(--border))]">
+              <span className="text-5xl">🗺️</span>
+              <p className="font-semibold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
+                Odaberi grad za prikaz mape
+              </p>
+              <p className="text-sm text-[rgb(var(--muted))]">Upiši grad ili odaberi stil ćevapa iznad.</p>
+            </div>
+          )
         )}
 
         {/* GRID VIEW */}
