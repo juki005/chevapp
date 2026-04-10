@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveCityCoords, resolveExpectedCountries } from "@/constants/cities";
+import { getCityFromCoords } from "@/lib/actions/discovery";
 import { filterByRoute, distanceToSegmentKm, distanceToPolylineKm, haversineKm } from "@/lib/geo";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
@@ -120,7 +121,7 @@ async function fetchPlacesForWaypoint(
   const runFetch = async (radius: number): Promise<AnyRouteRestaurant[]> => {
     try {
       const res = await fetch(
-        `/api/places?lat=${lat}&lng=${lng}&query=cevapi+rostilj+grill&limit=10`,
+        `/api/places?lat=${lat}&lng=${lng}&query=%C4%87evapi+%C4%87evabdžinica+cevapi+grill&limit=10`,
       );
       if (!res.ok) return [];
       const json = await res.json() as { results?: PlaceResult[] };
@@ -238,6 +239,30 @@ export default function RoutePlannerPage() {
   const [cachedPlaces,      setCachedPlaces]      = useState<AnyRouteRestaurant[]>([]);
   // Actual road sample points received from RouteMapClient polyline decode
   const [routePoints,       setRoutePoints]       = useState<Array<{ lat: number; lng: number }>>([]);
+
+  // ── Geolocation for City A ────────────────────────────────────────────────
+  const [geolocating, setGeolocating] = useState(false);
+  const handleGeolocateA = useCallback(() => {
+    if (!("geolocation" in navigator)) return;
+    setGeolocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const city = await getCityFromCoords(pos.coords.latitude, pos.coords.longitude);
+          setCityA(city);
+          const coords = resolveCityCoords(city);
+          if (coords) {
+            setAutoCoordA(coords);
+            setResolvedA(`${coords[0].toFixed(4)}°, ${coords[1].toFixed(4)}°`);
+          }
+        } finally {
+          setGeolocating(false);
+        }
+      },
+      () => setGeolocating(false),
+      { timeout: 6000 }
+    );
+  }, []);
 
   // ── Search handler ────────────────────────────────────────────────────────
   const handleSearch = useCallback(async (overrideRadius?: RadiusKm) => {
@@ -425,17 +450,33 @@ export default function RoutePlannerPage() {
               <label className="block text-xs text-fg-muted font-semibold mb-2 uppercase tracking-widest">
                 🟢 Polazište (A)
               </label>
-              <CityAutocomplete
-                value={cityA}
-                onChange={setCityA}
-                onSelect={(_name, lat, lng) => {
-                  setAutoCoordA([lat, lng]);
-                  setResolvedA(`${lat.toFixed(4)}°, ${lng.toFixed(4)}°`);
-                }}
-                onClear={() => { setAutoCoordA(null); setResolvedA(null); }}
-                placeholder="npr. Zagreb, Sarajevo…"
-                leadingIcon={<MapPin className="w-4 h-4 text-green-500" />}
-              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <CityAutocomplete
+                    value={cityA}
+                    onChange={setCityA}
+                    onSelect={(_name, lat, lng) => {
+                      setAutoCoordA([lat, lng]);
+                      setResolvedA(`${lat.toFixed(4)}°, ${lng.toFixed(4)}°`);
+                    }}
+                    onClear={() => { setAutoCoordA(null); setResolvedA(null); }}
+                    placeholder="npr. Zagreb, Sarajevo…"
+                    leadingIcon={<MapPin className="w-4 h-4 text-green-500" />}
+                  />
+                </div>
+                {/* 📍 Geolocation button */}
+                <button
+                  onClick={handleGeolocateA}
+                  disabled={geolocating}
+                  title="Koristi moju lokaciju kao polazište"
+                  className="flex-shrink-0 flex items-center justify-center w-[44px] rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-green-500/50 hover:text-green-500 hover:bg-green-500/5 transition-all disabled:opacity-50"
+                >
+                  {geolocating
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Navigation className="w-4 h-4" />
+                  }
+                </button>
+              </div>
               {resolvedA && (
                 <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />

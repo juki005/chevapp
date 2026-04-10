@@ -146,15 +146,15 @@ export default function CommunityPage() {
 
   useEffect(() => {
     getActivityFeed().then((data) => {
-      const posts = data.length > 0 ? data : MOCK_POSTS;
-      setFeed(posts);
-      setLikes(Object.fromEntries(posts.map((p) => [p.id, p.likesCount])));
+      setFeed(data);
+      setLikes(Object.fromEntries(data.map((p) => [p.id, p.likesCount])));
       setFeedLoading(false);
     });
   }, []);
 
   // Events
-  const [events, setEvents] = useState<EventItem[]>(FALLBACK_EVENTS);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [events, setEvents] = useState<EventItem[]>([]);
   useEffect(() => {
     const supabase = createClient();
     supabase
@@ -167,21 +167,21 @@ export default function CommunityPage() {
         if (rows && rows.length > 0) {
           setEvents(rows.map((r) => ({ id: r.id, title: r.title, date: r.date_label, location: r.location, emoji: r.emoji, desc: r.description, tag: r.tag, tagColor: r.tag_color })));
         }
+        setEventsLoading(false);
       });
   }, []);
 
   // Gastro tips — DB-driven with fallback
-  const [gastroTips,  setGastroTips]  = useState<GastroTip[]>(FALLBACK_GASTRO_TIPS);
+  const [gastroTips,  setGastroTips]  = useState<GastroTip[]>([]);
   const [tipsLoading, setTipsLoading] = useState(true);
-  const [tipVotes,    setTipVotes]    = useState<Record<string, number>>(Object.fromEntries(FALLBACK_GASTRO_TIPS.map((t) => [t.id, t.votes])));
+  const [tipVotes,    setTipVotes]    = useState<Record<string, number>>({});
   const [votedTips,   setVotedTips]   = useState<Set<string>>(new Set());
   const [cityFilter,  setCityFilter]  = useState("Sve");
 
   useEffect(() => {
     getGastroTips().then((data) => {
-      const tips = data.length > 0 ? data : FALLBACK_GASTRO_TIPS;
-      setGastroTips(tips);
-      setTipVotes(Object.fromEntries(tips.map((t) => [t.id, t.votes])));
+      setGastroTips(data);
+      setTipVotes(Object.fromEntries(data.map((t) => [t.id, t.votes])));
       setTipsLoading(false);
     });
   }, []);
@@ -366,6 +366,25 @@ export default function CommunityPage() {
                     </div>
                   </div>
                 ))
+              ) : feed.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-[rgb(var(--border))]">
+                  <span className="text-5xl">💬</span>
+                  <p className="font-bold text-[rgb(var(--foreground))] text-lg" style={{ fontFamily: "Oswald, sans-serif" }}>
+                    Budi prvi u zajednici!
+                  </p>
+                  <p className="text-sm text-[rgb(var(--muted))] text-center max-w-xs">
+                    Još nema objava. Podijeli svoje ćevapi iskustvo s ostatkom zajednice.
+                  </p>
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setShowAddPost(true); setAdminDone(false); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Dodaj prvu objavu
+                    </button>
+                  )}
+                </div>
               ) : (
                 feed.map((post) => (
                   <div
@@ -475,8 +494,29 @@ export default function CommunityPage() {
                   </button>
                 ))}
               </div>
+              {!tipsLoading && gastroTips.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-[rgb(var(--border))]">
+                  <span className="text-5xl">💡</span>
+                  <p className="font-bold text-[rgb(var(--foreground))] text-lg" style={{ fontFamily: "Oswald, sans-serif" }}>
+                    Nema insider dojava!
+                  </p>
+                  <p className="text-sm text-[rgb(var(--muted))] text-center max-w-xs">
+                    Znaš tajni stol ili skriveni sto? Podijeli sa zajednicom.
+                  </p>
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setShowAddTip(true); setAdminDone(false); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Dodaj prvi tip
+                    </button>
+                  )}
+                </div>
+              ) : (
+              <>
               <p className="text-xs text-[rgb(var(--muted))] mb-4">
-                {filteredTips.length} insider dojava{cityFilter !== "Sve" ? ` za ${cityFilter}` : ""}
+                {tipsLoading ? "Učitavanje…" : `${filteredTips.length} insider dojava${cityFilter !== "Sve" ? ` za ${cityFilter}` : ""}`}
               </p>
               <div className="space-y-3">
                 {filteredTips.map((tip) => (
@@ -528,6 +568,8 @@ export default function CommunityPage() {
                   </div>
                 ))}
               </div>
+              </>
+              )}
             </div>
           )}
 
@@ -544,7 +586,30 @@ export default function CommunityPage() {
                   Dodaj događaj
                 </button>
               )}
-              {events.map((event) => (
+              {eventsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-[rgb(var(--muted))]" />
+                </div>
+              ) : events.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-[rgb(var(--border))]">
+                  <span className="text-5xl">📅</span>
+                  <p className="font-bold text-[rgb(var(--foreground))] text-lg" style={{ fontFamily: "Oswald, sans-serif" }}>
+                    Nema nadolazećih događaja
+                  </p>
+                  <p className="text-sm text-[rgb(var(--muted))] text-center max-w-xs">
+                    Festivali, meetupi i gastro dani bit će objavljeni ovdje.
+                  </p>
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setShowAddEvent(true); setAdminDone(false); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Dodaj prvi događaj
+                    </button>
+                  )}
+                </div>
+              ) : events.map((event) => (
                 <div
                   key={event.id}
                   className={cn(

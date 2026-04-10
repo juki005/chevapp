@@ -244,11 +244,18 @@ export function Navbar({ locale }: NavbarProps) {
           </div>
         </div>
 
-        {/* Mobile drawer */}
+        {/* Mobile drawer — secondary nav only
+            Finder / Kitchen / Community / Profile are in the BottomNav.
+            This drawer surfaces pages not reachable from the bottom bar.    */}
         {mobileOpen && (
           <div className="md:hidden border-t border-[rgb(var(--border))] bg-[rgb(var(--surface))]">
             <nav className="px-4 py-3 flex flex-col gap-1">
-              {NAV_ITEMS.map(({ key, href, icon: Icon }) => (
+              {/* Secondary pages */}
+              {([
+                { key: "routePlanner", href: "/route-planner", icon: Route },
+                { key: "academy",      href: "/academy",       icon: GraduationCap },
+                { key: "jukebox",      href: "/jukebox",       icon: Music },
+              ] as const).map(({ key, href, icon: Icon }) => (
                 <Link
                   key={key}
                   href={href}
@@ -264,16 +271,8 @@ export function Navbar({ locale }: NavbarProps) {
                   <span>{t(key as "finder")}</span>
                 </Link>
               ))}
-              <Link
-                href="/jukebox"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-[rgb(var(--foreground)/0.7)] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border))] transition-colors"
-              >
-                <Music className="w-5 h-5" />
-                <span>{t("jukebox")}</span>
-              </Link>
 
-              {/* Mobile: language + theme toggles */}
+              {/* Language + theme toggles */}
               <div className="flex items-center justify-between pt-2 border-t border-[rgb(var(--border))]">
                 <span className="text-xs text-[rgb(var(--foreground)/0.3)] px-3 font-medium">{t("languageTheme")}</span>
                 <div className="flex items-center gap-2 px-3">
@@ -282,7 +281,7 @@ export function Navbar({ locale }: NavbarProps) {
                 </div>
               </div>
 
-              {/* Mobile auth row */}
+              {/* Auth row */}
               {!authLoading && (
                 <div className="pt-2 border-t border-[rgb(var(--border))] mt-1">
                   {user ? (

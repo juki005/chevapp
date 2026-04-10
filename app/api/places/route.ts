@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   // ── 2. Query params ────────────────────────────────────────────────────────
   const { searchParams } = new URL(req.url);
   const near   = searchParams.get("near")?.trim()  ?? "";
-  const query  = searchParams.get("query")?.trim() || "cevapi rostilj grill";
+  const query  = searchParams.get("query")?.trim() || "ćevapi ćevabdžinica cevapi grill";
   const limit  = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "20") || 20, 1), 20);
   // Coordinate mode — used by waypoint searches along a route
   const latStr = searchParams.get("lat")?.trim() ?? "";

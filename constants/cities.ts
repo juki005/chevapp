@@ -48,7 +48,7 @@ export const CITY_COORDS: Record<string, [number, number]> = {
 };
 
 /** Maps known cities to their ISO country name as Google Places uses it. */
-const CITY_COUNTRY: Record<string, string> = {
+export const CITY_COUNTRY: Record<string, string> = {
   "zagreb": "Croatia", "split": "Croatia", "rijeka": "Croatia",
   "osijek": "Croatia", "dubrovnik": "Croatia", "zadar": "Croatia",
   "pula": "Croatia", "slavonski brod": "Croatia", "varaždin": "Croatia", "sisak": "Croatia",
@@ -64,6 +64,17 @@ const CITY_COUNTRY: Record<string, string> = {
   "ljubljana": "Slovenia", "maribor": "Slovenia", "celje": "Slovenia",
   "skopje": "North Macedonia", "bitola": "North Macedonia",
   "prishtina": "Kosovo", "pristina": "Kosovo",
+};
+
+/** Localised display names for each ISO country key. */
+export const COUNTRY_DISPLAY: Record<string, string> = {
+  "Bosnia and Herzegovina": "Bosna i Hercegovina",
+  "Croatia":                "Hrvatska",
+  "Serbia":                 "Srbija",
+  "Montenegro":             "Crna Gora",
+  "Slovenia":               "Slovenija",
+  "North Macedonia":        "Sjeverna Makedonija",
+  "Kosovo":                 "Kosovo",
 };
 
 /**

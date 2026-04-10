@@ -36,7 +36,7 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     try {
       const params = new URLSearchParams({
         near:  query,
-        query: "cevapi rostilj grill",
+        query: "ćevapi ćevabdžinica cevapi grill",
         limit: "20",
       });
       const res  = await fetch(`/api/places?${params.toString()}`, { signal: ctrl.signal });

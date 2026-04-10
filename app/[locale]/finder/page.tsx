@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   MapPin, Loader2, ServerCrash, SlidersHorizontal,
-  CheckCircle, XCircle, RefreshCw,
+  CheckCircle, XCircle, RefreshCw, ChevronDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDebounce } from "@/lib/hooks/useDebounce";
@@ -17,6 +17,8 @@ import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
 import { QuickLogModal } from "@/components/journal/QuickLogModal";
 import { FinderFilterBar } from "@/components/finder/FinderFilterBar";
 import { PlaceResultCard } from "@/components/finder/PlaceResultCard";
+import { getCityFromCoords } from "@/lib/actions/discovery";
+import { CITY_COUNTRY, COUNTRY_DISPLAY } from "@/constants/cities";
 import dynamic from "next/dynamic";
 import type { MapRestaurant } from "@/components/finder/RestaurantMap";
 
@@ -30,6 +32,7 @@ import type { Restaurant, CevapStyle } from "@/types";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "grid" | "map";
+const PAGE_SIZE = 20;
 
 // ── Adapters ──────────────────────────────────────────────────────────────────
 function toMapPin(r: Restaurant): MapRestaurant {
@@ -58,31 +61,62 @@ export default function FinderPage() {
   const [dbRestaurants, setDbRestaurants] = useState<Restaurant[]>([]);
   const [dbLoading,     setDbLoading]     = useState(true);
   const [dbError,       setDbError]       = useState<string | null>(null);
+  const [totalCount,    setTotalCount]    = useState(0);
+  const [page,          setPage]          = useState(0);
+  const [loadingMore,   setLoadingMore]   = useState(false);
 
   // ── Filters — persisted in localStorage ───────────────────────────────────
   const [searchTerm,      setSearchTerm]      = useState("");
+  const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedCity,    setSelectedCity]    = useState("");
   const [activeStyle,     setActiveStyle]     = useState<CevapStyle | "">("");
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [filtersRestored, setFiltersRestored] = useState(false);
+  const [staleFilters,    setStaleFilters]    = useState(false);
 
+  // ── Geolocation ────────────────────────────────────────────────────────────
+  const [geolocating, setGeolocating] = useState(false);
+
+  const handleGeolocate = useCallback(() => {
+    if (!("geolocation" in navigator)) return;
+    setGeolocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const city = await getCityFromCoords(pos.coords.latitude, pos.coords.longitude);
+          setSelectedCity(city);
+          setSelectedCountry("");
+          localStorage.setItem("chevapp_last_city", city);
+        } finally {
+          setGeolocating(false);
+        }
+      },
+      () => setGeolocating(false),
+      { timeout: 6000 }
+    );
+  }, []);
+
+  // ── Restore filters from localStorage ─────────────────────────────────────
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("chevapp:finder_state") ?? "{}");
-      if (saved.searchTerm)   setSearchTerm(saved.searchTerm);
-      if (saved.selectedCity) setSelectedCity(saved.selectedCity);
-      if (saved.activeStyle)  setActiveStyle(saved.activeStyle as CevapStyle);
+      if (saved.searchTerm)      setSearchTerm(saved.searchTerm);
+      if (saved.selectedCountry) setSelectedCountry(saved.selectedCountry);
+      if (saved.selectedCity)    setSelectedCity(saved.selectedCity);
+      if (saved.activeStyle)     setActiveStyle(saved.activeStyle as CevapStyle);
     } catch { /* ignore */ }
     setFiltersRestored(true);
   }, []);
 
+  // ── Persist filters ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!filtersRestored) return;
-    localStorage.setItem("chevapp:finder_state", JSON.stringify({ searchTerm, selectedCity, activeStyle }));
-    // Mirror city so Community "Istraži grad" tab stays in sync
+    localStorage.setItem("chevapp:finder_state", JSON.stringify({
+      searchTerm, selectedCountry, selectedCity, activeStyle,
+    }));
     if (selectedCity) localStorage.setItem("chevapp_last_city", selectedCity);
     else              localStorage.removeItem("chevapp_last_city");
-  }, [searchTerm, selectedCity, activeStyle, filtersRestored]);
+  }, [searchTerm, selectedCountry, selectedCity, activeStyle, filtersRestored]);
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
@@ -168,28 +202,94 @@ export default function FinderPage() {
     });
   }, []);
 
-  // ── DB fetch ───────────────────────────────────────────────────────────────
+  // ── Country-derived data ───────────────────────────────────────────────────
+  const availableCountries = useMemo(() => {
+    const set = new Set<string>();
+    for (const city of availableCities) {
+      const c = CITY_COUNTRY[city.toLowerCase()];
+      if (c) set.add(c);
+    }
+    return [...set].sort((a, b) => (COUNTRY_DISPLAY[a] ?? a).localeCompare(COUNTRY_DISPLAY[b] ?? b));
+  }, [availableCities]);
+
+  // Cities filtered to selected country (or all cities if no country selected)
+  const citiesForCountry = useMemo(() => {
+    if (!selectedCountry) return availableCities;
+    return availableCities.filter(
+      (city) => CITY_COUNTRY[city.toLowerCase()] === selectedCountry
+    );
+  }, [availableCities, selectedCountry]);
+
+  // ── DB pagination fetch ────────────────────────────────────────────────────
+  // Track previous filter values to know when to reset page
+  const prevFiltersRef = useRef({ debouncedSearch, selectedCity, activeStyle });
+
+  useEffect(() => {
+    const prev = prevFiltersRef.current;
+    const filtersChanged =
+      prev.debouncedSearch !== debouncedSearch ||
+      prev.selectedCity    !== selectedCity    ||
+      prev.activeStyle     !== activeStyle;
+
+    if (filtersChanged) {
+      prevFiltersRef.current = { debouncedSearch, selectedCity, activeStyle };
+      setPage(0);
+      setStaleFilters(false);
+    }
+  }, [debouncedSearch, selectedCity, activeStyle]);
+
   useEffect(() => {
     let cancelled = false;
+    const isFirstPage = page === 0;
+
     const load = async () => {
-      setDbLoading(true);
+      if (isFirstPage) setDbLoading(true);
+      else             setLoadingMore(true);
+
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       if (!supabaseUrl || !supabaseKey) {
-        if (!cancelled) { setDbError("NEXT_PUBLIC_SUPABASE_URL ili NEXT_PUBLIC_SUPABASE_ANON_KEY nije postavljen."); setDbLoading(false); }
+        if (!cancelled) {
+          setDbError("NEXT_PUBLIC_SUPABASE_URL ili NEXT_PUBLIC_SUPABASE_ANON_KEY nije postavljen.");
+          setDbLoading(false);
+        }
         return;
       }
+
       try {
-        const supabase = createClient();
+        const supabase  = createClient();
+        const from      = page * PAGE_SIZE;
+        const to        = from + PAGE_SIZE - 1;
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let q: any = supabase.from("restaurants").select("*").order("lepinja_rating", { ascending: false }).limit(200);
+        let q: any = supabase
+          .from("restaurants")
+          .select("*", { count: "exact" })
+          .order("lepinja_rating", { ascending: false })
+          .range(from, to);
+
         if (debouncedSearch.trim()) q = q.ilike("name", `%${debouncedSearch.trim()}%`);
         if (selectedCity)           q = q.eq("city", selectedCity);
         if (activeStyle)            q = q.eq("style", activeStyle);
-        const { data, error } = await q;
+
+        const { data, error, count } = await q;
+
         if (cancelled) return;
         if (error) { console.error("[finder] Supabase query failed", error); throw error; }
-        setDbRestaurants((data as Restaurant[]) ?? []);
+
+        const rows = (data as Restaurant[]) ?? [];
+
+        if (isFirstPage) {
+          setDbRestaurants(rows);
+          // Check for stale filters: had filters restored but 0 results
+          if (rows.length === 0 && filtersRestored && (selectedCity || activeStyle || debouncedSearch)) {
+            setStaleFilters(true);
+          }
+        } else {
+          setDbRestaurants((prev) => [...prev, ...rows]);
+        }
+
+        setTotalCount(count ?? 0);
         setDbError(null);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -198,12 +298,18 @@ export default function FinderPage() {
           setDbError(`Greška pri učitavanju baze${hint}. Detalji u konzoli.`);
         }
       } finally {
-        if (!cancelled) setDbLoading(false);
+        if (!cancelled) {
+          setDbLoading(false);
+          setLoadingMore(false);
+        }
       }
     };
+
     load();
     return () => { cancelled = true; };
-  }, [debouncedSearch, selectedCity, activeStyle]);
+  // page is intentionally included — changes trigger load-more
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, selectedCity, activeStyle, page]);
 
   // ── Trigger Google Places search on debounced input ────────────────────────
   useEffect(() => {
@@ -237,7 +343,7 @@ export default function FinderPage() {
   }, [refreshTaggedIds]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const hasActiveFilters = !!(searchTerm || selectedCity || activeStyle || favOnly);
+  const hasActiveFilters = !!(searchTerm || selectedCountry || selectedCity || activeStyle || favOnly);
 
   const visibleDbRestaurants = favOnly
     ? dbRestaurants.filter((r) => favDbIds.includes(r.id))
@@ -250,9 +356,12 @@ export default function FinderPage() {
   })();
 
   const clearFilters = () => {
-    setSearchTerm(""); setSelectedCity(""); setActiveStyle(""); setFavOnly(false);
+    setSearchTerm(""); setSelectedCountry(""); setSelectedCity(""); setActiveStyle(""); setFavOnly(false);
+    setStaleFilters(false);
     localStorage.removeItem("chevapp:finder_state");
   };
+
+  const hasMore = dbRestaurants.length < totalCount;
 
   // Map pins — DB + Google Places (deduped by proximity)
   const mapPins: MapRestaurant[] = [
@@ -313,17 +422,29 @@ export default function FinderPage() {
 
         {/* Filter Bar */}
         <FinderFilterBar
-          searchTerm={searchTerm}          onSearchChange={setSearchTerm}
+          searchTerm={searchTerm}             onSearchChange={setSearchTerm}
           placesLoading={placesLoading}
-          selectedCity={selectedCity}      onCityChange={setSelectedCity}
-          availableCities={availableCities}
-          viewMode={viewMode}              onViewModeChange={setViewMode}
-          activeStyle={activeStyle}        onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
-          favOnly={favOnly}                onFavOnlyChange={setFavOnly}
+          selectedCountry={selectedCountry}   onCountryChange={setSelectedCountry}
+          availableCountries={availableCountries}
+          selectedCity={selectedCity}         onCityChange={setSelectedCity}
+          availableCities={citiesForCountry}
+          onGeolocate={handleGeolocate}       geolocating={geolocating}
+          viewMode={viewMode}                 onViewModeChange={setViewMode}
+          activeStyle={activeStyle}           onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
+          favOnly={favOnly}                   onFavOnlyChange={setFavOnly}
           hasActiveFilters={hasActiveFilters}
           onClearFilters={clearFilters}
           onOpenRulet={() => setRuletOpen(true)}
         />
+
+        {/* Stale filter notice */}
+        {staleFilters && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-400/30 bg-amber-400/8 text-sm mb-4">
+            <span className="text-amber-400">⚠️</span>
+            <span className="text-amber-300">Sačuvani filteri ne daju rezultate. Provjeri grad ili</span>
+            <button onClick={clearFilters} className="text-amber-400 font-semibold hover:underline">poništi filtere</button>
+          </div>
+        )}
 
         {/* Alerts */}
         {seedMsg && (
@@ -366,7 +487,10 @@ export default function FinderPage() {
             ) : (
               <>
                 <span>
-                  <span className="text-[rgb(var(--foreground))] font-medium">{dbRestaurants.length}</span> verificiranih lokacija
+                  <span className="text-[rgb(var(--foreground))] font-medium">{dbRestaurants.length}</span>
+                  {totalCount > dbRestaurants.length && (
+                    <span className="text-[rgb(var(--muted))]"> / {totalCount}</span>
+                  )} verificiranih lokacija
                   {hasActiveFilters && <span className="text-[rgb(var(--primary))] ml-1">(filtrirano)</span>}
                 </span>
                 {placesSearched && (
@@ -467,7 +591,7 @@ export default function FinderPage() {
                   <div className="mb-8">
                     <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
                       <SlidersHorizontal className="w-3 h-3" />
-                      Verificirani restorani ({visibleDbRestaurants.length})
+                      Verificirani restorani ({dbRestaurants.length}{totalCount > dbRestaurants.length ? ` / ${totalCount}` : ""})
                       {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -487,6 +611,23 @@ export default function FinderPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* ── Load More ──────────────────────────────────────── */}
+                    {hasMore && (
+                      <div className="flex justify-center mt-6">
+                        <button
+                          onClick={() => setPage((p) => p + 1)}
+                          disabled={loadingMore}
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[rgb(var(--border))] text-sm font-semibold text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.5)] hover:text-[rgb(var(--primary))] transition-all disabled:opacity-50 active:scale-95"
+                        >
+                          {loadingMore ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam…</>
+                          ) : (
+                            <><ChevronDown className="w-4 h-4" /> Učitaj još ({totalCount - dbRestaurants.length} preostalo)</>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
