@@ -121,7 +121,7 @@ async function fetchPlacesForWaypoint(
   const runFetch = async (radius: number): Promise<AnyRouteRestaurant[]> => {
     try {
       const res = await fetch(
-        `/api/places?lat=${lat}&lng=${lng}&query=%C4%87evapi+%C4%87evabdžinica+cevapi+grill&limit=10`,
+        `/api/places?lat=${lat}&lng=${lng}&query=%C4%87evapi+%C4%87evabdžinica+cevapi+ro%C5%A1tilj+pe%C4%8Denjara+grill&limit=10`,
       );
       if (!res.ok) return [];
       const json = await res.json() as { results?: PlaceResult[] };
