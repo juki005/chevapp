@@ -18,6 +18,7 @@ import { QuickLogModal } from "@/components/journal/QuickLogModal";
 import { FinderFilterBar } from "@/components/finder/FinderFilterBar";
 import { PlaceResultCard } from "@/components/finder/PlaceResultCard";
 import { CITY_COUNTRY, COUNTRY_CONFIG, resolveCityCoords } from "@/constants/cities";
+import { getCoordsFromCity } from "@/lib/actions/discovery";
 import type { LocationValue } from "@/components/finder/LocationFilter";
 import dynamic from "next/dynamic";
 import type { MapRestaurant } from "@/components/finder/RestaurantMap";
@@ -97,7 +98,11 @@ export default function FinderPage() {
   const [avgRatings, setAvgRatings] = useState<Record<string, number>>({});
 
   // ── Google Places ──────────────────────────────────────────────────────────
-  const { placeResults, placesLoading, placesError, placesSearched, searchPlaces, clearPlaces } = usePlacesSearch();
+  const {
+    placeResults, placesLoading, placesError, placesSearched,
+    hasMorePlaces, loadingMorePlaces, loadMorePlaces,
+    searchPlaces, clearPlaces,
+  } = usePlacesSearch();
 
   // ── Profile modal ──────────────────────────────────────────────────────────
   const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
@@ -346,12 +351,32 @@ export default function FinderPage() {
 
   const hasMore = dbRestaurants.length < totalCount;
 
-  // ── Map center — derived from selected city coords ─────────────────────────
-  const mapCenter = useMemo(() => {
-    if (!selectedCity) return undefined;
-    const coords = resolveCityCoords(selectedCity);
-    return coords ? { lat: coords[0], lng: coords[1] } : undefined;
-  }, [selectedCity]);
+  // ── Map center — static lookup first, geocode fallback for diaspora cities ──
+  // resolveCityCoords covers all Balkan cities instantly (no API call).
+  // For cities not in the static map (Vienna, Berlin, Amsterdam, etc.) we
+  // geocode via getCoordsFromCity so the map still zooms to the right place.
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
+
+  useEffect(() => {
+    if (!selectedCity) { setMapCenter(undefined); return; }
+
+    // 1. Fast path — static lookup
+    const staticCoords = resolveCityCoords(selectedCity);
+    if (staticCoords) {
+      setMapCenter({ lat: staticCoords[0], lng: staticCoords[1] });
+      return;
+    }
+
+    // 2. Slow path — geocode via Google (for diaspora / unknown cities)
+    let cancelled = false;
+    getCoordsFromCity(`${selectedCity}${selectedCountry ? `, ${COUNTRY_CONFIG[selectedCountry]?.fullName ?? ""}` : ""}`)
+      .then((coords) => {
+        if (!cancelled && coords) setMapCenter({ lat: coords.lat, lng: coords.lng });
+      })
+      .catch(() => { /* silently fail — map stays at region default */ });
+
+    return () => { cancelled = true; };
+  }, [selectedCity, selectedCountry]);
 
   // Map pins — DB + Google Places (deduped by proximity)
   const mapPins: MapRestaurant[] = [
@@ -647,7 +672,7 @@ export default function FinderPage() {
                   <div>
                     <p className="text-xs text-[#4285f4] uppercase tracking-widest font-medium mb-3 flex items-center gap-2">
                       <span className="font-bold">G</span>
-                      Google Places — &ldquo;{searchTerm}&rdquo; ({visiblePlaceResults.length})
+                      Google Places — &ldquo;{searchTerm || selectedCity}&rdquo; ({placeResults.length}{hasMorePlaces ? "+" : ""})
                       {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -661,6 +686,23 @@ export default function FinderPage() {
                         />
                       ))}
                     </div>
+
+                    {/* Google Places — Load More (next_page_token) */}
+                    {hasMorePlaces && (
+                      <div className="flex justify-center mt-6">
+                        <button
+                          onClick={loadMorePlaces}
+                          disabled={loadingMorePlaces}
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[#4285f4]/30 text-sm font-semibold text-[#4285f4] hover:border-[#4285f4]/60 hover:bg-[#4285f4]/5 transition-all disabled:opacity-50 active:scale-95"
+                        >
+                          {loadingMorePlaces ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam Google rezultate…</>
+                          ) : (
+                            <><ChevronDown className="w-4 h-4" /> Učitaj još Google rezultata</>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

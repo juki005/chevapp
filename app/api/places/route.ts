@@ -46,6 +46,11 @@ export async function GET(req: NextRequest) {
 
   // ── 2. Query params ────────────────────────────────────────────────────────
   const { searchParams } = new URL(req.url);
+
+  // Pagination token — when present, skip building a new query and just
+  // ask Google for the next page of the previous search.
+  const pagetoken = searchParams.get("pagetoken")?.trim() ?? "";
+
   const near   = searchParams.get("near")?.trim()  ?? "";
   const query  = searchParams.get("query")?.trim() || "ćevapi ćevabdžinica cevapi roštilj pečenjara balkanska kuhinja balkanski roštilj grill";
   const limit  = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "20") || 20, 1), 20);
@@ -54,9 +59,9 @@ export async function GET(req: NextRequest) {
   const lngStr = searchParams.get("lng")?.trim() ?? "";
   const coordMode = latStr !== "" && lngStr !== "";
 
-  if (!near && !coordMode) {
+  if (!pagetoken && !near && !coordMode) {
     return NextResponse.json(
-      { error: "Missing `near` OR `lat`+`lng` query parameters" },
+      { error: "Missing `near`, `pagetoken`, OR `lat`+`lng` query parameters" },
       { status: 400 }
     );
   }
@@ -66,19 +71,25 @@ export async function GET(req: NextRequest) {
 
   // ── 3. Fetch with timeout ──────────────────────────────────────────────────
   try {
-    const baseParams: Record<string, string> = {
-      query:    fullQuery,
-      key:      apiKey,
-      type:     "restaurant",
-      language: "bs",
-      region:   "ba",
-    };
+    let baseParams: Record<string, string>;
 
-    // When coordinates are supplied, bias results to a 15 km radius around
-    // the waypoint — keeps results relevant to that stretch of road.
-    if (coordMode) {
-      baseParams.location = `${latStr},${lngStr}`;
-      baseParams.radius   = "15000"; // 15 km
+    if (pagetoken) {
+      // Google Places ignores all other params when pagetoken is provided.
+      // Note: Google requires a short delay (~2s) before the token is valid.
+      baseParams = { pagetoken, key: apiKey };
+    } else {
+      baseParams = {
+        query:    fullQuery,
+        key:      apiKey,
+        type:     "restaurant",
+        language: "bs",
+        region:   "ba",
+      };
+      // When coordinates are supplied, bias results to a 15 km radius.
+      if (coordMode) {
+        baseParams.location = `${latStr},${lngStr}`;
+        baseParams.radius   = "15000";
+      }
     }
 
     const params = new URLSearchParams(baseParams);
@@ -136,16 +147,17 @@ export async function GET(req: NextRequest) {
     const raw    = body.results ?? [];
     const sliced = raw.slice(0, limit);
 
-    console.log(`[places] ✅ ${sliced.length} result(s) for "${fullQuery}"`);
+    console.log(`[places] ✅ ${sliced.length} result(s) for "${pagetoken ? "nextPage" : fullQuery}"`);
 
     // ── 6. Normalise to ChevApp shape ─────────────────────────────────────────
+    const nearLabel = near || `${latStr},${lngStr}`;
     const results: PlaceResult[] = sliced.map((place) => ({
       place_id:  place.place_id,
       name:      place.name,
       address:   place.formatted_address ?? "",
       // Extract the locality from formatted_address ("…, City ZIP, Country")
       // as a best-effort city name; fall back to near or coord label.
-      city:      extractCity(place.formatted_address ?? "", near || `${latStr},${lngStr}`),
+      city:      extractCity(place.formatted_address ?? "", nearLabel),
       latitude:  place.geometry?.location?.lat ?? null,
       longitude: place.geometry?.location?.lng ?? null,
       rating:    place.rating     ?? null,
@@ -154,7 +166,11 @@ export async function GET(req: NextRequest) {
       source:    "google" as const,
     }));
 
-    return NextResponse.json({ results, total: results.length }, {
+    return NextResponse.json({
+      results,
+      total:         results.length,
+      nextPageToken: body.next_page_token ?? null,
+    }, {
       headers: {
         // Cache at the CDN edge for 1h; serve stale for up to 24h while revalidating.
         // Restaurant locations change rarely — this dramatically cuts API costs on
