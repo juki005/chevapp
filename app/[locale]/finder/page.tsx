@@ -99,8 +99,10 @@ export default function FinderPage() {
 
   // ── Google Places ──────────────────────────────────────────────────────────
   const {
-    placeResults, placesLoading, appendingPlaces, placesError, placesSearched,
-    searchByCoords, appendByCoords, clearPlaces,
+    placeResults, placesLoading, appendingPlaces, loadingMorePlaces,
+    placesError, placesSearched,
+    hasMorePlaces, tokenReady,
+    searchByCoords, appendByCoords, loadMorePlaces, clearPlaces,
   } = usePlacesSearch();
 
   // ── Profile modal ──────────────────────────────────────────────────────────
@@ -391,7 +393,8 @@ export default function FinderPage() {
     // Guard: don't re-fire for the same city on unrelated re-renders
     if (selectedCity === prevSearchCityRef.current) return;
     prevSearchCityRef.current = selectedCity;
-    searchByCoords(mapCenter.lat, mapCenter.lng);
+    // Pass selectedCity as cityFilter so the API discards out-of-city results
+    searchByCoords(mapCenter.lat, mapCenter.lng, selectedCity);
   // searchByCoords and clearPlaces are stable useCallbacks
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapCenter, selectedCity]);
@@ -742,10 +745,32 @@ export default function FinderPage() {
                         </div>
                       ))}
                     </div>
-                    {/* Discover more by moving the map and clicking "Pretraži ovo područje" */}
-                    <p className="text-xs text-[rgb(var(--muted))] text-center mt-4">
-                      💡 Pomjeri mapu i klikni <strong className="text-[#FF6B00]">Pretraži ovo područje</strong> za više rezultata
-                    </p>
+                    {/* ── Load More (next_page_token) ────────────────────── */}
+                    {hasMorePlaces && (
+                      <div className="flex flex-col items-center gap-2 mt-6">
+                        <button
+                          onClick={loadMorePlaces}
+                          disabled={!tokenReady || loadingMorePlaces}
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[#FF6B00]/30 text-sm font-semibold text-[#FF6B00] hover:bg-[#FF6B00]/8 transition-all disabled:opacity-40 active:scale-95"
+                        >
+                          {loadingMorePlaces ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam još…</>
+                          ) : !tokenReady ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Pripremam…</>
+                          ) : (
+                            <><ChevronDown className="w-4 h-4" /> Učitaj još Google Places</>
+                          )}
+                        </button>
+                        <p className="text-xs text-[rgb(var(--muted))] text-center">
+                          💡 Pomjeri mapu i klikni <strong className="text-[#FF6B00]">Pretraži ovo područje</strong> za više rezultata
+                        </p>
+                      </div>
+                    )}
+                    {!hasMorePlaces && placeResults.length > 0 && (
+                      <p className="text-xs text-[rgb(var(--muted))] text-center mt-4">
+                        💡 Pomjeri mapu i klikni <strong className="text-[#FF6B00]">Pretraži ovo područje</strong> za više rezultata
+                      </p>
+                    )}
                   </div>
                 )}
 

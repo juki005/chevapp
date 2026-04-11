@@ -1,20 +1,27 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { PlaceResult } from "@/types/places";
 
 export interface UsePlacesSearchReturn {
-  placeResults:    PlaceResult[];
-  placesLoading:   boolean;  // true during a fresh/replace search
-  appendingPlaces: boolean;  // true while "Search This Area" appends results
-  placesError:     string | null;
-  placesSearched:  boolean;
+  placeResults:      PlaceResult[];
+  placesLoading:     boolean;  // true during a fresh/replace search
+  appendingPlaces:   boolean;  // true while "Search This Area" appends results
+  loadingMorePlaces: boolean;  // true while Load More fetches next page
+  placesError:       string | null;
+  placesSearched:    boolean;
+  hasMorePlaces:     boolean;  // true when a next_page_token is available
+  tokenReady:        boolean;  // true after the 2.5 s token activation delay
   /** Replace existing results with a keyword text search */
   searchPlaces:    (query: string) => Promise<void>;
-  /** Replace existing results with a coordinate-based search (city selection) */
-  searchByCoords:  (lat: number, lng: number) => Promise<void>;
+  /** Replace existing results with a coordinate-based search (city selection).
+   *  cityFilter — when provided, only results whose formatted_address includes
+   *  this string are kept (strict city isolation). */
+  searchByCoords:  (lat: number, lng: number, cityFilter?: string) => Promise<void>;
   /** Append deduped results from a coordinate search ("Search This Area" button) */
   appendByCoords:  (lat: number, lng: number) => Promise<void>;
+  /** Fetch the next page via the stored next_page_token (Load More) */
+  loadMorePlaces:  () => Promise<void>;
   clearPlaces:     () => void;
 }
 
@@ -24,35 +31,58 @@ const BASE_PARAMS = {
 };
 
 type PlacesJson = {
-  results?: PlaceResult[];
-  hint?:    string;
-  error?:   string;
+  results?:       PlaceResult[];
+  nextPageToken?: string | null;
+  hint?:          string;
+  error?:         string;
 };
 
 /**
  * Discovery-mode Places search.
- * No pagination — the user explores by moving the map and clicking
- * "Pretraži ovo područje" which calls appendByCoords.
+ *
+ * City-change  → searchByCoords  (REPLACES, passes cityFilter for isolation)
+ * Load More    → loadMorePlaces  (APPENDS next page via next_page_token)
+ * Map pan      → appendByCoords  (APPENDS deduped from new coords)
  */
 export function usePlacesSearch(): UsePlacesSearchReturn {
-  const [placeResults,    setPlaceResults]    = useState<PlaceResult[]>([]);
-  const [placesLoading,   setPlacesLoading]   = useState(false);
-  const [appendingPlaces, setAppendingPlaces] = useState(false);
-  const [placesError,     setPlacesError]     = useState<string | null>(null);
-  const [placesSearched,  setPlacesSearched]  = useState(false);
+  const [placeResults,      setPlaceResults]      = useState<PlaceResult[]>([]);
+  const [placesLoading,     setPlacesLoading]     = useState(false);
+  const [appendingPlaces,   setAppendingPlaces]   = useState(false);
+  const [loadingMorePlaces, setLoadingMorePlaces] = useState(false);
+  const [placesError,       setPlacesError]       = useState<string | null>(null);
+  const [placesSearched,    setPlacesSearched]    = useState(false);
+  const [nextPageToken,     setNextPageToken]      = useState<string | null>(null);
+  const [tokenReady,        setTokenReady]         = useState(false);
 
   const abortRef       = useRef<AbortController | null>(null);
   const appendAbortRef = useRef<AbortController | null>(null);
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
+
+  // ── Token activation timer ───────────────────────────────────────────────────
+  // Google requires ~2 s before a next_page_token is usable.
+  // We wait 2.5 s after receiving one before enabling the Load More button.
+  useEffect(() => {
+    if (!nextPageToken) {
+      setTokenReady(false);
+      return;
+    }
+    setTokenReady(false);
+    const timerId = setTimeout(() => setTokenReady(true), 2500);
+    return () => clearTimeout(timerId);
+  }, [nextPageToken]);
 
   // ── Internal fetch ───────────────────────────────────────────────────────────
   const doFetch = useCallback(async (
     params: URLSearchParams,
     signal: AbortSignal,
-  ): Promise<PlaceResult[]> => {
+  ): Promise<{ results: PlaceResult[]; nextPageToken: string | null }> => {
     const res  = await fetch(`/api/places?${params}`, { signal });
     const json = await res.json() as PlacesJson;
     if (!res.ok) throw new Error(json.hint ?? json.error ?? `HTTP ${res.status}`);
-    return json.results ?? [];
+    return {
+      results:       json.results ?? [],
+      nextPageToken: json.nextPageToken ?? null,
+    };
   }, []);
 
   // ── Fresh text search — replaces results ─────────────────────────────────────
@@ -63,13 +93,15 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
 
     setPlacesLoading(true);
     setPlacesError(null);
+    setNextPageToken(null);
 
     try {
-      const results = await doFetch(
+      const { results, nextPageToken: npt } = await doFetch(
         new URLSearchParams({ ...BASE_PARAMS, near: query }),
         ctrl.signal,
       );
       setPlaceResults(results);
+      setNextPageToken(npt);
       setPlacesSearched(true);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -81,20 +113,25 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
   }, [doFetch]);
 
   // ── Coordinate search — replaces results (city selection) ────────────────────
-  const searchByCoords = useCallback(async (lat: number, lng: number) => {
+  const searchByCoords = useCallback(async (lat: number, lng: number, cityFilter?: string) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
     setPlacesLoading(true);
     setPlacesError(null);
+    setNextPageToken(null);
 
     try {
-      const results = await doFetch(
-        new URLSearchParams({ ...BASE_PARAMS, lat: String(lat), lng: String(lng) }),
-        ctrl.signal,
-      );
+      const params = new URLSearchParams({
+        ...BASE_PARAMS,
+        lat: String(lat),
+        lng: String(lng),
+        ...(cityFilter ? { city: cityFilter } : {}),
+      });
+      const { results, nextPageToken: npt } = await doFetch(params, ctrl.signal);
       setPlaceResults(results);
+      setNextPageToken(npt);
       setPlacesSearched(true);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -104,6 +141,39 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
       setPlacesLoading(false);
     }
   }, [doFetch]);
+
+  // ── Load More — uses next_page_token to append next page ────────────────────
+  // CRITICAL: when using a pagetoken, Google requires NO other params.
+  const loadMorePlaces = useCallback(async () => {
+    if (!nextPageToken || !tokenReady || loadingMorePlaces) return;
+
+    loadMoreAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    loadMoreAbortRef.current = ctrl;
+
+    setLoadingMorePlaces(true);
+    setPlacesError(null);
+
+    try {
+      const { results, nextPageToken: npt } = await doFetch(
+        new URLSearchParams({ pagetoken: nextPageToken }),
+        ctrl.signal,
+      );
+
+      setPlaceResults((prev) => {
+        const seen = new Set(prev.map((r) => r.place_id));
+        const fresh = results.filter((r) => !seen.has(r.place_id));
+        console.log(`[Places] loadMore +${fresh.length} new (${results.length - fresh.length} dupes skipped)`);
+        return [...prev, ...fresh];
+      });
+      setNextPageToken(npt);
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setPlacesError((err as Error).message ?? "Greška pri učitavanju stranice.");
+    } finally {
+      setLoadingMorePlaces(false);
+    }
+  }, [nextPageToken, tokenReady, loadingMorePlaces, doFetch]);
 
   // ── Area append — APPENDS deduped results ("Search This Area" button) ────────
   const appendByCoords = useCallback(async (lat: number, lng: number) => {
@@ -116,7 +186,7 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     setPlacesError(null);
 
     try {
-      const incoming = await doFetch(
+      const { results: incoming } = await doFetch(
         new URLSearchParams({ ...BASE_PARAMS, lat: String(lat), lng: String(lng) }),
         ctrl.signal,
       );
@@ -140,20 +210,27 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
   const clearPlaces = useCallback(() => {
     abortRef.current?.abort();
     appendAbortRef.current?.abort();
+    loadMoreAbortRef.current?.abort();
     setPlaceResults([]);
     setPlacesError(null);
     setPlacesSearched(false);
+    setNextPageToken(null);
+    setTokenReady(false);
   }, []);
 
   return {
     placeResults,
     placesLoading,
     appendingPlaces,
+    loadingMorePlaces,
     placesError,
     placesSearched,
+    hasMorePlaces:  !!nextPageToken,
+    tokenReady,
     searchPlaces,
     searchByCoords,
     appendByCoords,
+    loadMorePlaces,
     clearPlaces,
   };
 }
