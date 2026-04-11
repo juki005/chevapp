@@ -184,7 +184,7 @@ export function Navbar({ locale }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.95)] backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b border-gray-100 dark:border-[rgb(var(--border))] bg-white/95 dark:bg-[rgb(var(--surface)/0.95)] backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
 
@@ -193,9 +193,9 @@ export function Navbar({ locale }: NavbarProps) {
               <div className="w-8 h-8 rounded-lg bg-burnt-orange-500 flex items-center justify-center shadow-lg shadow-burnt-orange-900/40 group-hover:scale-105 transition-transform">
                 <Flame className="w-5 h-5 text-cream" />
               </div>
-              <span className="text-xl font-bold text-cream tracking-widest uppercase"
+              <span className="text-xl font-bold text-[#121212] dark:text-cream tracking-widest uppercase"
                 style={{ fontFamily: "Oswald, sans-serif" }}>
-                Chev<span className="text-burnt-orange-400">App</span>
+                Chev<span className="text-[#FF6B00]">App</span>
               </span>
             </Link>
 
@@ -208,8 +208,8 @@ export function Navbar({ locale }: NavbarProps) {
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
                     isActive(href)
-                      ? "bg-burnt-orange-500/20 text-burnt-orange-400"
-                      : "text-[rgb(var(--foreground)/0.6)] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border))]"
+                      ? "bg-[#FF6B00]/10 text-[#FF6B00]"
+                      : "text-[#121212] dark:text-[rgb(var(--foreground)/0.6)] hover:text-[#FF6B00] dark:hover:text-[rgb(var(--foreground))] hover:bg-[#FF6B00]/5 dark:hover:bg-[rgb(var(--border))]"
                   )}
                 >
                   <Icon className="w-4 h-4" />

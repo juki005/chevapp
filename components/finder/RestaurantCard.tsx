@@ -182,7 +182,9 @@ export function RestaurantCard({
           ) : restaurant.is_verified ? (
             <VibrantBadge variant="verified" />
           ) : (
-            <VibrantBadge variant="new" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/25">
+              🔥 Novo na mapi
+            </span>
           )}
         </div>
       </div>

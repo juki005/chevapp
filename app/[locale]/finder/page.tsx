@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   MapPin, Loader2, ServerCrash, SlidersHorizontal,
-  CheckCircle, XCircle, RefreshCw, ChevronDown,
+  CheckCircle, XCircle, RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDebounce } from "@/lib/hooks/useDebounce";
@@ -17,8 +17,8 @@ import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
 import { QuickLogModal } from "@/components/journal/QuickLogModal";
 import { FinderFilterBar } from "@/components/finder/FinderFilterBar";
 import { PlaceResultCard } from "@/components/finder/PlaceResultCard";
-import { getCityFromCoords } from "@/lib/actions/discovery";
-import { CITY_COUNTRY, COUNTRY_DISPLAY } from "@/constants/cities";
+import { CITY_COUNTRY, COUNTRY_CONFIG } from "@/constants/cities";
+import type { LocationValue } from "@/components/finder/LocationFilter";
 import dynamic from "next/dynamic";
 import type { MapRestaurant } from "@/components/finder/RestaurantMap";
 
@@ -65,58 +65,31 @@ export default function FinderPage() {
   const [page,          setPage]          = useState(0);
   const [loadingMore,   setLoadingMore]   = useState(false);
 
-  // ── Filters — persisted in localStorage ───────────────────────────────────
-  const [searchTerm,      setSearchTerm]      = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
-  const [selectedCity,    setSelectedCity]    = useState("");
-  const [activeStyle,     setActiveStyle]     = useState<CevapStyle | "">("");
+  // ── Filters ────────────────────────────────────────────────────────────────
+  const [searchTerm,    setSearchTerm]    = useState("");
+  const [locationValue, setLocationValue] = useState<LocationValue>({ country: "", city: "" });
+  const [activeStyle,   setActiveStyle]   = useState<CevapStyle | "">("");
   const [availableCities, setAvailableCities] = useState<string[]>([]);
-  const [filtersRestored, setFiltersRestored] = useState(false);
-  const [staleFilters,    setStaleFilters]    = useState(false);
+  const [staleFilters,  setStaleFilters]  = useState(false);
 
-  // ── Geolocation ────────────────────────────────────────────────────────────
-  const [geolocating, setGeolocating] = useState(false);
+  // Convenience aliases used by DB query and derived state below
+  const selectedCountry = locationValue.country;
+  const selectedCity    = locationValue.city;
 
-  const handleGeolocate = useCallback(() => {
-    if (!("geolocation" in navigator)) return;
-    setGeolocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const city = await getCityFromCoords(pos.coords.latitude, pos.coords.longitude);
-          setSelectedCity(city);
-          setSelectedCountry("");
-          localStorage.setItem("chevapp_last_city", city);
-        } finally {
-          setGeolocating(false);
-        }
-      },
-      () => setGeolocating(false),
-      { timeout: 6000 }
-    );
-  }, []);
-
-  // ── Restore filters from localStorage ─────────────────────────────────────
+  // Restore searchTerm + activeStyle from localStorage on mount
+  // (location is restored inside LocationFilter itself)
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("chevapp:finder_state") ?? "{}");
-      if (saved.searchTerm)      setSearchTerm(saved.searchTerm);
-      if (saved.selectedCountry) setSelectedCountry(saved.selectedCountry);
-      if (saved.selectedCity)    setSelectedCity(saved.selectedCity);
-      if (saved.activeStyle)     setActiveStyle(saved.activeStyle as CevapStyle);
+      if (saved.searchTerm)  setSearchTerm(saved.searchTerm);
+      if (saved.activeStyle) setActiveStyle(saved.activeStyle as CevapStyle);
     } catch { /* ignore */ }
-    setFiltersRestored(true);
   }, []);
 
-  // ── Persist filters ────────────────────────────────────────────────────────
+  // Persist searchTerm + activeStyle (location persisted by LocationFilter)
   useEffect(() => {
-    if (!filtersRestored) return;
-    localStorage.setItem("chevapp:finder_state", JSON.stringify({
-      searchTerm, selectedCountry, selectedCity, activeStyle,
-    }));
-    if (selectedCity) localStorage.setItem("chevapp_last_city", selectedCity);
-    else              localStorage.removeItem("chevapp_last_city");
-  }, [searchTerm, selectedCountry, selectedCity, activeStyle, filtersRestored]);
+    localStorage.setItem("chevapp:finder_state", JSON.stringify({ searchTerm, activeStyle }));
+  }, [searchTerm, activeStyle]);
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
@@ -202,41 +175,33 @@ export default function FinderPage() {
     });
   }, []);
 
-  // ── Country-derived data ───────────────────────────────────────────────────
-  const availableCountries = useMemo(() => {
-    const set = new Set<string>();
-    for (const city of availableCities) {
-      const c = CITY_COUNTRY[city.toLowerCase()];
-      if (c) set.add(c);
-    }
-    return [...set].sort((a, b) => (COUNTRY_DISPLAY[a] ?? a).localeCompare(COUNTRY_DISPLAY[b] ?? b));
-  }, [availableCities]);
-
-  // Cities filtered to selected country (or all cities if no country selected)
+  // Cities in the selected country — used for DB "country filter without city"
   const citiesForCountry = useMemo(() => {
     if (!selectedCountry) return availableCities;
+    const fullName = COUNTRY_CONFIG[selectedCountry]?.fullName ?? "";
     return availableCities.filter(
-      (city) => CITY_COUNTRY[city.toLowerCase()] === selectedCountry
+      (city) => CITY_COUNTRY[city.toLowerCase()] === fullName
     );
   }, [availableCities, selectedCountry]);
 
   // ── DB pagination fetch ────────────────────────────────────────────────────
   // Track previous filter values to know when to reset page
-  const prevFiltersRef = useRef({ debouncedSearch, selectedCity, activeStyle });
+  const prevFiltersRef = useRef({ debouncedSearch, selectedCountry, selectedCity, activeStyle });
 
   useEffect(() => {
     const prev = prevFiltersRef.current;
     const filtersChanged =
-      prev.debouncedSearch !== debouncedSearch ||
-      prev.selectedCity    !== selectedCity    ||
-      prev.activeStyle     !== activeStyle;
+      prev.debouncedSearch  !== debouncedSearch  ||
+      prev.selectedCountry  !== selectedCountry  ||
+      prev.selectedCity     !== selectedCity     ||
+      prev.activeStyle      !== activeStyle;
 
     if (filtersChanged) {
-      prevFiltersRef.current = { debouncedSearch, selectedCity, activeStyle };
+      prevFiltersRef.current = { debouncedSearch, selectedCountry, selectedCity, activeStyle };
       setPage(0);
       setStaleFilters(false);
     }
-  }, [debouncedSearch, selectedCity, activeStyle]);
+  }, [debouncedSearch, selectedCountry, selectedCity, activeStyle]);
 
   useEffect(() => {
     let cancelled = false;
@@ -269,8 +234,13 @@ export default function FinderPage() {
           .range(from, to);
 
         if (debouncedSearch.trim()) q = q.ilike("name", `%${debouncedSearch.trim()}%`);
-        if (selectedCity)           q = q.eq("city", selectedCity);
-        if (activeStyle)            q = q.eq("style", activeStyle);
+        if (selectedCity) {
+          q = q.eq("city", selectedCity);
+        } else if (selectedCountry && citiesForCountry.length > 0) {
+          // No specific city — filter to all known cities in the selected country
+          q = q.in("city", citiesForCountry);
+        }
+        if (activeStyle) q = q.eq("style", activeStyle);
 
         const { data, error, count } = await q;
 
@@ -308,17 +278,21 @@ export default function FinderPage() {
     load();
     return () => { cancelled = true; };
   // page is intentionally included — changes trigger load-more
+  // citiesForCountry is stable (derived from selectedCountry + availableCities)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, selectedCity, activeStyle, page]);
+  }, [debouncedSearch, selectedCountry, selectedCity, activeStyle, page]);
 
-  // ── Trigger Google Places search on debounced input ────────────────────────
+  // ── Trigger Google Places search ───────────────────────────────────────────
+  // Uses the text search term as primary, falls back to selected city so that
+  // choosing a location without typing still surfaces Google Places results.
   useEffect(() => {
-    if (debouncedSearch.trim().length >= 2) {
-      searchPlaces(debouncedSearch.trim());
+    const near = debouncedSearch.trim() || selectedCity;
+    if (near.length >= 2) {
+      searchPlaces(near);
     } else {
       clearPlaces();
     }
-  }, [debouncedSearch, searchPlaces, clearPlaces]);
+  }, [debouncedSearch, selectedCity, searchPlaces, clearPlaces]);
 
   // ── Tagged place IDs (crowdsourced style sync) ─────────────────────────────
   const [taggedPlaceIds, setTaggedPlaceIds] = useState<Set<string>>(new Set());
@@ -356,9 +330,13 @@ export default function FinderPage() {
   })();
 
   const clearFilters = () => {
-    setSearchTerm(""); setSelectedCountry(""); setSelectedCity(""); setActiveStyle(""); setFavOnly(false);
+    setSearchTerm("");
+    setLocationValue({ country: "", city: "" });
+    setActiveStyle("");
+    setFavOnly(false);
     setStaleFilters(false);
     localStorage.removeItem("chevapp:finder_state");
+    localStorage.removeItem("chevapp_last_location");
   };
 
   const hasMore = dbRestaurants.length < totalCount;
@@ -424,11 +402,7 @@ export default function FinderPage() {
         <FinderFilterBar
           searchTerm={searchTerm}             onSearchChange={setSearchTerm}
           placesLoading={placesLoading}
-          selectedCountry={selectedCountry}   onCountryChange={setSelectedCountry}
-          availableCountries={availableCountries}
-          selectedCity={selectedCity}         onCityChange={setSelectedCity}
-          availableCities={citiesForCountry}
-          onGeolocate={handleGeolocate}       geolocating={geolocating}
+          locationValue={locationValue}       onLocationChange={setLocationValue}
           viewMode={viewMode}                 onViewModeChange={setViewMode}
           activeStyle={activeStyle}           onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
           favOnly={favOnly}                   onFavOnlyChange={setFavOnly}
@@ -594,7 +568,7 @@ export default function FinderPage() {
                       Verificirani restorani ({dbRestaurants.length}{totalCount > dbRestaurants.length ? ` / ${totalCount}` : ""})
                       {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {visibleDbRestaurants.map((r) => (
                         <div
                           key={r.id}
@@ -637,7 +611,7 @@ export default function FinderPage() {
                     <p className="text-xs text-[#4285f4] uppercase tracking-widest font-medium mb-3 flex items-center gap-2">
                       <span className="font-bold">G</span> Google Places — pretražujem&hellip;
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {[1, 2, 3].map((i) => (
                         <div key={i} className="rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 animate-pulse">
                           <div className="flex items-start gap-3 mb-3">
@@ -663,7 +637,7 @@ export default function FinderPage() {
                       Google Places — &ldquo;{searchTerm}&rdquo; ({visiblePlaceResults.length})
                       {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {visiblePlaceResults.map((r) => (
                         <PlaceResultCard
                           key={r.place_id}
