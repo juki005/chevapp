@@ -179,6 +179,40 @@ export async function getCityFromCoords(lat: number, lng: number): Promise<strin
   }
 }
 
+/**
+ * Reverse geocode lat/lng → city name + ISO 3166-1 alpha-2 country code.
+ * Used by LocationFilter to auto-select both country and city from GPS.
+ */
+export async function getLocationFromCoords(
+  lat: number,
+  lng: number,
+): Promise<{ city: string; countryCode: string }> {
+  const key = apiKey();
+  if (!key) return { city: "Sarajevo", countryCode: "BA" };
+
+  try {
+    const params = new URLSearchParams({
+      latlng:      `${lat},${lng}`,
+      result_type: "locality",
+      key,
+    });
+    const res  = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?${params}`,
+      { next: { revalidate: 86_400 } },
+    );
+    const body = await res.json() as {
+      results?: { address_components: { long_name: string; short_name: string; types: string[] }[] }[];
+    };
+
+    const components = body.results?.[0]?.address_components ?? [];
+    const city        = components.find(c => c.types.includes("locality"))?.long_name    ?? "Sarajevo";
+    const countryCode = components.find(c => c.types.includes("country"))?.short_name   ?? "BA";
+    return { city, countryCode };
+  } catch {
+    return { city: "Sarajevo", countryCode: "BA" };
+  }
+}
+
 // ── Internal response types ───────────────────────────────────────────────────
 interface PlaceResult {
   place_id:           string;

@@ -79,7 +79,12 @@
     "openProfile": "PROFILE",
     "heroTitle": "Find the best ćevapi in your city",
     "heroSubtitle": "Search a city or pick a style above to start your adventure.",
-    "featuredTitle": "Featured spots"
+    "featuredTitle": "Featured spots",
+    "selectCountry": "Select country",
+    "cityPlaceholder": "Type a city...",
+    "cityDisabledHint": "Select a country first",
+    "deepSearchHint": "ćevapi · grill · Balkan cuisine · Balkan BBQ",
+    "noResultsDeepSearch": "Try: Balkan cuisine, Balkan grill, BBQ restaurant"
   },
   "kitchen": {
     "title": "Master Kitchen",

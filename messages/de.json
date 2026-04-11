@@ -79,7 +79,12 @@
     "openProfile": "PROFIL",
     "heroTitle": "Finde die besten Ćevapi in deiner Stadt",
     "heroSubtitle": "Suche eine Stadt oder wähle oben einen Stil, um dein Abenteuer zu starten.",
-    "featuredTitle": "Empfohlene Orte"
+    "featuredTitle": "Empfohlene Orte",
+    "selectCountry": "Land auswählen",
+    "cityPlaceholder": "Stadt eingeben...",
+    "cityDisabledHint": "Zuerst ein Land auswählen",
+    "deepSearchHint": "Ćevapi · Grill · Balkanküche · Balkangrill",
+    "noResultsDeepSearch": "Versuche: Balkanküche, Balkangrill, Grillrestaurant"
   },
   "kitchen": {
     "title": "Meisterküche",

@@ -78,6 +78,30 @@ export const COUNTRY_DISPLAY: Record<string, string> = {
 };
 
 /**
+ * Supported countries for the LocationFilter component.
+ * Uses ISO 3166-1 alpha-2 codes for Google Places componentRestrictions.
+ * Includes Balkan home countries + Western European diaspora destinations.
+ */
+export const COUNTRY_CONFIG: Record<string, {
+  display:  string;   // Localised name (BS)
+  flag:     string;   // Emoji flag
+  fullName: string;   // Matches CITY_COUNTRY values for DB cross-reference
+}> = {
+  HR: { display: "Hrvatska",             flag: "🇭🇷", fullName: "Croatia"                 },
+  BA: { display: "Bosna i Hercegovina",  flag: "🇧🇦", fullName: "Bosnia and Herzegovina"   },
+  RS: { display: "Srbija",               flag: "🇷🇸", fullName: "Serbia"                   },
+  ME: { display: "Crna Gora",            flag: "🇲🇪", fullName: "Montenegro"               },
+  SI: { display: "Slovenija",            flag: "🇸🇮", fullName: "Slovenia"                 },
+  HU: { display: "Mađarska",             flag: "🇭🇺", fullName: "Hungary"                  },
+  MK: { display: "Sjev. Makedonija",     flag: "🇲🇰", fullName: "North Macedonia"          },
+  AT: { display: "Austrija",             flag: "🇦🇹", fullName: "Austria"                  },
+  DE: { display: "Njemačka",             flag: "🇩🇪", fullName: "Germany"                  },
+  NL: { display: "Nizozemska",           flag: "🇳🇱", fullName: "Netherlands"              },
+  FR: { display: "Francuska",            flag: "🇫🇷", fullName: "France"                   },
+  IT: { display: "Italija",              flag: "🇮🇹", fullName: "Italy"                    },
+};
+
+/**
  * Resolve a city name (case-insensitive, trimmed) to [lat, lng].
  * Returns null if not found.
  */

@@ -79,7 +79,12 @@
     "openProfile": "PROFIL",
     "heroTitle": "Pronađi najbolje ćevape u svom gradu",
     "heroSubtitle": "Pretraži grad ili odaberi stil iznad da kreneš u avanturu.",
-    "featuredTitle": "Istaknuta mjesta"
+    "featuredTitle": "Istaknuta mjesta",
+    "selectCountry": "Odaberi državu",
+    "cityPlaceholder": "Upiši grad...",
+    "cityDisabledHint": "Prvo odaberi državu",
+    "deepSearchHint": "ćevapi · roštilj · balkanska kuhinja · balkanski roštilj",
+    "noResultsDeepSearch": "Pokušaj: balkanska kuhinja, balkanski roštilj, pečenjara"
   },
   "kitchen": {
     "title": "Master Kuhinja",
