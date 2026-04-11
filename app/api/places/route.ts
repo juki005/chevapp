@@ -51,12 +51,9 @@ export async function GET(req: NextRequest) {
   // ask Google for the next page of the previous search.
   const pagetoken = searchParams.get("pagetoken")?.trim() ?? "";
 
-  const near       = searchParams.get("near")?.trim()  ?? "";
-  const query      = searchParams.get("query")?.trim() || "ćevapi ćevabdžinica cevapi roštilj pečenjara balkanska kuhinja balkanski roštilj grill";
-  const limit      = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "20") || 20, 1), 20);
-  // Optional city filter — when provided, only results whose formatted_address
-  // contains this string will be returned (strict city isolation).
-  const cityFilter = searchParams.get("city")?.trim().toLowerCase() ?? "";
+  const near  = searchParams.get("near")?.trim()  ?? "";
+  const query = searchParams.get("query")?.trim() || "ćevapi ćevabdžinica cevapi roštilj pečenjara balkanska kuhinja balkanski roštilj grill";
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "20") || 20, 1), 20);
 
   // Coordinate mode — used by waypoint searches along a route
   const latStr = searchParams.get("lat")?.trim() ?? "";
@@ -149,26 +146,11 @@ export async function GET(req: NextRequest) {
     }
 
     const raw    = body.results ?? [];
+    const sliced = raw.slice(0, limit);
 
-    // ── 6a. City-name isolation filter ───────────────────────────────────────
-    // When a city filter is provided (coord-based city search), discard any
-    // result whose formatted_address does NOT mention the selected city.
-    // This prevents the 10 km radius from pulling in adjacent cities.
-    const cityFiltered = cityFilter
-      ? raw.filter((place) =>
-          (place.formatted_address ?? "").toLowerCase().includes(cityFilter) ||
-          (place.name ?? "").toLowerCase().includes(cityFilter)
-        )
-      : raw;
+    console.log(`[places] ✅ ${sliced.length} result(s) for "${pagetoken ? "nextPage" : fullQuery}"`);
 
-    const sliced = cityFiltered.slice(0, limit);
-
-    console.log(
-      `[places] ✅ ${sliced.length} result(s) for "${pagetoken ? "nextPage" : fullQuery}"` +
-      (cityFilter ? ` (city-filtered to "${cityFilter}", ${raw.length - cityFiltered.length} discarded)` : ""),
-    );
-
-    // ── 6b. Normalise to ChevApp shape ────────────────────────────────────────
+    // ── 6. Normalise to ChevApp shape ─────────────────────────────────────────
     const nearLabel = near || `${latStr},${lngStr}`;
     const results: PlaceResult[] = sliced.map((place) => ({
       place_id:  place.place_id,

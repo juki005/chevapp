@@ -14,9 +14,13 @@ export interface UsePlacesSearchReturn {
   tokenReady:        boolean;  // true after the 2.5 s token activation delay
   /** Replace existing results with a keyword text search */
   searchPlaces:    (query: string) => Promise<void>;
-  /** Replace existing results with a coordinate-based search (city selection).
-   *  cityFilter — when provided, only results whose formatted_address includes
-   *  this string are kept (strict city isolation). */
+  /**
+   * City-scoped search — REPLACES results.
+   * When cityFilter is provided the search uses Google text search
+   * (`near=cityName`) so the query is naturally scoped to that city and
+   * Load More (next_page_token) continues the same city context.
+   * Falls back to coordinate search when no city name is available.
+   */
   searchByCoords:  (lat: number, lng: number, cityFilter?: string) => Promise<void>;
   /** Append deduped results from a coordinate search ("Search This Area" button) */
   appendByCoords:  (lat: number, lng: number) => Promise<void>;
@@ -38,11 +42,15 @@ type PlacesJson = {
 };
 
 /**
- * Discovery-mode Places search.
+ * City-scoped Places search with pagination.
  *
- * City-change  → searchByCoords  (REPLACES, passes cityFilter for isolation)
- * Load More    → loadMorePlaces  (APPENDS next page via next_page_token)
- * Map pan      → appendByCoords  (APPENDS deduped from new coords)
+ * City selected → searchByCoords(lat, lng, city)
+ *                 Uses ?near=city text search → Google naturally scopes to
+ *                 that city, returns 20 results, emits next_page_token.
+ * Load More     → loadMorePlaces()
+ *                 Continues the same city-scoped query via next_page_token.
+ * Map pan       → appendByCoords(lat, lng)
+ *                 Coordinate search — appends deduped results for exploration.
  */
 export function usePlacesSearch(): UsePlacesSearchReturn {
   const [placeResults,      setPlaceResults]      = useState<PlaceResult[]>([]);
@@ -112,7 +120,11 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     }
   }, [doFetch]);
 
-  // ── Coordinate search — replaces results (city selection) ────────────────────
+  // ── City-scoped search — replaces results ────────────────────────────────────
+  // When cityFilter is provided we do a TEXT search (?near=Zagreb) instead of
+  // a coordinate search. This gives full 20 city-scoped results and lets
+  // next_page_token naturally continue the same city query for Load More.
+  // Coordinate search is only used as a fallback when no city name is known.
   const searchByCoords = useCallback(async (lat: number, lng: number, cityFilter?: string) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -123,12 +135,10 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     setNextPageToken(null);
 
     try {
-      const params = new URLSearchParams({
-        ...BASE_PARAMS,
-        lat: String(lat),
-        lng: String(lng),
-        ...(cityFilter ? { city: cityFilter } : {}),
-      });
+      const params = cityFilter
+        ? new URLSearchParams({ ...BASE_PARAMS, near: cityFilter })
+        : new URLSearchParams({ ...BASE_PARAMS, lat: String(lat), lng: String(lng) });
+
       const { results, nextPageToken: npt } = await doFetch(params, ctrl.signal);
       setPlaceResults(results);
       setNextPageToken(npt);
