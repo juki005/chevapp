@@ -185,26 +185,35 @@ export default function FinderPage() {
   }, [availableCities, selectedCountry]);
 
   // ── DB pagination fetch ────────────────────────────────────────────────────
-  // Track previous filter values to know when to reset page
-  const prevFiltersRef = useRef({ debouncedSearch, selectedCountry, selectedCity, activeStyle });
-
-  useEffect(() => {
-    const prev = prevFiltersRef.current;
-    const filtersChanged =
-      prev.debouncedSearch  !== debouncedSearch  ||
-      prev.selectedCountry  !== selectedCountry  ||
-      prev.selectedCity     !== selectedCity     ||
-      prev.activeStyle      !== activeStyle;
-
-    if (filtersChanged) {
-      prevFiltersRef.current = { debouncedSearch, selectedCountry, selectedCity, activeStyle };
-      setPage(0);
-      setStaleFilters(false);
-    }
-  }, [debouncedSearch, selectedCountry, selectedCity, activeStyle]);
+  // Single effect handles both filter resets and load-more to avoid the
+  // two-effect race condition where `setPage(0)` schedules a re-render but the
+  // fetch effect in the same commit still sees the old page value, causing a
+  // spurious append before the correct replace.
+  //
+  // Strategy (filterKeyRef):
+  //   • When filters change AND page > 0: reset page and return early.
+  //     The resulting re-render (page=0) triggers the actual fetch.
+  //   • When filters change AND page === 0: fetch page 0 (replace).
+  //   • When only page changes (Load More): fetch that page (append).
+  const filterKeyRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
+
+    const filterKey = `${debouncedSearch}|${selectedCountry}|${selectedCity}|${activeStyle}`;
+    const filtersChanged = filterKey !== filterKeyRef.current;
+
+    if (filtersChanged) {
+      filterKeyRef.current = filterKey;
+      setStaleFilters(false);
+      // If already past page 0, reset — the re-render will re-run this effect
+      // with page=0 and filtersChanged=false, doing the real fetch cleanly.
+      if (page !== 0) {
+        setPage(0);
+        return;
+      }
+    }
+
     const isFirstPage = page === 0;
 
     const load = async () => {
@@ -222,9 +231,9 @@ export default function FinderPage() {
       }
 
       try {
-        const supabase  = createClient();
-        const from      = page * PAGE_SIZE;
-        const to        = from + PAGE_SIZE - 1;
+        const supabase = createClient();
+        const from     = page * PAGE_SIZE;
+        const to       = from + PAGE_SIZE - 1;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
@@ -237,7 +246,6 @@ export default function FinderPage() {
         if (selectedCity) {
           q = q.eq("city", selectedCity);
         } else if (selectedCountry && citiesForCountry.length > 0) {
-          // No specific city — filter to all known cities in the selected country
           q = q.in("city", citiesForCountry);
         }
         if (activeStyle) q = q.eq("style", activeStyle);
@@ -251,7 +259,6 @@ export default function FinderPage() {
 
         if (isFirstPage) {
           setDbRestaurants(rows);
-          // Check for stale filters: filters are active but yielded 0 results
           if (rows.length === 0 && (selectedCity || activeStyle || debouncedSearch)) {
             setStaleFilters(true);
           }
@@ -277,8 +284,6 @@ export default function FinderPage() {
 
     load();
     return () => { cancelled = true; };
-  // page is intentionally included — changes trigger load-more
-  // citiesForCountry is stable (derived from selectedCountry + availableCities)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, selectedCountry, selectedCity, activeStyle, page]);
 

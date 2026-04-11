@@ -116,11 +116,14 @@ const CHARCOAL_STYLE: google.maps.MapTypeStyle[] = [
 ];
 
 // ── BoundsUpdater ─────────────────────────────────────────────────────────────
-function BoundsUpdater({ restaurants }: { restaurants: MapRestaurant[] }) {
+// When `locked` is true (city is explicitly selected), skip fitBounds so the
+// CenterUpdater's zoom-13 city view is not overridden by restaurant spread.
+function BoundsUpdater({ restaurants, locked }: { restaurants: MapRestaurant[]; locked: boolean }) {
   const map          = useMap();
   const prevCountRef = useRef(0);
 
   useEffect(() => {
+    if (locked) return; // city selected — CenterUpdater handles positioning
     const valid = restaurants.filter((r) => r.latitude != null && r.longitude != null);
     if (!map || valid.length === 0 || valid.length === prevCountRef.current) return;
     prevCountRef.current = valid.length;
@@ -132,7 +135,27 @@ function BoundsUpdater({ restaurants }: { restaurants: MapRestaurant[] }) {
       56
     );
     if (valid.length === 1) map.setZoom(14);
-  }, [map, restaurants]);
+  }, [map, restaurants, locked]);
+
+  return null;
+}
+
+// ── CenterUpdater — imperatively re-centers when city changes ─────────────────
+// `defaultCenter` / `defaultZoom` on <Map> are mount-only. This component
+// watches the `center` prop and pans + zooms every time it changes so the map
+// stays locked on the selected city even after the component is already mounted.
+function CenterUpdater({ center }: { center: { lat: number; lng: number } | undefined }) {
+  const map       = useMap();
+  const prevRef   = useRef<{ lat: number; lng: number } | undefined>(undefined);
+
+  useEffect(() => {
+    if (!map || !center) return;
+    // Skip if center hasn't actually changed (object identity changes on every render)
+    if (prevRef.current?.lat === center.lat && prevRef.current?.lng === center.lng) return;
+    prevRef.current = center;
+    map.panTo(center);
+    map.setZoom(13);
+  }, [map, center]);
 
   return null;
 }
@@ -370,10 +393,13 @@ export default function GoogleCevapMap({
   activeStyle:         controlledStyle,
   onStyleChange,
   onOpenProfile,
-  defaultCenter        = { lat: 44.1, lng: 17.9 },
+  defaultCenter,                          // undefined = no city; use region fallback
   initialDiscoveryMode = false,
   showStyleFilter      = true,
 }: Props) {
+  // When a city is explicitly selected, lock the map on it at zoom 13.
+  // Country-only (no city): fall back to Balkan region view at zoom 6/8.
+  const hasCityCenter = !!defaultCenter;
   const [internalStyle, setInternalStyle] = useState<string>("");
 
   const activeStyle       = controlledStyle !== undefined ? (controlledStyle ?? "") : internalStyle;
@@ -436,8 +462,12 @@ export default function GoogleCevapMap({
       <APIProvider apiKey={API_KEY}>
         <Map
           mapId="9a4d0b5aaa7f88a18d6286ed"
-          defaultCenter={defaultCenter}
-          defaultZoom={initialDiscoveryMode ? 13 : mapped.length === 0 ? 6 : 8}
+          defaultCenter={defaultCenter ?? { lat: 44.1, lng: 17.9 }}
+          defaultZoom={
+            hasCityCenter          ? 13 :
+            initialDiscoveryMode   ? 13 :
+            mapped.length === 0    ?  6 : 8
+          }
           styles={CHARCOAL_STYLE}
           mapTypeControl={false}
           streetViewControl={false}
@@ -446,7 +476,10 @@ export default function GoogleCevapMap({
           gestureHandling="cooperative"
           onClick={() => setSelectedLandmark(null)}
         >
-          <BoundsUpdater restaurants={restaurants} />
+          {/* Re-center imperatively when city changes (defaultCenter is mount-only) */}
+          <CenterUpdater center={defaultCenter} />
+          {/* Skip fitBounds when city is selected — CenterUpdater owns positioning */}
+          <BoundsUpdater restaurants={restaurants} locked={hasCityCenter} />
           <BoundsTracker enabled={discoveryMode} onBoundsChange={handleBoundsChange} />
 
           {/* ── Landmark markers — lower z-index, smaller, grey ────────── */}
