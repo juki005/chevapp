@@ -251,8 +251,8 @@ export default function FinderPage() {
 
         if (isFirstPage) {
           setDbRestaurants(rows);
-          // Check for stale filters: had filters restored but 0 results
-          if (rows.length === 0 && filtersRestored && (selectedCity || activeStyle || debouncedSearch)) {
+          // Check for stale filters: filters are active but yielded 0 results
+          if (rows.length === 0 && (selectedCity || activeStyle || debouncedSearch)) {
             setStaleFilters(true);
           }
         } else {
