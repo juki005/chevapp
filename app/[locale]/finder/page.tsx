@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDebounce } from "@/lib/hooks/useDebounce";
-import { usePlacesSearch } from "@/lib/hooks/usePlacesSearch";
+import { usePlacesNearby } from "@/lib/hooks/usePlacesNearby";
+import { APIProvider } from "@vis.gl/react-google-maps";
 import { StyleFilter } from "@/components/finder/StyleFilter";
 import { RestaurantCard } from "@/components/finder/RestaurantCard";
 import { RestaurantGridSkeleton } from "@/components/finder/RestaurantCardSkeleton";
@@ -53,7 +54,9 @@ function toMapPin(r: Restaurant): MapRestaurant {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default function FinderPage() {
+// FinderPageInner contains all logic; it must live inside <APIProvider> so that
+// usePlacesNearby (which calls useMapsLibrary) can access the Maps context.
+function FinderPageInner() {
   const t = useTranslations("finder");
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -97,13 +100,15 @@ export default function FinderPage() {
   // ── Review averages ────────────────────────────────────────────────────────
   const [avgRatings, setAvgRatings] = useState<Record<string, number>>({});
 
-  // ── Google Places ──────────────────────────────────────────────────────────
+  // ── Google Places (client-side NearbySearch — no server proxy) ────────────
+  // Uses google.maps.places.PlacesService; pagination.nextPage() is native so
+  // there are no token-expiry or malformed-request issues.
   const {
-    placeResults, placesLoading, appendingPlaces, loadingMorePlaces,
+    placeResults, placesLoading, loadingMore: loadingMorePlaces,
     placesError, placesSearched,
     hasMorePlaces, tokenReady,
-    searchByCoords, appendByCoords, loadMorePlaces, clearPlaces,
-  } = usePlacesSearch();
+    searchNearby, loadMorePlaces, clearPlaces,
+  } = usePlacesNearby();
 
   // ── Profile modal ──────────────────────────────────────────────────────────
   const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
@@ -393,8 +398,8 @@ export default function FinderPage() {
     // Guard: don't re-fire for the same city on unrelated re-renders
     if (selectedCity === prevSearchCityRef.current) return;
     prevSearchCityRef.current = selectedCity;
-    // Pass selectedCity as cityFilter so the API discards out-of-city results
-    searchByCoords(mapCenter.lat, mapCenter.lng, selectedCity);
+    // Native NearbySearch — city-scoped by coords + radius, no proxy needed
+    searchNearby(mapCenter, selectedCity);
   // searchByCoords and clearPlaces are stable useCallbacks
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapCenter, selectedCity]);
@@ -506,9 +511,9 @@ export default function FinderPage() {
                 {placeResults.length} lokacija
               </span>{" "}
               pronađeno za &ldquo;{selectedCity}&rdquo;
-              {appendingPlaces && (
+              {loadingMorePlaces && (
                 <span className="ml-2 inline-flex items-center gap-1 text-[#4285f4]">
-                  <Loader2 className="w-3 h-3 animate-spin" /> pretražujem…
+                  <Loader2 className="w-3 h-3 animate-spin" /> učitavam još…
                 </span>
               )}
             </span>
@@ -570,8 +575,7 @@ export default function FinderPage() {
               defaultCenter={mapCenter}
               activeStyle={activeStyle || null}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
-              onSearchArea={appendByCoords}
-              searchingArea={appendingPlaces}
+              searchingArea={false}
               onOpenProfile={(pin) => {
                 if (pin.id) {
                   const r = dbRestaurants.find((db) => db.id === pin.id);
@@ -717,7 +721,7 @@ export default function FinderPage() {
                     <p className="text-xs text-[#4285f4] uppercase tracking-widest font-medium mb-3 flex items-center gap-2">
                       <span className="font-bold">G</span>
                       Google Places — &ldquo;{selectedCity}&rdquo; ({placeResults.length})
-                      {appendingPlaces && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {loadingMorePlaces && <Loader2 className="w-3 h-3 animate-spin" />}
                       {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -730,9 +734,9 @@ export default function FinderPage() {
                           onProfileClick={setSelectedRestaurant}
                         />
                       ))}
-                      {/* Skeleton cards appended while area search is in progress */}
-                      {appendingPlaces && [1, 2, 3].map((i) => (
-                        <div key={`append-skeleton-${i}`} className="rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 animate-pulse">
+                      {/* Skeleton cards while Load More is in-flight */}
+                      {loadingMorePlaces && [1, 2, 3].map((i) => (
+                        <div key={`lm-skeleton-${i}`} className="rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 animate-pulse">
                           <div className="flex items-start gap-3 mb-3">
                             <div className="w-8 h-8 rounded-full bg-[rgb(var(--border))]" />
                             <div className="flex-1 space-y-2">
@@ -745,31 +749,24 @@ export default function FinderPage() {
                         </div>
                       ))}
                     </div>
-                    {/* ── Load More (next_page_token) ────────────────────── */}
+
+                    {/* ── Load More button ───────────────────────────────── */}
                     {hasMorePlaces && (
-                      <div className="flex flex-col items-center gap-2 mt-6">
+                      <div className="flex justify-center mt-6">
                         <button
                           onClick={loadMorePlaces}
                           disabled={!tokenReady || loadingMorePlaces}
                           className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[#FF6B00]/30 text-sm font-semibold text-[#FF6B00] hover:bg-[#FF6B00]/8 transition-all disabled:opacity-40 active:scale-95"
                         >
                           {loadingMorePlaces ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam još…</>
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam jos…</>
                           ) : !tokenReady ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Pripremam…</>
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Pričekajte…</>
                           ) : (
-                            <><ChevronDown className="w-4 h-4" /> Učitaj još Google Places</>
+                            <><ChevronDown className="w-4 h-4" /> Učitaj još Google rezultata</>
                           )}
                         </button>
-                        <p className="text-xs text-[rgb(var(--muted))] text-center">
-                          💡 Pomjeri mapu i klikni <strong className="text-[#FF6B00]">Pretraži ovo područje</strong> za više rezultata
-                        </p>
                       </div>
-                    )}
-                    {!hasMorePlaces && placeResults.length > 0 && (
-                      <p className="text-xs text-[rgb(var(--muted))] text-center mt-4">
-                        💡 Pomjeri mapu i klikni <strong className="text-[#FF6B00]">Pretraži ovo područje</strong> za više rezultata
-                      </p>
                     )}
                   </div>
                 )}
@@ -808,5 +805,17 @@ export default function FinderPage() {
         onClose={() => setQuickLogRestaurant(null)}
       />
     </div>
+  );
+}
+
+// ── Root export — wraps everything in APIProvider ─────────────────────────────
+// APIProvider loads the Google Maps JS SDK once. FinderPageInner uses
+// useMapsLibrary("places") which requires this context to be present.
+// The map view also benefits because GoogleCevapMap reuses the same loaded SDK.
+export default function FinderPage() {
+  return (
+    <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}>
+      <FinderPageInner />
+    </APIProvider>
   );
 }
