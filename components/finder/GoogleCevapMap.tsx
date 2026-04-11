@@ -60,6 +60,8 @@ interface Props {
   showStyleFilter?:      boolean;
   /** Called when user clicks "Pretraži ovo područje" after panning the map */
   onSearchArea?:         (lat: number, lng: number) => void;
+  /** Show a loading pill while the area append search is in-flight */
+  searchingArea?:        boolean;
 }
 
 // ── Style metadata ────────────────────────────────────────────────────────────
@@ -545,6 +547,7 @@ export default function GoogleCevapMap({
   initialDiscoveryMode = false,
   showStyleFilter      = true,
   onSearchArea,
+  searchingArea        = false,
 }: Props) {
   // When a city is explicitly selected, lock the map on it at zoom 13.
   // Country-only (no city): fall back to Balkan region view at zoom 6/8.
@@ -669,6 +672,41 @@ export default function GoogleCevapMap({
 
       {/* ── Floating style filter (top-right) ────────────────────────────── */}
       {showStyleFilter && <MapStyleFilter active={activeStyle} onChange={handleStyleChange} />}
+
+      {/* ── "Pretražujem…" loading pill — shown while appendByCoords fires ── */}
+      {searchingArea && !searchAreaTarget && (
+        <div
+          style={{
+            position:  "absolute",
+            top:       12,
+            left:      "50%",
+            transform: "translateX(-50%)",
+            zIndex:    10,
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              display:        "flex",
+              alignItems:     "center",
+              gap:            7,
+              padding:        "9px 18px",
+              borderRadius:   999,
+              background:     "rgba(16,14,12,0.88)",
+              border:         "1px solid rgba(255,107,0,0.35)",
+              color:          "#FF6B00",
+              fontSize:       13,
+              fontWeight:     700,
+              backdropFilter: "blur(12px)",
+              boxShadow:      "0 4px 20px rgba(0,0,0,0.5)",
+              whiteSpace:     "nowrap",
+            }}
+          >
+            <span style={{ display: "inline-block", animation: "spin 0.8s linear infinite" }}>⟳</span>
+            {" "}Pretražujem područje…
+          </div>
+        </div>
+      )}
 
       {/* ── "Pretraži ovo područje" — appears after panning away from city ── */}
       {searchAreaTarget && onSearchArea && (

@@ -99,9 +99,8 @@ export default function FinderPage() {
 
   // ── Google Places ──────────────────────────────────────────────────────────
   const {
-    placeResults, placesLoading, placesError, placesSearched,
-    hasMorePlaces, tokenReady, loadingMorePlaces, loadMorePlaces,
-    searchPlaces, searchByCoords, clearPlaces,
+    placeResults, placesLoading, appendingPlaces, placesError, placesSearched,
+    searchByCoords, appendByCoords, clearPlaces,
   } = usePlacesSearch();
 
   // ── Profile modal ──────────────────────────────────────────────────────────
@@ -292,17 +291,6 @@ export default function FinderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, selectedCountry, selectedCity, activeStyle, page]);
 
-  // ── Trigger Google Places search ───────────────────────────────────────────
-  // Uses the text search term as primary, falls back to selected city so that
-  // choosing a location without typing still surfaces Google Places results.
-  useEffect(() => {
-    const near = debouncedSearch.trim() || selectedCity;
-    if (near.length >= 2) {
-      searchPlaces(near);
-    } else {
-      clearPlaces();
-    }
-  }, [debouncedSearch, selectedCity, searchPlaces, clearPlaces]);
 
   // ── Tagged place IDs (crowdsourced style sync) ─────────────────────────────
   const [taggedPlaceIds, setTaggedPlaceIds] = useState<Set<string>>(new Set());
@@ -334,8 +322,17 @@ export default function FinderPage() {
     : dbRestaurants;
 
   const visiblePlaceResults = (() => {
-    let results = favOnly ? placeResults.filter((r) => favPlaceKeys.includes(`${r.name}::${r.city}`)) : placeResults;
-    if (activeStyle && taggedPlaceIds.size > 0) results = results.filter((r) => taggedPlaceIds.has(r.place_id));
+    let results = favOnly
+      ? placeResults.filter((r) => favPlaceKeys.includes(`${r.name}::${r.city}`))
+      : placeResults;
+    if (activeStyle && taggedPlaceIds.size > 0)
+      results = results.filter((r) => taggedPlaceIds.has(r.place_id));
+    // Local name filter — no extra API call; text search drives DB via SQL,
+    // Google results are filtered here in-memory for instant response.
+    if (debouncedSearch.trim())
+      results = results.filter((r) =>
+        r.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+      );
     return results;
   })();
 
@@ -377,6 +374,27 @@ export default function FinderPage() {
 
     return () => { cancelled = true; };
   }, [selectedCity, selectedCountry]);
+
+  // ── Auto-search Google Places when city + coords are both ready ─────────────
+  // searchByCoords REPLACES results (fresh city search).
+  // appendByCoords APPENDS deduped results ("Pretraži ovo područje" button).
+  // debouncedSearch is now a LOCAL filter on placeResults — no extra API call.
+  const prevSearchCityRef = useRef("");
+  useEffect(() => {
+    if (!selectedCity) {
+      prevSearchCityRef.current = "";
+      clearPlaces();
+      return;
+    }
+    // Diaspora cities geocode asynchronously — wait for coords before searching
+    if (!mapCenter) return;
+    // Guard: don't re-fire for the same city on unrelated re-renders
+    if (selectedCity === prevSearchCityRef.current) return;
+    prevSearchCityRef.current = selectedCity;
+    searchByCoords(mapCenter.lat, mapCenter.lng);
+  // searchByCoords and clearPlaces are stable useCallbacks
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapCenter, selectedCity]);
 
   // Map pins — DB + Google Places (deduped by proximity).
   // useMemo gives a stable array reference: ImperativeMarkers only rebuilds
@@ -482,9 +500,14 @@ export default function FinderPage() {
             <span className="text-[rgb(var(--muted))]">
               Google Places:{" "}
               <span className="text-[rgb(var(--foreground))] font-medium">
-                {placeResults.length}{hasMorePlaces ? "+" : ""} lokacija
+                {placeResults.length} lokacija
               </span>{" "}
-              pronađeno za &ldquo;{searchTerm || selectedCity}&rdquo;
+              pronađeno za &ldquo;{selectedCity}&rdquo;
+              {appendingPlaces && (
+                <span className="ml-2 inline-flex items-center gap-1 text-[#4285f4]">
+                  <Loader2 className="w-3 h-3 animate-spin" /> pretražujem…
+                </span>
+              )}
             </span>
           </div>
         )}
@@ -544,7 +567,8 @@ export default function FinderPage() {
               defaultCenter={mapCenter}
               activeStyle={activeStyle || null}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
-              onSearchArea={searchByCoords}
+              onSearchArea={appendByCoords}
+              searchingArea={appendingPlaces}
               onOpenProfile={(pin) => {
                 if (pin.id) {
                   const r = dbRestaurants.find((db) => db.id === pin.id);
@@ -689,7 +713,8 @@ export default function FinderPage() {
                   <div>
                     <p className="text-xs text-[#4285f4] uppercase tracking-widest font-medium mb-3 flex items-center gap-2">
                       <span className="font-bold">G</span>
-                      Google Places — &ldquo;{searchTerm || selectedCity}&rdquo; ({placeResults.length}{hasMorePlaces ? "+" : ""})
+                      Google Places — &ldquo;{selectedCity}&rdquo; ({placeResults.length})
+                      {appendingPlaces && <Loader2 className="w-3 h-3 animate-spin" />}
                       {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -702,36 +727,32 @@ export default function FinderPage() {
                           onProfileClick={setSelectedRestaurant}
                         />
                       ))}
+                      {/* Skeleton cards appended while area search is in progress */}
+                      {appendingPlaces && [1, 2, 3].map((i) => (
+                        <div key={`append-skeleton-${i}`} className="rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 animate-pulse">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-8 h-8 rounded-full bg-[rgb(var(--border))]" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-4 bg-[rgb(var(--border))] rounded w-3/4" />
+                              <div className="h-3 bg-[rgb(var(--border))] rounded w-1/2" />
+                            </div>
+                          </div>
+                          <div className="h-3 bg-[rgb(var(--border))] rounded w-full mb-2" />
+                          <div className="h-3 bg-[rgb(var(--border))] rounded w-2/3" />
+                        </div>
+                      ))}
                     </div>
-
-                    {/* Google Places — Load More
-                        Disabled for 2.5 s after results arrive so the
-                        next_page_token is always activated before the
-                        request fires — this completely prevents 400s. */}
-                    {hasMorePlaces && (
-                      <div className="flex justify-center mt-6">
-                        <button
-                          onClick={loadMorePlaces}
-                          disabled={!tokenReady || loadingMorePlaces}
-                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[#4285f4]/30 text-sm font-semibold text-[#4285f4] hover:border-[#4285f4]/60 hover:bg-[#4285f4]/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-                        >
-                          {loadingMorePlaces ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam…</>
-                          ) : !tokenReady ? (
-                            <><Loader2 className="w-4 h-4 animate-spin opacity-40" /> Pričekajte…</>
-                          ) : (
-                            <><ChevronDown className="w-4 h-4" /> Učitaj još Google rezultata</>
-                          )}
-                        </button>
-                      </div>
-                    )}
+                    {/* Discover more by moving the map and clicking "Pretraži ovo područje" */}
+                    <p className="text-xs text-[rgb(var(--muted))] text-center mt-4">
+                      💡 Pomjeri mapu i klikni <strong className="text-[#FF6B00]">Pretraži ovo područje</strong> za više rezultata
+                    </p>
                   </div>
                 )}
 
                 {placesSearched && placeResults.length === 0 && !placesLoading && (
                   <div className="mt-6 rounded-xl border border-dashed border-[rgb(var(--border))] p-8 text-center">
                     <p className="text-[rgb(var(--muted))] text-sm">
-                      Google Places nije pronašao rezultate za &ldquo;{searchTerm}&rdquo;. Provjeri naziv mjesta ili proširi pretragu.
+                      Google Places nije pronašao rezultate za &ldquo;{selectedCity}&rdquo;. Provjeri grad ili proširi pretragu.
                     </p>
                   </div>
                 )}

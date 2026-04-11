@@ -37,9 +37,11 @@ interface Props {
   initialDiscoveryMode?: boolean;
   showStyleFilter?:      boolean;
   onSearchArea?:         (lat: number, lng: number) => void;
+  /** Show a loading pill while appendByCoords is in-flight */
+  searchingArea?:        boolean;
 }
 
-export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange, onOpenProfile, defaultCenter, initialDiscoveryMode, showStyleFilter, onSearchArea }: Props) {
+export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange, onOpenProfile, defaultCenter, initialDiscoveryMode, showStyleFilter, onSearchArea, searchingArea }: Props) {
   return (
     // suppressHydrationWarning: Google Maps injects <style> tags after hydration
     <div suppressHydrationWarning>
@@ -53,6 +55,7 @@ export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange,
         initialDiscoveryMode={initialDiscoveryMode}
         showStyleFilter={showStyleFilter}
         onSearchArea={onSearchArea}
+        searchingArea={searchingArea}
       />
     </div>
   );

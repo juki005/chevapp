@@ -1,25 +1,21 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { PlaceResult } from "@/types/places";
 
 export interface UsePlacesSearchReturn {
-  placeResults:      PlaceResult[];
-  placesLoading:     boolean;
-  loadingMorePlaces: boolean;
-  placesError:       string | null;
-  placesSearched:    boolean;
-  hasMorePlaces:     boolean;
-  /**
-   * Becomes true ~2.5 s after `nextPageToken` is received.
-   * The "Load More" button MUST be disabled while this is false —
-   * that guarantees the token is activated before any request fires.
-   */
-  tokenReady:     boolean;
-  searchPlaces:   (query: string) => Promise<void>;
-  searchByCoords: (lat: number, lng: number) => Promise<void>;
-  loadMorePlaces: () => Promise<void>;
-  clearPlaces:    () => void;
+  placeResults:    PlaceResult[];
+  placesLoading:   boolean;  // true during a fresh/replace search
+  appendingPlaces: boolean;  // true while "Search This Area" appends results
+  placesError:     string | null;
+  placesSearched:  boolean;
+  /** Replace existing results with a keyword text search */
+  searchPlaces:    (query: string) => Promise<void>;
+  /** Replace existing results with a coordinate-based search (city selection) */
+  searchByCoords:  (lat: number, lng: number) => Promise<void>;
+  /** Append deduped results from a coordinate search ("Search This Area" button) */
+  appendByCoords:  (lat: number, lng: number) => Promise<void>;
+  clearPlaces:     () => void;
 }
 
 const BASE_PARAMS = {
@@ -28,66 +24,38 @@ const BASE_PARAMS = {
 };
 
 type PlacesJson = {
-  results?:       PlaceResult[];
-  nextPageToken?: string | null;
-  hint?:          string;
-  error?:         string;
+  results?: PlaceResult[];
+  hint?:    string;
+  error?:   string;
 };
 
 /**
- * Manages Google Places search state.
- *
- * Token-readiness strategy (no sleep / no retry):
- *   A useEffect watches nextPageToken.  Whenever a new token arrives it
- *   resets tokenReady to false and schedules setTokenReady(true) after 2.5 s.
- *   The cleanup auto-cancels the timer if the token is replaced or cleared.
- *   Because the "Load More" button is disabled while !tokenReady, it is
- *   physically impossible to call loadMorePlaces before the token activates.
+ * Discovery-mode Places search.
+ * No pagination — the user explores by moving the map and clicking
+ * "Pretraži ovo područje" which calls appendByCoords.
  */
 export function usePlacesSearch(): UsePlacesSearchReturn {
-  const [placeResults,      setPlaceResults]      = useState<PlaceResult[]>([]);
-  const [placesLoading,     setPlacesLoading]     = useState(false);
-  const [loadingMorePlaces, setLoadingMorePlaces] = useState(false);
-  const [placesError,       setPlacesError]       = useState<string | null>(null);
-  const [placesSearched,    setPlacesSearched]    = useState(false);
-  const [nextPageToken,     setNextPageToken]      = useState<string | null>(null);
-  const [tokenReady,        setTokenReady]         = useState(false);
+  const [placeResults,    setPlaceResults]    = useState<PlaceResult[]>([]);
+  const [placesLoading,   setPlacesLoading]   = useState(false);
+  const [appendingPlaces, setAppendingPlaces] = useState(false);
+  const [placesError,     setPlacesError]     = useState<string | null>(null);
+  const [placesSearched,  setPlacesSearched]  = useState(false);
 
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRef       = useRef<AbortController | null>(null);
+  const appendAbortRef = useRef<AbortController | null>(null);
 
-  // ── Token-readiness countdown ────────────────────────────────────────────────
-  // Triggered whenever nextPageToken changes (new search, load-more, or clear).
-  // The effect cleanup auto-cancels the pending timer when the token is replaced.
-  useEffect(() => {
-    if (!nextPageToken) {
-      setTokenReady(false);
-      return;
-    }
-    // Token just arrived — wait 2.5 s before enabling "Load More"
-    setTokenReady(false);
-    const timer = setTimeout(() => setTokenReady(true), 2500);
-    return () => clearTimeout(timer);
-  }, [nextPageToken]);
-
-  // ── Shared fresh-search fetch ────────────────────────────────────────────────
-  const doSearch = useCallback(async (
-    params:  URLSearchParams,
-    signal:  AbortSignal,
-  ): Promise<void> => {
+  // ── Internal fetch ───────────────────────────────────────────────────────────
+  const doFetch = useCallback(async (
+    params: URLSearchParams,
+    signal: AbortSignal,
+  ): Promise<PlaceResult[]> => {
     const res  = await fetch(`/api/places?${params}`, { signal });
     const json = await res.json() as PlacesJson;
-
-    if (!res.ok) {
-      setPlacesError(json.hint ?? json.error ?? "Greška pri Google pretraživanju.");
-      setPlaceResults([]);
-    } else {
-      setPlaceResults(json.results ?? []);
-      setNextPageToken(json.nextPageToken ?? null); // triggers countdown above
-      setPlacesSearched(true);
-    }
+    if (!res.ok) throw new Error(json.hint ?? json.error ?? `HTTP ${res.status}`);
+    return json.results ?? [];
   }, []);
 
-  // ── Fresh text search ────────────────────────────────────────────────────────
+  // ── Fresh text search — replaces results ─────────────────────────────────────
   const searchPlaces = useCallback(async (query: string) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -95,23 +63,24 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
 
     setPlacesLoading(true);
     setPlacesError(null);
-    setNextPageToken(null); // clears tokenReady immediately via the effect above
 
     try {
-      await doSearch(
+      const results = await doFetch(
         new URLSearchParams({ ...BASE_PARAMS, near: query }),
         ctrl.signal,
       );
+      setPlaceResults(results);
+      setPlacesSearched(true);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      setPlacesError("Mrežna greška pri Google pretraživanju.");
+      setPlacesError((err as Error).message ?? "Greška pri Google pretraživanju.");
       setPlaceResults([]);
     } finally {
       setPlacesLoading(false);
     }
-  }, [doSearch]);
+  }, [doFetch]);
 
-  // ── Coordinate search — "Search This Area" button on the map ────────────────
+  // ── Coordinate search — replaces results (city selection) ────────────────────
   const searchByCoords = useCallback(async (lat: number, lng: number) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -119,75 +88,72 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
 
     setPlacesLoading(true);
     setPlacesError(null);
-    setNextPageToken(null);
 
     try {
-      await doSearch(
+      const results = await doFetch(
         new URLSearchParams({ ...BASE_PARAMS, lat: String(lat), lng: String(lng) }),
         ctrl.signal,
       );
+      setPlaceResults(results);
+      setPlacesSearched(true);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      setPlacesError("Mrežna greška pri Google pretraživanju.");
+      setPlacesError((err as Error).message ?? "Greška pri pretraživanju.");
       setPlaceResults([]);
     } finally {
       setPlacesLoading(false);
     }
-  }, [doSearch]);
+  }, [doFetch]);
 
-  // ── Load next page ───────────────────────────────────────────────────────────
-  // CLEAN request: ONLY pagetoken — no other parameters.
-  // No sleep needed here; tokenReady already guarantees the token is activated.
-  const loadMorePlaces = useCallback(async () => {
-    if (!nextPageToken || !tokenReady || loadingMorePlaces) return;
+  // ── Area append — APPENDS deduped results ("Search This Area" button) ────────
+  const appendByCoords = useCallback(async (lat: number, lng: number) => {
+    if (appendingPlaces) return;
+    appendAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    appendAbortRef.current = ctrl;
 
-    setLoadingMorePlaces(true);
+    setAppendingPlaces(true);
     setPlacesError(null);
 
     try {
-      // Strictly isolated request — only the token, nothing else.
-      const params = new URLSearchParams({ pagetoken: nextPageToken });
-      console.log("[Places] loadMore →", nextPageToken.slice(0, 20) + "…");
+      const incoming = await doFetch(
+        new URLSearchParams({ ...BASE_PARAMS, lat: String(lat), lng: String(lng) }),
+        ctrl.signal,
+      );
 
-      const res  = await fetch(`/api/places?${params}`);
-      const json = await res.json() as PlacesJson;
-
-      if (!res.ok) {
-        console.error("[Places] loadMore error:", json);
-        setPlacesError(json.hint ?? json.error ?? "Greška pri dohvatu sljedeće stranice.");
-      } else {
-        setPlaceResults((prev) => [...prev, ...(json.results ?? [])]);
-        setNextPageToken(json.nextPageToken ?? null); // triggers new countdown if another page exists
-        console.log("[Places] loadMore ✓", json.results?.length, "new results");
-      }
+      setPlaceResults((prev) => {
+        const seen = new Set(prev.map((r) => r.place_id));
+        const fresh = incoming.filter((r) => !seen.has(r.place_id));
+        console.log(`[Places] append +${fresh.length} new (${incoming.length - fresh.length} dupes skipped)`);
+        return [...prev, ...fresh];
+      });
+      setPlacesSearched(true);
     } catch (err) {
-      setPlacesError("Greška pri učitavanju sljedeće stranice.");
-      console.error("[Places] loadMore exception:", err);
+      if ((err as Error).name === "AbortError") return;
+      setPlacesError((err as Error).message ?? "Greška pri pretraživanju područja.");
     } finally {
-      setLoadingMorePlaces(false);
+      setAppendingPlaces(false);
     }
-  }, [nextPageToken, tokenReady, loadingMorePlaces]);
+  }, [appendingPlaces, doFetch]);
 
   // ── Clear ────────────────────────────────────────────────────────────────────
   const clearPlaces = useCallback(() => {
     abortRef.current?.abort();
+    appendAbortRef.current?.abort();
     setPlaceResults([]);
     setPlacesError(null);
     setPlacesSearched(false);
-    setNextPageToken(null); // clears tokenReady via effect
   }, []);
 
   return {
     placeResults,
     placesLoading,
-    loadingMorePlaces,
+    appendingPlaces,
     placesError,
     placesSearched,
-    hasMorePlaces: !!nextPageToken,
-    tokenReady,
     searchPlaces,
     searchByCoords,
-    loadMorePlaces,
+    appendByCoords,
     clearPlaces,
   };
 }
