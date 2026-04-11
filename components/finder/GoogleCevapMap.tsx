@@ -118,15 +118,14 @@ const CHARCOAL_STYLE: google.maps.MapTypeStyle[] = [
 ];
 
 // ── ImperativeMarkers ─────────────────────────────────────────────────────────
-// Uses the Google Maps JS `marker` library directly (via useMapsLibrary) so that
-// React's reconciliation cannot miss updates.  On every change to `restaurants`
-// we wipe all existing markers and recreate them from scratch — this guarantees
-// the map always reflects the current list (initial load, Load More, filters).
+// Wipes and rebuilds every marker whenever `restaurants` changes identity.
+// Because finder/page.tsx memoizes mapPins with useMemo, this only fires when
+// the underlying data actually changes (new search, load-more, style filter).
 //
-// Bounds logic (replaces the old BoundsUpdater):
-//   • Count grew AND (not initial-city-load) → fitBounds so new pins are visible
-//   • Initial load with city selected        → skip; CenterUpdater owns zoom 13
-//   • Count same or decreased (city change)  → skip; CenterUpdater handles zoom
+// Bounds:
+//   • Initial city-selected load → skip; CenterUpdater owns zoom-13
+//   • Count grew (Load More)     → fitBounds so new pins are visible
+//   • Count same or fell         → skip; CenterUpdater handles city zoom
 function ImperativeMarkers({
   restaurants,
   locked,
@@ -142,20 +141,31 @@ function ImperativeMarkers({
   const markerLib          = useMapsLibrary("marker");
   const markersRef         = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const prevCountRef       = useRef(0);
-  // Stable ref so the effect does not re-run when the callback identity changes
   const onOpenProfileRef   = useRef(onOpenProfile);
   onOpenProfileRef.current = onOpenProfile;
 
   useEffect(() => {
-    if (!map || !markerLib) return;
+    // Wait until both the map instance AND the marker library are ready
+    if (!map || !markerLib) {
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[ImperativeMarkers] waiting →", { map: !!map, markerLib: !!markerLib });
+      }
+      return;
+    }
 
     const { AdvancedMarkerElement, PinElement } = markerLib;
 
-    // ── 1. Wipe every existing marker ────────────────────────────────────────
+    // ── 1. Atomically wipe all existing markers ───────────────────────────────
     markersRef.current.forEach((m) => { m.map = null; });
     markersRef.current = [];
 
-    const valid = restaurants.filter((r) => r.latitude != null && r.longitude != null);
+    const valid = restaurants.filter(
+      (r) => typeof r.latitude === "number" && typeof r.longitude === "number",
+    );
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[ImperativeMarkers] ${valid.length}/${restaurants.length} pins ready`);
+    }
 
     if (valid.length === 0) {
       prevCountRef.current = 0;
@@ -168,51 +178,56 @@ function ImperativeMarkers({
 
     const bounds = new google.maps.LatLngBounds();
 
-    // ── 2. Create fresh markers for every restaurant ──────────────────────────
-    valid.forEach((r) => {
-      const isDb   = r.source === "supabase";
-      const dimmed = !!activeStyle && !!r.style && r.style !== activeStyle;
+    // ── 2. Rebuild every marker ───────────────────────────────────────────────
+    valid.forEach((r, idx) => {
+      try {
+        const lat  = r.latitude  as number;
+        const lng  = r.longitude as number;
+        const isDb = r.source === "supabase";
+        const dim  = !!activeStyle && !!r.style && r.style !== activeStyle;
 
-      const pin = new PinElement({
-        background:  isDb ? "#e65100" : "#4285f4",
-        borderColor: isDb ? "#bf360c" : "#1a73e8",
-        glyphColor:  isDb ? "#fff8f0" : "#ffffff",
-      });
+        // First 3 pins logged in dev so you can verify coords in the console
+        if (process.env.NODE_ENV !== "production" && idx < 3) {
+          console.log(`  pin[${idx}]`, { name: r.name, lat, lng, source: r.source });
+        }
 
-      if (dimmed) {
-        (pin.element as HTMLElement).style.opacity  = "0.3";
-        (pin.element as HTMLElement).style.transition = "opacity 0.2s";
+        const pin = new PinElement({
+          background:  isDb ? "#e65100" : "#4285f4",
+          borderColor: isDb ? "#bf360c" : "#1a73e8",
+          glyphColor:  isDb ? "#fff8f0" : "#ffffff",
+        });
+        if (dim) {
+          (pin.element as HTMLElement).style.opacity    = "0.3";
+          (pin.element as HTMLElement).style.transition = "opacity 0.2s";
+        }
+
+        const marker = new AdvancedMarkerElement({
+          map,
+          position: { lat, lng },
+          title:    r.name,
+          content:  pin.element,
+          zIndex:   5,
+        });
+        marker.addListener("click", () => onOpenProfileRef.current?.(r));
+
+        markersRef.current.push(marker);
+        bounds.extend({ lat, lng });
+      } catch (err) {
+        console.error("[ImperativeMarkers] marker creation failed:", err, r);
       }
-
-      const marker = new AdvancedMarkerElement({
-        map,
-        position: { lat: r.latitude as number, lng: r.longitude as number },
-        title:    r.name,
-        content:  pin.element,
-        zIndex:   5,
-      });
-
-      // Use ref so click handler always has the latest callback
-      marker.addListener("click", () => onOpenProfileRef.current?.(r));
-
-      markersRef.current.push(marker);
-      bounds.extend({ lat: r.latitude as number, lng: r.longitude as number });
     });
 
-    // ── 3. Fit bounds when appropriate ────────────────────────────────────────
-    //  • Initial city load → skip (CenterUpdater pans to zoom 13)
-    //  • Load More / initial no-city load → expand view to show all pins
+    // ── 3. Fit bounds to show all pins after Load More ────────────────────────
     if (grew && !(locked && wasEmpty) && !bounds.isEmpty()) {
       map.fitBounds(bounds, 56);
       if (valid.length === 1) map.setZoom(14);
     }
 
-    // Cleanup: detach markers when effect re-runs or component unmounts
     return () => {
       markersRef.current.forEach((m) => { m.map = null; });
       markersRef.current = [];
     };
-  // onOpenProfile intentionally omitted — we use onOpenProfileRef
+  // onOpenProfile is intentionally omitted — we use the ref pattern above
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, markerLib, restaurants, locked, activeStyle]);
 

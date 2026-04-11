@@ -378,19 +378,29 @@ export default function FinderPage() {
     return () => { cancelled = true; };
   }, [selectedCity, selectedCountry]);
 
-  // Map pins — DB + Google Places (deduped by proximity)
-  const mapPins: MapRestaurant[] = [
+  // Map pins — DB + Google Places (deduped by proximity).
+  // useMemo gives a stable array reference: ImperativeMarkers only rebuilds
+  // markers when the underlying data changes, not on every unrelated render.
+  const mapPins = useMemo<MapRestaurant[]>(() => [
     ...dbRestaurants.map(toMapPin),
     ...(placesSearched && placeResults.length > 0
       ? placeResults
-          .map((r) => ({ fsq_id: r.place_id, name: r.name, city: r.city, address: r.address, latitude: r.latitude, longitude: r.longitude, source: "google" as const }))
+          .map((r) => ({
+            fsq_id:    r.place_id,
+            name:      r.name,
+            city:      r.city,
+            address:   r.address,
+            latitude:  r.latitude,
+            longitude: r.longitude,
+            source:    "google" as const,
+          }))
           .filter((gp) => !dbRestaurants.some((db) =>
             db.latitude != null &&
-            Math.abs(db.latitude - (gp.latitude ?? 999)) < 0.002 &&
+            Math.abs(db.latitude  - (gp.latitude  ?? 999)) < 0.002 &&
             Math.abs((db.longitude ?? 0) - (gp.longitude ?? 999)) < 0.002
           ))
       : []),
-  ];
+  ], [dbRestaurants, placeResults, placesSearched]);
 
   const handleSeed = async () => {
     setSeeding(true); setSeedMsg(null);
