@@ -58,6 +58,8 @@ interface Props {
   defaultCenter?:        { lat: number; lng: number };
   initialDiscoveryMode?: boolean;
   showStyleFilter?:      boolean;
+  /** Called when user clicks "Pretraži ovo područje" after panning the map */
+  onSearchArea?:         (lat: number, lng: number) => void;
 }
 
 // ── Style metadata ────────────────────────────────────────────────────────────
@@ -116,18 +118,31 @@ const CHARCOAL_STYLE: google.maps.MapTypeStyle[] = [
 ];
 
 // ── BoundsUpdater ─────────────────────────────────────────────────────────────
-// When `locked` is true (city is explicitly selected), skip fitBounds so the
-// CenterUpdater's zoom-13 city view is not overridden by restaurant spread.
+// Rules:
+//   • Count decrease or unchanged  → skip (city change handled by CenterUpdater)
+//   • Initial load, city selected  → skip (CenterUpdater owns zoom-13 city view)
+//   • Initial load, no city        → fitBounds to show all pins
+//   • Load More (count grew > 0)   → fitBounds regardless of lock so new pins
+//     are always visible on the map
 function BoundsUpdater({ restaurants, locked }: { restaurants: MapRestaurant[]; locked: boolean }) {
   const map          = useMap();
   const prevCountRef = useRef(0);
 
   useEffect(() => {
-    if (locked) return; // city selected — CenterUpdater handles positioning
     const valid = restaurants.filter((r) => r.latitude != null && r.longitude != null);
-    if (!map || valid.length === 0 || valid.length === prevCountRef.current) return;
+    if (!map || valid.length === 0) return;
+
+    const grew     = valid.length > prevCountRef.current;
+    const wasEmpty = prevCountRef.current === 0;
+    if (!grew) return; // count same or decreased — CenterUpdater handles city view
+
     prevCountRef.current = valid.length;
 
+    // City selected on initial load: CenterUpdater zooms to it at zoom 13.
+    // Don't run fitBounds or the restaurant spread will override the city zoom.
+    if (locked && wasEmpty) return;
+
+    // All other cases (Load More or initial load without city): show all pins.
     const lats = valid.map((r) => r.latitude as number);
     const lngs = valid.map((r) => r.longitude as number);
     map.fitBounds(
@@ -201,6 +216,60 @@ function BoundsTracker({
     const listener = map.addListener("idle", compute);
     return () => google.maps.event.removeListener(listener);
   }, [map, enabled]);
+
+  return null;
+}
+
+// ── Haversine distance (km) ───────────────────────────────────────────────────
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R    = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLng = (lng2 - lng1) * (Math.PI / 180);
+  const a    = Math.sin(dLat / 2) ** 2
+             + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180))
+             * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// ── MapDriftTracker ───────────────────────────────────────────────────────────
+// Listens for map idle events and notifies the parent when the user has panned
+// more than DRIFT_THRESHOLD_KM away from `homeCenter`.  Uses refs for callbacks
+// so the effect only re-binds when map or homeCenter changes.
+const DRIFT_THRESHOLD_KM = 3;
+
+function MapDriftTracker({
+  homeCenter,
+  onDrift,
+  onHome,
+}: {
+  homeCenter: { lat: number; lng: number } | undefined;
+  onDrift:    (lat: number, lng: number) => void;
+  onHome:     () => void;
+}) {
+  const map        = useMap();
+  const driftRef   = useRef(onDrift);
+  const homeRef    = useRef(onHome);
+  driftRef.current = onDrift;
+  homeRef.current  = onHome;
+
+  useEffect(() => {
+    if (!map || !homeCenter) {
+      homeRef.current(); // no home → always clear the button
+      return;
+    }
+
+    const listener = map.addListener("idle", () => {
+      const center = map.getCenter();
+      if (!center) return;
+      const dist = haversineKm(center.lat(), center.lng(), homeCenter.lat, homeCenter.lng);
+      if (dist > DRIFT_THRESHOLD_KM) {
+        driftRef.current(center.lat(), center.lng());
+      } else {
+        homeRef.current();
+      }
+    });
+    return () => google.maps.event.removeListener(listener);
+  }, [map, homeCenter]);
 
   return null;
 }
@@ -396,11 +465,22 @@ export default function GoogleCevapMap({
   defaultCenter,                          // undefined = no city; use region fallback
   initialDiscoveryMode = false,
   showStyleFilter      = true,
+  onSearchArea,
 }: Props) {
   // When a city is explicitly selected, lock the map on it at zoom 13.
   // Country-only (no city): fall back to Balkan region view at zoom 6/8.
   const hasCityCenter = !!defaultCenter;
   const [internalStyle, setInternalStyle] = useState<string>("");
+
+  // ── "Search This Area" state ───────────────────────────────────────────────
+  // Set by MapDriftTracker when the user pans > DRIFT_THRESHOLD_KM from the city.
+  const [searchAreaTarget, setSearchAreaTarget] = useState<{ lat: number; lng: number } | null>(null);
+
+  const handleDrift = useCallback((lat: number, lng: number) => {
+    if (onSearchArea) setSearchAreaTarget({ lat, lng });
+  }, [onSearchArea]);
+
+  const handleHome = useCallback(() => setSearchAreaTarget(null), []);
 
   const activeStyle       = controlledStyle !== undefined ? (controlledStyle ?? "") : internalStyle;
   const handleStyleChange = (s: string) => {
@@ -478,9 +558,15 @@ export default function GoogleCevapMap({
         >
           {/* Re-center imperatively when city changes (defaultCenter is mount-only) */}
           <CenterUpdater center={defaultCenter} />
-          {/* Skip fitBounds when city is selected — CenterUpdater owns positioning */}
+          {/* fitBounds on initial no-city load and on every Load More grow */}
           <BoundsUpdater restaurants={restaurants} locked={hasCityCenter} />
           <BoundsTracker enabled={discoveryMode} onBoundsChange={handleBoundsChange} />
+          {/* Show "Pretraži ovo područje" when user pans > 3 km from city */}
+          <MapDriftTracker
+            homeCenter={defaultCenter}
+            onDrift={handleDrift}
+            onHome={handleHome}
+          />
 
           {/* ── Landmark markers — lower z-index, smaller, grey ────────── */}
           {discoveryMode && landmarks.map((lm) => (
@@ -520,6 +606,48 @@ export default function GoogleCevapMap({
 
       {/* ── Floating style filter (top-right) ────────────────────────────── */}
       {showStyleFilter && <MapStyleFilter active={activeStyle} onChange={handleStyleChange} />}
+
+      {/* ── "Pretraži ovo područje" — appears after panning away from city ── */}
+      {searchAreaTarget && onSearchArea && (
+        <div
+          style={{
+            position:  "absolute",
+            top:       12,
+            left:      "50%",
+            transform: "translateX(-50%)",
+            zIndex:    10,
+          }}
+        >
+          <button
+            onClick={() => {
+              onSearchArea(searchAreaTarget.lat, searchAreaTarget.lng);
+              setSearchAreaTarget(null);
+            }}
+            style={{
+              display:        "flex",
+              alignItems:     "center",
+              gap:            7,
+              padding:        "9px 18px",
+              borderRadius:   999,
+              background:     "rgba(16,14,12,0.88)",
+              border:         "1px solid rgba(255,107,0,0.55)",
+              color:          "#FF6B00",
+              fontSize:       13,
+              fontWeight:     700,
+              cursor:         "pointer",
+              backdropFilter: "blur(12px)",
+              boxShadow:      "0 4px 20px rgba(0,0,0,0.5)",
+              whiteSpace:     "nowrap",
+              transition:     "all 0.15s ease",
+              letterSpacing:  "0.02em",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,107,0,0.18)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "rgba(16,14,12,0.88)")}
+          >
+            🔍 Pretraži ovo područje
+          </button>
+        </div>
+      )}
 
       {/* ── Discovery Mode FAB (bottom-left) ─────────────────────────────── */}
       <button

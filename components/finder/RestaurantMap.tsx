@@ -36,9 +36,10 @@ interface Props {
   defaultCenter?:        { lat: number; lng: number };
   initialDiscoveryMode?: boolean;
   showStyleFilter?:      boolean;
+  onSearchArea?:         (lat: number, lng: number) => void;
 }
 
-export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange, onOpenProfile, defaultCenter, initialDiscoveryMode, showStyleFilter }: Props) {
+export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange, onOpenProfile, defaultCenter, initialDiscoveryMode, showStyleFilter, onSearchArea }: Props) {
   return (
     // suppressHydrationWarning: Google Maps injects <style> tags after hydration
     <div suppressHydrationWarning>
@@ -51,6 +52,7 @@ export function RestaurantMap({ restaurants, height, activeStyle, onStyleChange,
         defaultCenter={defaultCenter}
         initialDiscoveryMode={initialDiscoveryMode}
         showStyleFilter={showStyleFilter}
+        onSearchArea={onSearchArea}
       />
     </div>
   );

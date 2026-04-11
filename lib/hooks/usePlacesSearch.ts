@@ -11,6 +11,7 @@ export interface UsePlacesSearchReturn {
   placesSearched:    boolean;
   hasMorePlaces:     boolean;
   searchPlaces:      (query: string) => Promise<void>;
+  searchByCoords:    (lat: number, lng: number) => Promise<void>;
   loadMorePlaces:    () => Promise<void>;
   clearPlaces:       () => void;
 }
@@ -20,12 +21,17 @@ const BASE_PARAMS = {
   limit: "20",
 };
 
+// Google activates next_page_token ~2 s after the search response arrives.
+// We use 2.5 s as a safety margin and deduct however long the user already waited.
+const TOKEN_MIN_AGE_MS = 2500;
+
 /**
  * Manages Google Places search state and fetch logic.
  *
- * searchPlaces(query)  — fresh search, replaces results, resets pagination
- * loadMorePlaces()     — appends next page using the stored next_page_token
- * clearPlaces()        — resets all state
+ * searchPlaces(query)      — fresh text search, replaces results, resets pagination
+ * searchByCoords(lat, lng) — fresh coordinate search (used by "Search This Area")
+ * loadMorePlaces()         — appends next page; respects Google's token activation delay
+ * clearPlaces()            — resets all state
  */
 export function usePlacesSearch(): UsePlacesSearchReturn {
   const [placeResults,      setPlaceResults]      = useState<PlaceResult[]>([]);
@@ -35,9 +41,37 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
   const [placesSearched,    setPlacesSearched]    = useState(false);
   const [nextPageToken,     setNextPageToken]      = useState<string | null>(null);
 
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRef          = useRef<AbortController | null>(null);
+  // Timestamp (ms) of when the current nextPageToken was received from Google.
+  // Used in loadMorePlaces to sleep only the remaining gap, not a full 2.5 s.
+  const tokenTimestampRef = useRef<number>(0);
 
-  // ── Fresh search — replaces results, resets pagination ──────────────────────
+  // ── Shared "store results" helper ────────────────────────────────────────────
+  type PlacesJson = {
+    results?:       PlaceResult[];
+    nextPageToken?: string | null;
+    hint?:          string;
+    error?:         string;
+    status?:        string;
+  };
+
+  const storeResults = (json: PlacesJson, ok: boolean) => {
+    if (!ok) {
+      setPlacesError(json.hint ?? json.error ?? "Greška pri Google pretraživanju.");
+      setPlaceResults([]);
+    } else {
+      setPlaceResults(json.results ?? []);
+      if (json.nextPageToken) {
+        setNextPageToken(json.nextPageToken);
+        tokenTimestampRef.current = Date.now();
+      } else {
+        setNextPageToken(null);
+      }
+      setPlacesSearched(true);
+    }
+  };
+
+  // ── Fresh text search ────────────────────────────────────────────────────────
   const searchPlaces = useCallback(async (query: string) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -50,21 +84,8 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     try {
       const params = new URLSearchParams({ ...BASE_PARAMS, near: query });
       const res    = await fetch(`/api/places?${params}`, { signal: ctrl.signal });
-      const json   = await res.json() as {
-        results?: PlaceResult[];
-        nextPageToken?: string | null;
-        hint?: string;
-        error?: string;
-      };
-
-      if (!res.ok) {
-        setPlacesError(json.hint ?? json.error ?? `HTTP ${res.status}`);
-        setPlaceResults([]);
-      } else {
-        setPlaceResults(json.results ?? []);
-        setNextPageToken(json.nextPageToken ?? null);
-        setPlacesSearched(true);
-      }
+      const json   = await res.json() as PlacesJson;
+      storeResults(json, res.ok);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setPlacesError("Mrežna greška pri Google pretraživanju.");
@@ -72,11 +93,43 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     } finally {
       setPlacesLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Coordinate search — "Search This Area" from map ─────────────────────────
+  const searchByCoords = useCallback(async (lat: number, lng: number) => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    setPlacesLoading(true);
+    setPlacesError(null);
+    setNextPageToken(null);
+
+    try {
+      const params = new URLSearchParams({
+        ...BASE_PARAMS,
+        lat: String(lat),
+        lng: String(lng),
+      });
+      const res  = await fetch(`/api/places?${params}`, { signal: ctrl.signal });
+      const json = await res.json() as PlacesJson;
+      storeResults(json, res.ok);
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setPlacesError("Mrežna greška pri Google pretraživanju.");
+      setPlaceResults([]);
+    } finally {
+      setPlacesLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Load next page — appends results ────────────────────────────────────────
-  // Google Places requires ~2 s before a next_page_token is valid. We add a
-  // small delay to avoid INVALID_REQUEST on fast clicks.
+  // Strategy:
+  //   1. Deduct however long the user already waited from the required TOKEN_MIN_AGE_MS.
+  //   2. If the token still isn't ready (INVALID_REQUEST), retry once after 3 s.
+  //   3. Disable the button while in-flight to prevent double-clicks.
   const loadMorePlaces = useCallback(async () => {
     if (!nextPageToken || loadingMorePlaces) return;
 
@@ -84,23 +137,37 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     setPlacesError(null);
 
     try {
-      // Small mandatory wait — Google's token needs ~2 s to activate
-      await new Promise((r) => setTimeout(r, 2000));
+      // ── 1. Respect Google's token activation window ──────────────────────────
+      const elapsed = Date.now() - tokenTimestampRef.current;
+      const waitMs  = Math.max(0, TOKEN_MIN_AGE_MS - elapsed);
+      if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
 
-      const params = new URLSearchParams({ pagetoken: nextPageToken });
-      const res    = await fetch(`/api/places?${params}`);
-      const json   = await res.json() as {
-        results?: PlaceResult[];
-        nextPageToken?: string | null;
-        hint?: string;
-        error?: string;
+      // ── 2. Fetch helper ──────────────────────────────────────────────────────
+      const doFetch = async () => {
+        const params = new URLSearchParams({ pagetoken: nextPageToken });
+        const res    = await fetch(`/api/places?${params}`);
+        return { ok: res.ok, json: await res.json() as PlacesJson };
       };
 
-      if (!res.ok) {
-        setPlacesError(json.hint ?? json.error ?? `HTTP ${res.status}`);
+      let { ok, json } = await doFetch();
+
+      // ── 3. One retry if token wasn't ready yet ───────────────────────────────
+      if (!ok && (json.status === "INVALID_REQUEST" || json.error?.toLowerCase().includes("invalid"))) {
+        console.warn("[usePlacesSearch] next_page_token not yet active — retrying in 3 s…");
+        await new Promise((r) => setTimeout(r, 3000));
+        ({ ok, json } = await doFetch());
+      }
+
+      if (!ok) {
+        setPlacesError(json.hint ?? json.error ?? "Greška pri dohvatu sljedeće stranice.");
       } else {
         setPlaceResults((prev) => [...prev, ...(json.results ?? [])]);
-        setNextPageToken(json.nextPageToken ?? null);
+        if (json.nextPageToken) {
+          setNextPageToken(json.nextPageToken);
+          tokenTimestampRef.current = Date.now();
+        } else {
+          setNextPageToken(null);
+        }
       }
     } catch (err) {
       setPlacesError("Greška pri učitavanju sljedeće stranice.");
@@ -127,6 +194,7 @@ export function usePlacesSearch(): UsePlacesSearchReturn {
     placesSearched,
     hasMorePlaces:  !!nextPageToken,
     searchPlaces,
+    searchByCoords,
     loadMorePlaces,
     clearPlaces,
   };

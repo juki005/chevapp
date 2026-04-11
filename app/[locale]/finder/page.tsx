@@ -101,7 +101,7 @@ export default function FinderPage() {
   const {
     placeResults, placesLoading, placesError, placesSearched,
     hasMorePlaces, loadingMorePlaces, loadMorePlaces,
-    searchPlaces, clearPlaces,
+    searchPlaces, searchByCoords, clearPlaces,
   } = usePlacesSearch();
 
   // ── Profile modal ──────────────────────────────────────────────────────────
@@ -469,7 +469,13 @@ export default function FinderPage() {
         {placesSearched && !placesLoading && placeResults.length > 0 && (
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#4285f4]/25 bg-[#4285f4]/5 text-sm mb-4">
             <span className="text-[#4285f4] text-base font-bold">G</span>
-            <span className="text-[rgb(var(--muted))]">Google Places: <span className="text-[rgb(var(--foreground))] font-medium">{placeResults.length} lokacija</span> pronađeno za &ldquo;{searchTerm}&rdquo;</span>
+            <span className="text-[rgb(var(--muted))]">
+              Google Places:{" "}
+              <span className="text-[rgb(var(--foreground))] font-medium">
+                {placeResults.length}{hasMorePlaces ? "+" : ""} lokacija
+              </span>{" "}
+              pronađeno za &ldquo;{searchTerm || selectedCity}&rdquo;
+            </span>
           </div>
         )}
 
@@ -528,6 +534,7 @@ export default function FinderPage() {
               defaultCenter={mapCenter}
               activeStyle={activeStyle || null}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
+              onSearchArea={searchByCoords}
               onOpenProfile={(pin) => {
                 if (pin.id) {
                   const r = dbRestaurants.find((db) => db.id === pin.id);
