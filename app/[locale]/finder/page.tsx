@@ -100,7 +100,7 @@ export default function FinderPage() {
   // ── Google Places ──────────────────────────────────────────────────────────
   const {
     placeResults, placesLoading, placesError, placesSearched,
-    hasMorePlaces, loadingMorePlaces, loadMorePlaces,
+    hasMorePlaces, tokenReady, loadingMorePlaces, loadMorePlaces,
     searchPlaces, searchByCoords, clearPlaces,
   } = usePlacesSearch();
 
@@ -694,16 +694,21 @@ export default function FinderPage() {
                       ))}
                     </div>
 
-                    {/* Google Places — Load More (next_page_token) */}
+                    {/* Google Places — Load More
+                        Disabled for 2.5 s after results arrive so the
+                        next_page_token is always activated before the
+                        request fires — this completely prevents 400s. */}
                     {hasMorePlaces && (
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={loadMorePlaces}
-                          disabled={loadingMorePlaces}
-                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[#4285f4]/30 text-sm font-semibold text-[#4285f4] hover:border-[#4285f4]/60 hover:bg-[#4285f4]/5 transition-all disabled:opacity-50 active:scale-95"
+                          disabled={!tokenReady || loadingMorePlaces}
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[#4285f4]/30 text-sm font-semibold text-[#4285f4] hover:border-[#4285f4]/60 hover:bg-[#4285f4]/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                         >
                           {loadingMorePlaces ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam Google rezultate…</>
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam…</>
+                          ) : !tokenReady ? (
+                            <><Loader2 className="w-4 h-4 animate-spin opacity-40" /> Pričekajte…</>
                           ) : (
                             <><ChevronDown className="w-4 h-4" /> Učitaj još Google rezultata</>
                           )}

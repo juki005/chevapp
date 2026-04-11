@@ -22,9 +22,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   APIProvider,
   Map,
-  AdvancedMarker,
-  Pin,
+  AdvancedMarker,   // still used for landmark mini-markers
   useMap,
+  useMapsLibrary,   // async library loader for imperative marker API
 } from "@vis.gl/react-google-maps";
 import { MapPin, X, Star, ExternalLink } from "lucide-react";
 import {
@@ -117,40 +117,104 @@ const CHARCOAL_STYLE: google.maps.MapTypeStyle[] = [
   { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#c9b99a" }] },
 ];
 
-// ── BoundsUpdater ─────────────────────────────────────────────────────────────
-// Rules:
-//   • Count decrease or unchanged  → skip (city change handled by CenterUpdater)
-//   • Initial load, city selected  → skip (CenterUpdater owns zoom-13 city view)
-//   • Initial load, no city        → fitBounds to show all pins
-//   • Load More (count grew > 0)   → fitBounds regardless of lock so new pins
-//     are always visible on the map
-function BoundsUpdater({ restaurants, locked }: { restaurants: MapRestaurant[]; locked: boolean }) {
-  const map          = useMap();
-  const prevCountRef = useRef(0);
+// ── ImperativeMarkers ─────────────────────────────────────────────────────────
+// Uses the Google Maps JS `marker` library directly (via useMapsLibrary) so that
+// React's reconciliation cannot miss updates.  On every change to `restaurants`
+// we wipe all existing markers and recreate them from scratch — this guarantees
+// the map always reflects the current list (initial load, Load More, filters).
+//
+// Bounds logic (replaces the old BoundsUpdater):
+//   • Count grew AND (not initial-city-load) → fitBounds so new pins are visible
+//   • Initial load with city selected        → skip; CenterUpdater owns zoom 13
+//   • Count same or decreased (city change)  → skip; CenterUpdater handles zoom
+function ImperativeMarkers({
+  restaurants,
+  locked,
+  activeStyle,
+  onOpenProfile,
+}: {
+  restaurants:   MapRestaurant[];
+  locked:        boolean;
+  activeStyle:   string;
+  onOpenProfile: ((r: MapRestaurant) => void) | undefined;
+}) {
+  const map                = useMap();
+  const markerLib          = useMapsLibrary("marker");
+  const markersRef         = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const prevCountRef       = useRef(0);
+  // Stable ref so the effect does not re-run when the callback identity changes
+  const onOpenProfileRef   = useRef(onOpenProfile);
+  onOpenProfileRef.current = onOpenProfile;
 
   useEffect(() => {
+    if (!map || !markerLib) return;
+
+    const { AdvancedMarkerElement, PinElement } = markerLib;
+
+    // ── 1. Wipe every existing marker ────────────────────────────────────────
+    markersRef.current.forEach((m) => { m.map = null; });
+    markersRef.current = [];
+
     const valid = restaurants.filter((r) => r.latitude != null && r.longitude != null);
-    if (!map || valid.length === 0) return;
+
+    if (valid.length === 0) {
+      prevCountRef.current = 0;
+      return;
+    }
 
     const grew     = valid.length > prevCountRef.current;
     const wasEmpty = prevCountRef.current === 0;
-    if (!grew) return; // count same or decreased — CenterUpdater handles city view
-
     prevCountRef.current = valid.length;
 
-    // City selected on initial load: CenterUpdater zooms to it at zoom 13.
-    // Don't run fitBounds or the restaurant spread will override the city zoom.
-    if (locked && wasEmpty) return;
+    const bounds = new google.maps.LatLngBounds();
 
-    // All other cases (Load More or initial load without city): show all pins.
-    const lats = valid.map((r) => r.latitude as number);
-    const lngs = valid.map((r) => r.longitude as number);
-    map.fitBounds(
-      { north: Math.max(...lats), south: Math.min(...lats), east: Math.max(...lngs), west: Math.min(...lngs) },
-      56
-    );
-    if (valid.length === 1) map.setZoom(14);
-  }, [map, restaurants, locked]);
+    // ── 2. Create fresh markers for every restaurant ──────────────────────────
+    valid.forEach((r) => {
+      const isDb   = r.source === "supabase";
+      const dimmed = !!activeStyle && !!r.style && r.style !== activeStyle;
+
+      const pin = new PinElement({
+        background:  isDb ? "#e65100" : "#4285f4",
+        borderColor: isDb ? "#bf360c" : "#1a73e8",
+        glyphColor:  isDb ? "#fff8f0" : "#ffffff",
+      });
+
+      if (dimmed) {
+        (pin.element as HTMLElement).style.opacity  = "0.3";
+        (pin.element as HTMLElement).style.transition = "opacity 0.2s";
+      }
+
+      const marker = new AdvancedMarkerElement({
+        map,
+        position: { lat: r.latitude as number, lng: r.longitude as number },
+        title:    r.name,
+        content:  pin.element,
+        zIndex:   5,
+      });
+
+      // Use ref so click handler always has the latest callback
+      marker.addListener("click", () => onOpenProfileRef.current?.(r));
+
+      markersRef.current.push(marker);
+      bounds.extend({ lat: r.latitude as number, lng: r.longitude as number });
+    });
+
+    // ── 3. Fit bounds when appropriate ────────────────────────────────────────
+    //  • Initial city load → skip (CenterUpdater pans to zoom 13)
+    //  • Load More / initial no-city load → expand view to show all pins
+    if (grew && !(locked && wasEmpty) && !bounds.isEmpty()) {
+      map.fitBounds(bounds, 56);
+      if (valid.length === 1) map.setZoom(14);
+    }
+
+    // Cleanup: detach markers when effect re-runs or component unmounts
+    return () => {
+      markersRef.current.forEach((m) => { m.map = null; });
+      markersRef.current = [];
+    };
+  // onOpenProfile intentionally omitted — we use onOpenProfileRef
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, markerLib, restaurants, locked, activeStyle]);
 
   return null;
 }
@@ -558,8 +622,17 @@ export default function GoogleCevapMap({
         >
           {/* Re-center imperatively when city changes (defaultCenter is mount-only) */}
           <CenterUpdater center={defaultCenter} />
-          {/* fitBounds on initial no-city load and on every Load More grow */}
-          <BoundsUpdater restaurants={restaurants} locked={hasCityCenter} />
+
+          {/* Imperative restaurant markers — clears + rebuilds on every change
+              so new pins from "Load More" are always visible immediately.
+              Also owns fitBounds logic (replaces the old BoundsUpdater).       */}
+          <ImperativeMarkers
+            restaurants={restaurants}
+            locked={hasCityCenter}
+            activeStyle={activeStyle}
+            onOpenProfile={(r) => { setSelectedLandmark(null); onOpenProfile?.(r); }}
+          />
+
           <BoundsTracker enabled={discoveryMode} onBoundsChange={handleBoundsChange} />
           {/* Show "Pretraži ovo područje" when user pans > 3 km from city */}
           <MapDriftTracker
@@ -576,31 +649,6 @@ export default function GoogleCevapMap({
               onClick={() => setSelectedLandmark(prev => prev?.id === lm.id ? null : lm)}
             />
           ))}
-
-          {/* ── Restaurant pin markers — click opens full profile modal ── */}
-          {mapped.map((r) => {
-            const key    = r.id ?? r.fsq_id ?? r.name;
-            const isDb   = r.source === "supabase";
-            const dimmed = !!activeStyle && !!r.style && r.style !== activeStyle;
-
-            return (
-              <AdvancedMarker
-                key={key}
-                position={{ lat: r.latitude as number, lng: r.longitude as number }}
-                onClick={() => { setSelectedLandmark(null); onOpenProfile?.(r); }}
-                title={r.name}
-                zIndex={5}
-              >
-                <div style={{ opacity: dimmed ? 0.3 : 1, transition: "opacity 0.2s" }}>
-                  <Pin
-                    background={isDb ? "#e65100" : "#4285f4"}
-                    borderColor={isDb ? "#bf360c" : "#1a73e8"}
-                    glyphColor={isDb ? "#fff8f0" : "#ffffff"}
-                  />
-                </div>
-              </AdvancedMarker>
-            );
-          })}
         </Map>
       </APIProvider>
 
