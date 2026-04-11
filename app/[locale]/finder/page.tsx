@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   MapPin, Loader2, ServerCrash, SlidersHorizontal,
-  CheckCircle, XCircle, RefreshCw,
+  CheckCircle, XCircle, RefreshCw, ChevronDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDebounce } from "@/lib/hooks/useDebounce";
