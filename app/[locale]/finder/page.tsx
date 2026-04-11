@@ -17,7 +17,7 @@ import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
 import { QuickLogModal } from "@/components/journal/QuickLogModal";
 import { FinderFilterBar } from "@/components/finder/FinderFilterBar";
 import { PlaceResultCard } from "@/components/finder/PlaceResultCard";
-import { CITY_COUNTRY, COUNTRY_CONFIG } from "@/constants/cities";
+import { CITY_COUNTRY, COUNTRY_CONFIG, resolveCityCoords } from "@/constants/cities";
 import type { LocationValue } from "@/components/finder/LocationFilter";
 import dynamic from "next/dynamic";
 import type { MapRestaurant } from "@/components/finder/RestaurantMap";
@@ -341,6 +341,13 @@ export default function FinderPage() {
 
   const hasMore = dbRestaurants.length < totalCount;
 
+  // ── Map center — derived from selected city coords ─────────────────────────
+  const mapCenter = useMemo(() => {
+    if (!selectedCity) return undefined;
+    const coords = resolveCityCoords(selectedCity);
+    return coords ? { lat: coords[0], lng: coords[1] } : undefined;
+  }, [selectedCity]);
+
   // Map pins — DB + Google Places (deduped by proximity)
   const mapPins: MapRestaurant[] = [
     ...dbRestaurants.map(toMapPin),
@@ -488,6 +495,7 @@ export default function FinderPage() {
             <RestaurantMap
               restaurants={mapPins}
               height="520px"
+              defaultCenter={mapCenter}
               activeStyle={activeStyle || null}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
               onOpenProfile={(pin) => {

@@ -44,30 +44,53 @@ export function FinderFilterBar({
   return (
     <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-4 mb-5 space-y-3">
 
-      {/* ── Row 1: text search + view toggle ──────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* ── Row 1: Location filter — PRIMARY ─────────────────────────────────
+           Country select → City autocomplete → Geo button
+           This is the main filter; drives DB query + Google Places.          */}
+      <LocationFilter
+        value={locationValue}
+        onChange={onLocationChange}
+      />
 
-        {/* Name / restaurant search */}
+      {/* ── Row 2: Name search (secondary) + View toggle ──────────────────── */}
+      <div className="flex flex-col sm:flex-row gap-2">
+
+        {/* Name / restaurant search — secondary, visually quieter */}
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[rgb(var(--muted))/0.6] pointer-events-none" />
           {placesLoading && (
-            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--primary))] animate-spin" />
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#FF6B00] animate-spin" />
           )}
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="w-full pl-11 pr-11 py-2.5 rounded-xl bg-[rgb(var(--background))] border border-[rgb(var(--border))] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.6)] transition-colors text-sm"
+            placeholder="Pretraži po imenu..."
+            className={cn(
+              "w-full pl-9 pr-9 py-2 rounded-xl border text-sm transition-colors outline-none",
+              "bg-[rgb(var(--background))]",
+              "placeholder:text-[rgb(var(--muted))/0.5] text-[rgb(var(--foreground))]",
+              searchTerm
+                ? "border-[#FF6B00]/40"
+                : "border-[rgb(var(--border))/0.7] focus:border-[rgb(var(--border))]",
+            )}
           />
+          {searchTerm && (
+            <button
+              onClick={() => onSearchChange("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         {/* View toggle */}
-        <div className="flex rounded-xl border border-[rgb(var(--border))] overflow-hidden w-full sm:w-auto flex-shrink-0 self-start sm:self-auto">
+        <div className="flex rounded-xl border border-[rgb(var(--border))] overflow-hidden w-full sm:w-auto flex-shrink-0">
           <button
             onClick={() => onViewModeChange("grid")}
             className={cn(
-              "flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 min-h-[44px] py-2.5 text-sm font-medium transition-colors",
+              "flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 min-h-[38px] py-2 text-sm font-medium transition-colors",
               viewMode === "grid"
                 ? "bg-[rgb(var(--primary))] text-white"
                 : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]",
@@ -79,7 +102,7 @@ export function FinderFilterBar({
           <button
             onClick={() => onViewModeChange("map")}
             className={cn(
-              "flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 min-h-[44px] py-2.5 text-sm font-medium transition-colors border-l border-[rgb(var(--border))]",
+              "flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 min-h-[38px] py-2 text-sm font-medium transition-colors border-l border-[rgb(var(--border))]",
               viewMode === "map"
                 ? "bg-[rgb(var(--primary))] text-white"
                 : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]",
@@ -91,13 +114,7 @@ export function FinderFilterBar({
         </div>
       </div>
 
-      {/* ── Row 2: Location filter (country → city autocomplete + geo) ──────── */}
-      <LocationFilter
-        value={locationValue}
-        onChange={onLocationChange}
-      />
-
-      {/* ── Row 3: style chips + action buttons ──────────────────────────── */}
+      {/* ── Row 3: Style chips + Rulet (clearly separated) ───────────────── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <StyleFilter
           activeStyle={activeStyle}
@@ -106,7 +123,7 @@ export function FinderFilterBar({
 
         <div className="flex items-center gap-2 flex-shrink-0 self-start mt-0.5 flex-wrap">
 
-          {/* 🎡 Rulet */}
+          {/* 🎡 Rulet — floating orange CTA, clearly separated from inputs */}
           <motion.button
             onClick={onOpenRulet}
             animate={{
