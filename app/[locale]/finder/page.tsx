@@ -705,7 +705,7 @@ function FinderPageInner() {
                           key={r.id}
                           id={`card-${r.id}`}
                           onClick={() => setSelectedMapKey(r.id === selectedMapKey ? null : r.id)}
-                          className={cn("rounded-2xl transition-all cursor-pointer", selectedMapKey === r.id ? "ring-2 ring-[rgb(var(--primary))] ring-offset-2 ring-offset-[rgb(var(--background))]" : "")}
+                          className={cn("rounded-2xl transition-all cursor-pointer h-full", selectedMapKey === r.id ? "ring-2 ring-[rgb(var(--primary))] ring-offset-2 ring-offset-[rgb(var(--background))]" : "")}
                         >
                           <RestaurantCard
                             restaurant={r}

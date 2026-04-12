@@ -24,6 +24,7 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
       onClick={onSelect}
       className={cn(
         "rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 cursor-pointer transition-all",
+        "flex flex-col h-full",
         isSelected && "ring-2 ring-[#4285f4] ring-offset-2 ring-offset-[rgb(var(--background))]"
       )}
     >
@@ -81,7 +82,7 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
       )}
 
       {/* Footer: rating + actions */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-[rgb(var(--border)/0.5)]">
+      <div className="mt-auto flex items-center justify-between pt-3 border-t border-[rgb(var(--border)/0.5)]">
         {r.rating != null ? (
           <p className="text-xs text-[rgb(var(--muted))]">
             ⭐ <span className="text-[rgb(var(--foreground))] font-medium">{r.rating.toFixed(1)}</span>

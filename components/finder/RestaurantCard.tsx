@@ -92,6 +92,8 @@ export function RestaurantCard({
       className={cn(
         // ── Base shape ──────────────────────────────────────────────────────
         "group rounded-[20px] overflow-hidden transition-all duration-200",
+        // ── Flex column so footer always sits at the bottom ─────────────────
+        "flex flex-col h-full",
         // ── Light: white card + soft shadow + coloured left strip ──────────
         "bg-white border border-[rgb(var(--border))] border-l-4",
         "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
@@ -147,7 +149,7 @@ export function RestaurantCard({
       </button>
 
       {/* ── Middle ────────────────────────────────────────────────────────── */}
-      <div className="px-5 pb-3">
+      <div className="px-5 pb-3 flex-1">
         {/* Style badge + tags */}
         <div className="flex flex-wrap gap-1.5 mb-3">
           <span className={cn(
@@ -190,7 +192,7 @@ export function RestaurantCard({
       </div>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <div className="px-4 py-3 border-t border-[rgb(var(--border)/0.6)] flex items-center justify-between gap-2 bg-gray-50/50 dark:bg-transparent">
+      <div className="mt-auto px-4 py-3 border-t border-[rgb(var(--border)/0.6)] flex items-center justify-between gap-2 bg-gray-50/50 dark:bg-transparent">
         {/* Quick emoji reactions */}
         <div className="flex gap-0.5">
           {(["🧅", "🔥", "🥯"] as const).map((e) => (
