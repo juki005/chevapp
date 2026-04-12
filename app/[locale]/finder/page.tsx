@@ -400,7 +400,7 @@ function FinderPageInner() {
   useEffect(() => {
     if (!selectedCity) {
       prevSearchCityRef.current = "";
-      clearPlaces();
+      clearPlaces(); // wipe results when filter is cleared
       return;
     }
     // Diaspora cities geocode asynchronously — wait for coords before searching
@@ -408,9 +408,14 @@ function FinderPageInner() {
     // Guard: don't re-fire for the same city on unrelated re-renders
     if (selectedCity === prevSearchCityRef.current) return;
     prevSearchCityRef.current = selectedCity;
-    // Native NearbySearch — city-scoped by coords + radius, no proxy needed
+
+    // ── CRITICAL: wipe previous city's Google results IMMEDIATELY ──────────────
+    // Must happen before searchNearby so the old city's cards disappear at once.
+    // The hook's generation counter ensures any in-flight requests for the old
+    // city are silently discarded when their callbacks eventually fire.
+    clearPlaces();
     searchNearby(mapCenter, selectedCity);
-  // searchByCoords and clearPlaces are stable useCallbacks
+  // searchNearby and clearPlaces are stable useCallbacks — safe to omit
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapCenter, selectedCity]);
 

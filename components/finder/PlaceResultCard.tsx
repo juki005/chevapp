@@ -37,7 +37,12 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
           >
             {r.name}
           </h3>
-          <p className="text-xs text-[rgb(var(--muted))] mt-0.5">{r.city}</p>
+          {/* Show actual place city parsed from its own vicinity address.
+              r.city may equal the searched city when parsing fails — in that
+              case fall back to the full address which is always correct. */}
+          <p className="text-xs text-[rgb(var(--muted))] mt-0.5">
+            {r.city && r.city !== r.address ? r.city : r.address}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#4285f4]/30 text-[#4285f4]">
