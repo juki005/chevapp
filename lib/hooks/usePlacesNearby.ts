@@ -22,7 +22,6 @@ import type { PlaceResult } from "@/types/places";
 
 const KEYWORD =
   "ćevapi OR roštilj OR pečenjara OR grill OR ćevabdžinica OR leskovački roštilj";
-const RADIUS = 25_000; // 25 km — covers city + wider metro area
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -225,10 +224,12 @@ export function usePlacesNearby(
         }
       }
 
+      // RankBy.DISTANCE: sorts from city center outward — local places first.
+      // radius MUST be omitted with RankBy.DISTANCE (API rule).
       serviceRef.current.nearbySearch(
         {
           location: { lat: coords.lat, lng: coords.lng },
-          radius:   RADIUS,
+          rankBy:   google.maps.places.RankBy.DISTANCE,
           keyword:  KEYWORD,
           type:     "restaurant",
         },
