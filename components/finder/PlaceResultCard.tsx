@@ -23,8 +23,8 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
     <div
       onClick={onSelect}
       className={cn(
-        "rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 cursor-pointer transition-all",
-        "flex flex-col h-full",
+        "rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 pb-5 cursor-pointer transition-all",
+        "flex flex-col",
         isSelected && "ring-2 ring-[#4285f4] ring-offset-2 ring-offset-[rgb(var(--background))]"
       )}
     >

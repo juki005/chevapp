@@ -92,8 +92,8 @@ export function RestaurantCard({
       className={cn(
         // ── Base shape ──────────────────────────────────────────────────────
         "group rounded-[20px] overflow-hidden transition-all duration-200",
-        // ── Flex column so footer always sits at the bottom ─────────────────
-        "flex flex-col h-full",
+        // ── Flex column — card sizes to content; overflow-hidden never clips ─
+        "flex flex-col",
         // ── Light: white card + soft shadow + coloured left strip ──────────
         "bg-white border border-[rgb(var(--border))] border-l-4",
         "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
@@ -192,7 +192,7 @@ export function RestaurantCard({
       </div>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <div className="mt-auto px-4 py-3 border-t border-[rgb(var(--border)/0.6)] flex items-center justify-between gap-2 bg-gray-50/50 dark:bg-transparent">
+      <div className="mt-auto px-4 pt-3 pb-4 border-t border-[rgb(var(--border)/0.6)] flex flex-wrap items-center justify-between gap-2 bg-gray-50/50 dark:bg-transparent">
         {/* Quick emoji reactions */}
         <div className="flex gap-0.5">
           {(["🧅", "🔥", "🥯"] as const).map((e) => (
@@ -207,7 +207,7 @@ export function RestaurantCard({
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
           {onAddToJournal && (
             <button
               onClick={(e) => { e.stopPropagation(); onAddToJournal(); }}
