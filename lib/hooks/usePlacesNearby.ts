@@ -4,20 +4,16 @@
 // Uses google.maps.places.PlacesService directly in the browser.
 // MUST be used inside a component wrapped by <APIProvider>.
 //
-// Sprint 8.1 — three bugs fixed:
+// Sprint 8.1 fixes:
+//   • clearPlaces() is called by parent before searchNearby (stale state wipe).
+//   • normalise() derives city from each place's own vicinity for display.
+//   • Per-search closures with generation counter (abort / stale callback fix).
 //
-//   1. STALE STATE: clearPlaces() is now called by the parent before
-//      searchNearby (the hook itself no longer assumes callers do it).
-//
-//   2. WRONG CITY ON CARDS: normalise() now derives city from the place's
-//      own vicinity string ("Ilica 5, Zagreb" → "Zagreb"), NOT from
-//      cityNameRef. This means cards always display the actual place city.
-//
-//   3. STALE CALLBACKS / ABORT: handleResults is no longer a shared stable
-//      useCallback(fn, []). Each searchNearby creates its own closure that
-//      captures (gen, cityName). If a newer searchNearby fires before the
-//      async result arrives, genRef.current !== gen → results are discarded.
-//      This acts as an AbortController for the Places API (which has none).
+// Sprint 8.2 fix:
+//   • Removed string-based "Iron Wall" matchesCity() filter.
+//     Google's nearbySearch + location + radius already provides geographic
+//     isolation. Vicinity strings ("Ilica 10") rarely include the city name,
+//     so string matching was discarding ~95% of valid results.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -41,16 +37,6 @@ function cityFromVicinity(vicinity: string, fallback = ""): string {
   const last = parts[parts.length - 1] ?? "";
   // Reject numeric-only values (zip codes like "10000")
   return /^\d+$/.test(last) ? fallback : (last || fallback);
-}
-
-/** Iron Wall: accept a result if the city name appears in its address or city. */
-function matchesCity(result: PlaceResult, cityName: string): boolean {
-  if (!cityName) return true;
-  const city = cityName.toLowerCase();
-  return (
-    result.city.toLowerCase().includes(city) ||
-    result.address.toLowerCase().includes(city)
-  );
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -198,27 +184,27 @@ export function usePlacesNearby(
           tokenTimerRef.current = setTimeout(() => setTokenReady(true), 2500);
         }
 
-        // Normalise — city is derived from each place's own vicinity
+        // Normalise — city derived from each place's own vicinity for display.
+        // No string-based city filter: we trust Google's geographic radius to
+        // restrict results to the searched area. nearbySearch with location +
+        // radius already handles city isolation natively.
         const mapped = (results ?? []).map((p) => normalise(p, cityName));
-
-        // Iron Wall: only keep results whose address/city matches the searched city
-        const ironWalled = mapped.filter((r) => matchesCity(r, cityName));
 
         if (isLM) {
           setPlaceResults((prev) => {
             const seen  = new Set(prev.map((r) => r.place_id));
-            const fresh = ironWalled.filter((r) => !seen.has(r.place_id));
-            console.log(`[Places] loadMore +${fresh.length} (${mapped.length - ironWalled.length} Iron Wall rejected)`);
+            const fresh = mapped.filter((r) => !seen.has(r.place_id));
+            console.log(`[Places] loadMore +${fresh.length}`);
             return [...prev, ...fresh];
           });
         } else {
-          setPlaceResults(ironWalled);
+          setPlaceResults(mapped);
           setPlacesSearched(true);
-          console.log(`[Places] searchNearby: ${ironWalled.length} of ${mapped.length} passed Iron Wall`);
+          console.log(`[Places] searchNearby: ${mapped.length} results`);
         }
 
-        if (ironWalled.length > 0) {
-          onHarvestRef.current?.(ironWalled, cityName);
+        if (mapped.length > 0) {
+          onHarvestRef.current?.(mapped, cityName);
         }
       }
 
