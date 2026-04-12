@@ -21,8 +21,8 @@ import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import type { PlaceResult } from "@/types/places";
 
 const KEYWORD =
-  "ćevapi ćevabdžinica cevapi roštilj pečenjara balkanska kuhinja balkanski roštilj grill";
-const RADIUS = 15_000; // 15 km
+  "ćevapi OR roštilj OR pečenjara OR grill OR ćevabdžinica OR leskovački roštilj";
+const RADIUS = 25_000; // 25 km — covers city + wider metro area
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
