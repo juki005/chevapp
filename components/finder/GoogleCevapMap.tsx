@@ -219,8 +219,10 @@ function ImperativeMarkers({
       }
     });
 
-    // ── 3. Fit bounds to show all pins after Load More ────────────────────────
-    if (grew && !(locked && wasEmpty) && !bounds.isEmpty()) {
+    // ── 3. Fit bounds only when no city is locked (discovery/no-city mode) ───
+    // When a city IS selected (locked=true), CenterUpdater owns zoom+pan.
+    // Never re-fit on Load More or Search Area — that causes the yo-yo snap.
+    if (grew && !locked && !bounds.isEmpty()) {
       map.fitBounds(bounds, 56);
       if (valid.length === 1) map.setZoom(14);
     }
