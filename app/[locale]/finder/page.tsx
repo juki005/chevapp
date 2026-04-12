@@ -9,6 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { usePlacesNearby } from "@/lib/hooks/usePlacesNearby";
+import { syncPlacesToSupabase } from "@/lib/actions/harvest";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { StyleFilter } from "@/components/finder/StyleFilter";
 import { RestaurantCard } from "@/components/finder/RestaurantCard";
@@ -100,15 +101,24 @@ function FinderPageInner() {
   // ── Review averages ────────────────────────────────────────────────────────
   const [avgRatings, setAvgRatings] = useState<Record<string, number>>({});
 
-  // ── Google Places (client-side NearbySearch — no server proxy) ────────────
-  // Uses google.maps.places.PlacesService; pagination.nextPage() is native so
-  // there are no token-expiry or malformed-request issues.
+  // ── Google Places (client-side NearbySearch) ───────────────────────────────
+  // onHarvest: silently upsert new Google discoveries to Supabase so the DB
+  // grows over time and future searches serve from our own data first.
+  const harvestCallback = useCallback(
+    (places: import("@/types/places").PlaceResult[], cityName: string) => {
+      // Fire-and-forget — do not await, never show errors to user
+      syncPlacesToSupabase(places, cityName).catch(() => {/* silent */});
+    },
+    [],
+  );
+
   const {
-    placeResults, placesLoading, loadingMore: loadingMorePlaces,
-    placesError, placesSearched,
+    placeResults, appendedPins,
+    placesLoading, loadingMore: loadingMorePlaces,
+    appendingPlaces, placesError, placesSearched,
     hasMorePlaces, tokenReady,
-    searchNearby, loadMorePlaces, clearPlaces,
-  } = usePlacesNearby();
+    searchNearby, loadMorePlaces, appendByCoords, clearPlaces,
+  } = usePlacesNearby({ onHarvest: harvestCallback });
 
   // ── Profile modal ──────────────────────────────────────────────────────────
   const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
@@ -407,26 +417,45 @@ function FinderPageInner() {
   // Map pins — DB + Google Places (deduped by proximity).
   // useMemo gives a stable array reference: ImperativeMarkers only rebuilds
   // markers when the underlying data changes, not on every unrelated render.
-  const mapPins = useMemo<MapRestaurant[]>(() => [
-    ...dbRestaurants.map(toMapPin),
-    ...(placesSearched && placeResults.length > 0
-      ? placeResults
-          .map((r) => ({
-            fsq_id:    r.place_id,
-            name:      r.name,
-            city:      r.city,
-            address:   r.address,
-            latitude:  r.latitude,
-            longitude: r.longitude,
-            source:    "google" as const,
-          }))
-          .filter((gp) => !dbRestaurants.some((db) =>
-            db.latitude != null &&
-            Math.abs(db.latitude  - (gp.latitude  ?? 999)) < 0.002 &&
-            Math.abs((db.longitude ?? 0) - (gp.longitude ?? 999)) < 0.002
-          ))
-      : []),
-  ], [dbRestaurants, placeResults, placesSearched]);
+  // Map pins = verified DB + Google city results (Iron Walled) + map area pins.
+  // appendedPins come from "Pretraži ovo područje" and may span multiple cities
+  // — they only appear on the map, never in the list view (Iron Wall).
+  const toGooglePin = useCallback((r: import("@/types/places").PlaceResult): MapRestaurant => ({
+    fsq_id:    r.place_id,
+    name:      r.name,
+    city:      r.city,
+    address:   r.address,
+    latitude:  r.latitude,
+    longitude: r.longitude,
+    source:    "google" as const,
+  }), []);
+
+  const mapPins = useMemo<MapRestaurant[]>(() => {
+    const dbPins = dbRestaurants.map(toMapPin);
+
+    // Combine city-results + map-area appends, dedupe by proximity to DB pins
+    const googleCandidates = [
+      ...(placesSearched ? placeResults : []),
+      ...appendedPins,
+    ];
+    const dedupedGoogle = googleCandidates
+      .filter((gp) => !dbRestaurants.some(
+        (db) =>
+          db.latitude != null &&
+          Math.abs(db.latitude  - (gp.latitude  ?? 999)) < 0.002 &&
+          Math.abs((db.longitude ?? 0) - (gp.longitude ?? 999)) < 0.002,
+      ));
+
+    // Dedupe within google results by place_id
+    const seen = new Set<string>();
+    const uniqueGoogle = dedupedGoogle.filter((r) => {
+      if (seen.has(r.place_id)) return false;
+      seen.add(r.place_id);
+      return true;
+    });
+
+    return [...dbPins, ...uniqueGoogle.map(toGooglePin)];
+  }, [dbRestaurants, placeResults, appendedPins, placesSearched, toGooglePin]);
 
   const handleSeed = async () => {
     setSeeding(true); setSeedMsg(null);
@@ -575,7 +604,8 @@ function FinderPageInner() {
               defaultCenter={mapCenter}
               activeStyle={activeStyle || null}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
-              searchingArea={false}
+              onSearchArea={appendByCoords}
+              searchingArea={appendingPlaces}
               onOpenProfile={(pin) => {
                 if (pin.id) {
                   const r = dbRestaurants.find((db) => db.id === pin.id);
