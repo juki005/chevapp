@@ -619,7 +619,7 @@ function FinderPageInner() {
               defaultCenter={mapCenter}
               activeStyle={activeStyle || null}
               onStyleChange={(s) => setActiveStyle(s as CevapStyle | "")}
-              onSearchArea={appendByCoords}
+              onSearchArea={(lat, lng) => appendByCoords(lat, lng, selectedCity ?? undefined)}
               searchingArea={appendingPlaces}
               onOpenProfile={(pin) => {
                 if (pin.id) {

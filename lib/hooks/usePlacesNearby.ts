@@ -39,6 +39,23 @@ function cityFromVicinity(vicinity: string, fallback = ""): string {
   return /^\d+$/.test(last) ? fallback : (last || fallback);
 }
 
+/** Iron Wall — used ONLY in appendByCoords to test whether a map-area
+ *  discovery belongs to the currently selected city.
+ *  Checks vicinity, formatted_address and name against a normalised city token.
+ *  Intentionally lenient: diacritics stripped, case-insensitive. */
+function matchesCity(r: PlaceResult, cityFilter: string): boolean {
+  if (!cityFilter) return false;
+  const norm = (s: string) =>
+    s.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .trim();
+  const needle = norm(cityFilter);
+  const haystack = norm([r.city, r.address, r.name].filter(Boolean).join(" "));
+  return haystack.includes(needle);
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface UsePlacesNearbyOptions {
@@ -62,7 +79,7 @@ export interface UsePlacesNearbyReturn {
   // Actions
   searchNearby:    (coords: { lat: number; lng: number }, cityName: string) => void;
   loadMorePlaces:  () => void;
-  appendByCoords:  (lat: number, lng: number) => void;
+  appendByCoords:  (lat: number, lng: number, cityFilter?: string) => void;
   clearPlaces:     () => void;
 }
 
@@ -231,14 +248,16 @@ export function usePlacesNearby(
     paginationRef.current.nextPage();
   }, [tokenReady, loadingMore]);
 
-  // ── Map area search (Iron Wall — results go to appendedPins ONLY) ─────────────
+  // ── Map area search ───────────────────────────────────────────────────────────
+  // Dual-action:
+  //   A) Harvest ALL results to Supabase (city-agnostic — DB always grows).
+  //   B) Iron Wall filter against cityFilter (selected city at call time).
+  //      • Matching → appended to placeResults (list) with dedup.
+  //      • Non-matching / no filter → appended to appendedPins (map only).
   const appendByCoords = useCallback(
-    (lat: number, lng: number) => {
+    (lat: number, lng: number, cityFilter?: string) => {
       if (!appendSvcRef.current || appendingPlaces) return;
       setAppendingPlaces(true);
-
-      // Snapshot city at call time for harvest labelling
-      const cityAtCall = ""; // map area results are city-agnostic
 
       appendSvcRef.current.nearbySearch(
         { location: { lat, lng }, radius: RADIUS, keyword: KEYWORD, type: "restaurant" },
@@ -246,18 +265,37 @@ export function usePlacesNearby(
           setAppendingPlaces(false);
           if (status !== "OK" && status !== "ZERO_RESULTS") return;
 
-          const mapped = (results ?? []).map((p) => normalise(p, cityAtCall));
+          const mapped = (results ?? []).map((p) => normalise(p, cityFilter ?? ""));
 
-          setAppendedPins((prev) => {
-            const seen  = new Set(prev.map((r) => r.place_id));
-            const fresh = mapped.filter((r) => !seen.has(r.place_id));
-            console.log(`[Places] appendByCoords +${fresh.length} map pins`);
-            return [...prev, ...fresh];
-          });
-
+          // Action A — Harvest ALL, grouped by their actual vicinity city
           if (mapped.length > 0) {
-            // Harvest map discoveries (city-agnostic — DB grows regardless)
-            onHarvestRef.current?.(mapped, cityFromVicinity(mapped[0]?.address ?? ""));
+            const harvestCity = cityFilter
+              ? cityFilter
+              : cityFromVicinity(mapped[0]?.address ?? "");
+            onHarvestRef.current?.(mapped, harvestCity);
+          }
+
+          // Action B — Iron Wall filter
+          const cityMatching    = cityFilter ? mapped.filter((r) => matchesCity(r, cityFilter)) : [];
+          const nonCityMatching = cityFilter ? mapped.filter((r) => !matchesCity(r, cityFilter)) : mapped;
+
+          // Action C — city-matching → placeResults (list); rest → appendedPins (map)
+          if (cityMatching.length > 0) {
+            setPlaceResults((prev) => {
+              const seen  = new Set(prev.map((r) => r.place_id));
+              const fresh = cityMatching.filter((r) => !seen.has(r.place_id));
+              console.log(`[Places] appendByCoords +${fresh.length} list results (city-match: ${cityFilter})`);
+              return [...prev, ...fresh];
+            });
+          }
+
+          if (nonCityMatching.length > 0) {
+            setAppendedPins((prev) => {
+              const seen  = new Set(prev.map((r) => r.place_id));
+              const fresh = nonCityMatching.filter((r) => !seen.has(r.place_id));
+              console.log(`[Places] appendByCoords +${fresh.length} map pins (non-city)`);
+              return [...prev, ...fresh];
+            });
           }
         },
       );
