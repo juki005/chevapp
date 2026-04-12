@@ -259,8 +259,11 @@ export function usePlacesNearby(
       if (!appendSvcRef.current || appendingPlaces) return;
       setAppendingPlaces(true);
 
+      // RankBy.DISTANCE: sorts outward from the pin — local places first.
+      // IMPORTANT: radius MUST be omitted when using RankBy.DISTANCE or the
+      // API returns INVALID_REQUEST.
       appendSvcRef.current.nearbySearch(
-        { location: { lat, lng }, radius: RADIUS, keyword: KEYWORD, type: "restaurant" },
+        { location: { lat, lng }, rankBy: google.maps.places.RankBy.DISTANCE, keyword: KEYWORD, type: "restaurant" },
         (results, status) => {
           setAppendingPlaces(false);
           if (status !== "OK" && status !== "ZERO_RESULTS") return;
