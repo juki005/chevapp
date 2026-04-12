@@ -371,53 +371,63 @@ function FinderPageInner() {
   // geocode via getCoordsFromCity so the map still zooms to the right place.
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
 
-  useEffect(() => {
-    if (!selectedCity) { setMapCenter(undefined); return; }
-
-    // 1. Fast path — static lookup
-    const staticCoords = resolveCityCoords(selectedCity);
-    if (staticCoords) {
-      setMapCenter({ lat: staticCoords[0], lng: staticCoords[1] });
-      return;
-    }
-
-    // 2. Slow path — geocode via Google (for diaspora / unknown cities)
-    let cancelled = false;
-    getCoordsFromCity(`${selectedCity}${selectedCountry ? `, ${COUNTRY_CONFIG[selectedCountry]?.fullName ?? ""}` : ""}`)
-      .then((coords) => {
-        if (!cancelled && coords) setMapCenter({ lat: coords.lat, lng: coords.lng });
-      })
-      .catch(() => { /* silently fail — map stays at region default */ });
-
-    return () => { cancelled = true; };
-  }, [selectedCity, selectedCountry]);
-
-  // ── Auto-search Google Places when city + coords are both ready ─────────────
-  // searchByCoords REPLACES results (fresh city search).
-  // appendByCoords APPENDS deduped results ("Pretraži ovo područje" button).
-  // debouncedSearch is now a LOCAL filter on placeResults — no extra API call.
-  const prevSearchCityRef = useRef("");
+  // ── Single effect: resolve city coords + search ───────────────────────────────
+  // Previously split into two effects (mapCenter resolver + search trigger)
+  // coupled through mapCenter state.  The race: search effect fired on the
+  // first render with the OLD city's mapCenter, set prevSearchCityRef to the new
+  // city, then was blocked when the correct coords finally arrived.
+  //
+  // Fix: one effect owns the full A→B transition atomically:
+  //   1. Clear old results immediately (cards vanish at once)
+  //   2. Resolve coords for the new city (static lookup or async geocode)
+  //   3. Set mapCenter (for the map component)
+  //   4. Call searchNearby with the correct coords
+  //
+  // No prevSearchCityRef needed — the effect depends only on [selectedCity,
+  // selectedCountry], so setMapCenter inside never re-triggers it.
   useEffect(() => {
     if (!selectedCity) {
-      prevSearchCityRef.current = "";
-      clearPlaces(); // wipe results when filter is cleared
+      clearPlaces();
+      setMapCenter(undefined);
       return;
     }
-    // Diaspora cities geocode asynchronously — wait for coords before searching
-    if (!mapCenter) return;
-    // Guard: don't re-fire for the same city on unrelated re-renders
-    if (selectedCity === prevSearchCityRef.current) return;
-    prevSearchCityRef.current = selectedCity;
 
-    // ── CRITICAL: wipe previous city's Google results IMMEDIATELY ──────────────
-    // Must happen before searchNearby so the old city's cards disappear at once.
-    // The hook's generation counter ensures any in-flight requests for the old
-    // city are silently discarded when their callbacks eventually fire.
+    // Wipe previous city's results instantly — generation counter in the hook
+    // discards any still-in-flight callbacks for the old city.
     clearPlaces();
-    searchNearby(mapCenter, selectedCity);
-  // searchNearby and clearPlaces are stable useCallbacks — safe to omit
+
+    let cancelled = false;
+
+    const run = async () => {
+      // Fast path — static lookup (covers all Balkan + main diaspora cities)
+      const staticCoords = resolveCityCoords(selectedCity);
+      if (staticCoords) {
+        if (cancelled) return;
+        const center = { lat: staticCoords[0], lng: staticCoords[1] };
+        setMapCenter(center);
+        searchNearby(center, selectedCity);
+        return;
+      }
+
+      // Slow path — geocode via Google (cities not in static map)
+      try {
+        const geocoded = await getCoordsFromCity(
+          `${selectedCity}${selectedCountry ? `, ${COUNTRY_CONFIG[selectedCountry]?.fullName ?? ""}` : ""}`,
+        );
+        if (cancelled || !geocoded) return;
+        const center = { lat: geocoded.lat, lng: geocoded.lng };
+        setMapCenter(center);
+        searchNearby(center, selectedCity);
+      } catch {
+        // Geocode failed — map stays at default; no Google Places search
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  // searchNearby + clearPlaces are stable — safe to omit from deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapCenter, selectedCity]);
+  }, [selectedCity, selectedCountry]);
 
   // Map pins — DB + Google Places (deduped by proximity).
   // useMemo gives a stable array reference: ImperativeMarkers only rebuilds
