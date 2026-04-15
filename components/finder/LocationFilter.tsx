@@ -348,17 +348,17 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
         <span className="sm:hidden ml-2 text-xs font-medium">Koristi lokaciju</span>
       </button>
 
-      {/* ── "Istraži" — link to Community page, city pre-selected ─────────── */}
+      {/* ── "Istraži" — TripAdvisor-green link to Community / Explore tab ─── */}
       <Link
-        href={`/${locale}/community${value.city ? `?city=${encodeURIComponent(value.city)}` : ""}`}
-        title="Istraži zajednicu i recenzije"
+        href={`/${locale}/community?tab=explore${value.city ? `&search=${encodeURIComponent(value.city)}` : ""}`}
+        title="Istraži grad na TripAdvisoru i zajednici"
         aria-label="Istraži Community stranicu"
         className={cn(
           "flex-shrink-0 flex items-center justify-center gap-1.5",
-          "w-full sm:w-auto sm:px-3 h-[44px] rounded-xl border text-sm font-medium",
+          "w-full sm:w-auto sm:px-3 h-[44px] rounded-xl text-sm font-semibold",
           "transition-all active:scale-95",
-          "border-[rgb(var(--border))] text-[rgb(var(--muted))]",
-          "hover:border-[#FF6B00]/50 hover:text-[#FF6B00] hover:bg-[#FF6B00]/06",
+          "bg-[#00af87] text-white hover:bg-[#008a6a]",
+          "shadow-sm hover:shadow-md",
         )}
       >
         <Compass className="w-4 h-4 flex-shrink-0" />

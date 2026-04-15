@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   Users, Rss, Lightbulb, Calendar, Trophy,
@@ -124,7 +125,8 @@ const MEDAL_RANK_COLOR = ["text-yellow-400", "text-slate-300", "text-orange-500"
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function CommunityPage() {
-  const t = useTranslations("community");
+  const t           = useTranslations("community");
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<CommunityTab>("feed");
 
   // Leaderboard
@@ -252,12 +254,30 @@ export default function CommunityPage() {
     setCitySearching(false);
   };
 
+  // ── Deep-link from Finder "Istraži" button ─────────────────────────────────
+  // ?tab=explore  → switch to the Explore tab immediately
+  // ?search=City  → pre-populate the city and load its data
+  // Runs once on mount; searchParams is stable after hydration.
   useEffect(() => {
-    // 1. Try last known city from localStorage (set by Finder on city change)
+    const tab    = searchParams.get("tab");
+    const search = searchParams.get("search");
+
+    if (tab === "explore") {
+      setActiveTab("explore");
+    }
+    if (search) {
+      const city = decodeURIComponent(search).trim();
+      if (city) {
+        localStorage.setItem("chevapp_last_city", city);
+        loadCityData(city);
+        return; // skip the geolocation/localStorage fallback below
+      }
+    }
+
+    // Normal boot: try localStorage → geolocation → Sarajevo
     const cached = typeof window !== "undefined" ? localStorage.getItem("chevapp_last_city") : null;
     if (cached) { loadCityData(cached); return; }
 
-    // 2. Try geolocation → reverse geocode
     if (typeof window !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
