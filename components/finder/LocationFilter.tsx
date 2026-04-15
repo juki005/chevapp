@@ -13,7 +13,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Loader2, Navigation, MapPin, X } from "lucide-react";
+import { ChevronDown, Loader2, Navigation, MapPin, X, Compass } from "lucide-react";
+import Link from "next/link";
+import { useLocale } from "next-intl";
 import { getLocationFromCoords } from "@/lib/actions/discovery";
 import { COUNTRY_CONFIG } from "@/constants/cities";
 import { useDebounce } from "@/lib/hooks/useDebounce";
@@ -41,6 +43,8 @@ const STORAGE_KEY = "chevapp_last_location";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function LocationFilter({ value, onChange, className }: LocationFilterProps) {
+  const locale = useLocale();
+
   const [predictions,  setPredictions]  = useState<Prediction[]>([]);
   const [showDrop,     setShowDrop]     = useState(false);
   const [inputValue,   setInputValue]   = useState(value.city);
@@ -343,6 +347,24 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
         }
         <span className="sm:hidden ml-2 text-xs font-medium">Koristi lokaciju</span>
       </button>
+
+      {/* ── "Istraži" — link to Community page, city pre-selected ─────────── */}
+      <Link
+        href={`/${locale}/community${value.city ? `?city=${encodeURIComponent(value.city)}` : ""}`}
+        title="Istraži zajednicu i recenzije"
+        aria-label="Istraži Community stranicu"
+        className={cn(
+          "flex-shrink-0 flex items-center justify-center gap-1.5",
+          "w-full sm:w-auto sm:px-3 h-[44px] rounded-xl border text-sm font-medium",
+          "transition-all active:scale-95",
+          "border-[rgb(var(--border))] text-[rgb(var(--muted))]",
+          "hover:border-[#FF6B00]/50 hover:text-[#FF6B00] hover:bg-[#FF6B00]/06",
+        )}
+      >
+        <Compass className="w-4 h-4 flex-shrink-0" />
+        <span className="hidden sm:inline text-xs whitespace-nowrap">Istraži</span>
+        <span className="sm:hidden text-xs font-medium">Istraži zajednicu</span>
+      </Link>
     </div>
   );
 }
