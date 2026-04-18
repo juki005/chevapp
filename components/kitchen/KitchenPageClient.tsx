@@ -799,8 +799,40 @@ function VideosComingSoon({
 
   return (
     <div className="flex flex-col items-center py-16 px-4 gap-8">
-      {/* Decorative card */}
-      <div className="relative w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] px-8 py-12 overflow-hidden">
+
+      {/* ── YouTube search — PRIMARY (top) ────────────────────────────────── */}
+      <div className="w-full max-w-md">
+        <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium text-center mb-3">
+          {t("ytComingSoonSearchLabel")}
+        </p>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="npr. sarajevski ćevapi, roštilj…"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[rgb(var(--surface)/0.5)] border border-[rgb(var(--border))] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-red-500/50 transition-colors text-sm"
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={!inputValue.trim()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-sm font-semibold transition-colors flex-shrink-0"
+          >
+            <Youtube className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("ytSearchAction")}</span>
+          </button>
+        </div>
+        <p className="text-[10px] text-[rgb(var(--muted))] opacity-50 mt-2 text-center">
+          {t("videosComingSoonHint")}
+        </p>
+      </div>
+
+      {/* ── Decorative "coming soon" card — SECONDARY (below search) ─────── */}
+      <div className="relative w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] px-8 py-12 overflow-hidden mt-4">
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.07)] blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.05)] blur-3xl pointer-events-none" />
 
@@ -834,37 +866,6 @@ function VideosComingSoon({
             ))}
           </div>
         </div>
-      </div>
-
-      {/* YouTube search opt-in */}
-      <div className="w-full max-w-md">
-        <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium text-center mb-3">
-          {t("ytComingSoonSearchLabel")}
-        </p>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))] pointer-events-none" />
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="npr. sarajevski ćevapi, roštilj…"
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[rgb(var(--surface)/0.5)] border border-[rgb(var(--border))] text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-red-500/50 transition-colors text-sm"
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            disabled={!inputValue.trim()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-sm font-semibold transition-colors flex-shrink-0"
-          >
-            <Youtube className="w-4 h-4" />
-            <span className="hidden sm:inline">{t("ytSearchAction")}</span>
-          </button>
-        </div>
-        <p className="text-[10px] text-[rgb(var(--muted))] opacity-50 mt-2 text-center">
-          {t("videosComingSoonHint")}
-        </p>
       </div>
     </div>
   );
