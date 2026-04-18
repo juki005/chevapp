@@ -5,8 +5,8 @@
 // Sits below the "Word of the Day" card in AcademyDashboard.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useMemo } from "react";
-import { Search, BookOpen, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, BookOpen, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -122,6 +122,8 @@ const GASTRO_WORDS: GastroWord[] = [
   },
 ];
 
+const PAGE_SIZE = 5;
+
 const CATEGORIES: { key: Category | "Sve"; label: string; emoji: string }[] = [
   { key: "Sve",       label: "Sve",       emoji: "📚" },
   { key: "Jelo",      label: "Jela",      emoji: "🥩" },
@@ -132,8 +134,12 @@ const CATEGORIES: { key: Category | "Sve"; label: string; emoji: string }[] = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function GastroDictionary() {
-  const [query,    setQuery]    = useState("");
-  const [category, setCategory] = useState<Category | "Sve">("Sve");
+  const [query,        setQuery]        = useState("");
+  const [category,     setCategory]     = useState<Category | "Sve">("Sve");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset pagination whenever the filter changes
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, category]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -145,6 +151,10 @@ export function GastroDictionary() {
       return matchesCat && matchesQ;
     });
   }, [query, category]);
+
+  const visible  = filtered.slice(0, visibleCount);
+  const hasMore  = visibleCount < filtered.length;
+  const remaining = filtered.length - visibleCount;
 
   return (
     <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-4">
@@ -206,7 +216,7 @@ export function GastroDictionary() {
         </p>
       ) : (
         <div className="space-y-2">
-          {filtered.map((w) => (
+          {visible.map((w) => (
             <div
               key={w.term}
               className="rounded-xl border border-[rgb(var(--border)/0.7)] bg-[rgb(var(--surface)/0.3)] p-3 hover:border-[rgb(var(--primary)/0.25)] transition-colors"
@@ -237,6 +247,18 @@ export function GastroDictionary() {
               </div>
             </div>
           ))}
+
+          {/* ── Load more ───────────────────────────────────────────────── */}
+          {hasMore && (
+            <button
+              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 mt-1 rounded-xl border border-[rgb(var(--border)/0.7)] text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.35)] hover:bg-[rgb(var(--primary)/0.04)] transition-all active:scale-[0.98]"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+              Učitaj još
+              <span className="opacity-50">({remaining})</span>
+            </button>
+          )}
         </div>
       )}
     </div>

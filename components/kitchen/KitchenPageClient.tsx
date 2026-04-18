@@ -832,7 +832,7 @@ function VideosComingSoon({
       </div>
 
       {/* ── Decorative "coming soon" card — SECONDARY (below search) ─────── */}
-      <div className="relative w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] px-8 py-12 overflow-hidden mt-4">
+      <div className="relative w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] px-8 py-12 overflow-hidden mt-12">
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.07)] blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.05)] blur-3xl pointer-events-none" />
 
