@@ -492,6 +492,20 @@ export default function ProfilePage() {
   const progress     = rankProgress(xp);
   const todayClaimed = isTodayClaimed(userStats);
 
+  // ── Custom progression tiers ─────────────────────────────────────────────
+  const TIERS = [
+    { minXP: 0,    title: "Početnik",         emoji: "🥩" },
+    { minXP: 100,  title: "Gurman",           emoji: "🍽️" },
+    { minXP: 500,  title: "Majstor Roštilja", emoji: "🔥" },
+    { minXP: 1000, title: "Doktor za Somun",  emoji: "🏆" },
+  ];
+  const curTierIdx = TIERS.reduce((best, t, i) => (xp >= t.minXP ? i : best), 0);
+  const curTier    = TIERS[curTierIdx];
+  const nxtTier    = TIERS[curTierIdx + 1] ?? null;
+  const tierPct    = nxtTier
+    ? Math.min(100, Math.round(((xp - curTier.minXP) / (nxtTier.minXP - curTier.minXP)) * 100))
+    : 100;
+
   const favoriteStyle = favoriteStyleDB ?? (() => {
     if (!entries.length) return "—";
     const counts: Record<string, number> = {};
@@ -638,25 +652,46 @@ export default function ProfilePage() {
         {/* ── XP progress ────────────────────────────────────────────────── */}
         {!statsLoading && (
           <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] px-5 py-4">
-            <div className="flex items-center justify-between text-xs text-[rgb(var(--muted))] mb-2">
-              <span className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-[rgb(var(--primary))]" />
-                <span className="font-medium text-[rgb(var(--foreground))]">{rank.emoji} {rank.title}</span>
-              </span>
-              {nextRank
-                ? <span>{nextRank.emoji} {nextRank.title} — još {(nextRank.minXP - xp).toLocaleString()} XP</span>
-                : <span className="text-[rgb(var(--primary))] font-medium">🏆 Maksimalni rang!</span>
-              }
+            {/* Tier pip track */}
+            <div className="flex items-center justify-between text-xs mb-3">
+              {TIERS.map((t, i) => {
+                const reached = xp >= t.minXP;
+                const active  = i === curTierIdx;
+                return (
+                  <div key={t.title} className="flex flex-col items-center gap-0.5">
+                    <span className={cn("text-base leading-none transition-all", active ? "scale-125" : reached ? "opacity-80" : "opacity-30")}>
+                      {t.emoji}
+                    </span>
+                    <span className={cn("text-[10px] font-medium leading-tight text-center max-w-[56px]",
+                      active ? "text-[rgb(var(--foreground))]" : reached ? "text-[rgb(var(--muted))]" : "text-[rgb(var(--muted))] opacity-40"
+                    )}>
+                      {t.title}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="h-2.5 rounded-full bg-[rgb(var(--border))] overflow-hidden">
+
+            {/* Bar */}
+            <div className="h-2.5 rounded-full bg-[rgb(var(--border))] overflow-hidden mb-1.5">
               <div
                 className="h-full rounded-full bg-[rgb(var(--primary))] transition-all duration-700"
-                style={{ width: `${progress}%` }}
+                style={{ width: `${tierPct}%` }}
               />
             </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-xs text-[rgb(var(--muted))]">{xp.toLocaleString()} XP ukupno</span>
-              <span className="text-xs text-[rgb(var(--muted))]">{progress}%</span>
+
+            {/* Labels */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[rgb(var(--muted))]">
+                <Zap className="inline w-3 h-3 mr-0.5 text-[rgb(var(--primary))] -mt-0.5" />
+                {xp.toLocaleString()} XP
+              </span>
+              {nxtTier
+                ? <span className="text-xs text-[rgb(var(--muted))]">
+                    još {(nxtTier.minXP - xp).toLocaleString()} XP → {nxtTier.title}
+                  </span>
+                : <span className="text-xs text-[rgb(var(--primary))] font-medium">🏆 Vrh postignut!</span>
+              }
             </div>
           </div>
         )}
