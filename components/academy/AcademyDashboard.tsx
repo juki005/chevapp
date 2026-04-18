@@ -17,6 +17,7 @@ import {
   type WordOfDay,
 } from "@/lib/gamification";
 import { ToastContainer, useToast } from "@/components/ui/Toast";
+import { GastroDictionary } from "@/components/academy/GastroDictionary";
 import { cn } from "@/lib/utils";
 
 // ── Activity feed entries (static for now, could be real later) ──────────────
@@ -298,6 +299,9 @@ export function AcademyDashboard() {
             )}
           </div>
         )}
+
+        {/* ── Gastro rječnik ────────────────────────────────────────────────── */}
+        <GastroDictionary />
 
         {/* ── Rank ladder ───────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-4">

@@ -661,43 +661,37 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* ── Daily challenge + Word of Day strip ────────────────────────── */}
+        {/* ── Daily challenge — full-width CTA banner ────────────────────── */}
         {!statsLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className={cn(
+            "rounded-2xl border p-4 flex items-center gap-4",
+            todayClaimed
+              ? "border-green-500/30 bg-green-500/5"
+              : "border-[rgb(var(--primary)/0.3)] bg-[rgb(var(--primary)/0.05)]"
+          )}>
             <div className={cn(
-              "rounded-2xl border p-4 flex items-center gap-3",
-              todayClaimed
-                ? "border-green-500/30 bg-green-500/5"
-                : "border-[rgb(var(--primary)/0.3)] bg-[rgb(var(--primary)/0.05)]"
+              "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+              todayClaimed ? "bg-green-500/15" : "bg-[rgb(var(--primary)/0.15)]"
             )}>
-              <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
-                todayClaimed ? "bg-green-500/15" : "bg-[rgb(var(--primary)/0.15)]"
-              )}>
-                {todayClaimed
-                  ? <CheckCircle className="w-5 h-5 text-green-400" />
-                  : <Zap className="w-5 h-5 text-[rgb(var(--primary))]" />
-                }
-              </div>
-              <div>
-                <p className="text-sm font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
-                  Dnevni izazov
-                </p>
-                <p className="text-xs text-[rgb(var(--muted))]">
-                  {todayClaimed ? "✓ Završen danas · +30 XP" : "Nije preuzet — idi u Akademiju"}
-                </p>
-              </div>
+              {todayClaimed
+                ? <CheckCircle className="w-6 h-6 text-green-400" />
+                : <Zap className="w-6 h-6 text-[rgb(var(--primary))]" />
+              }
             </div>
-
-            {wordOfDay && (
-              <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.1)] flex items-center justify-center flex-shrink-0 text-lg">📖</div>
-                <div className="min-w-0">
-                  <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">Riječ dana</p>
-                  <p className="text-sm font-bold text-[rgb(var(--foreground))] truncate">{wordOfDay.word}</p>
-                  <p className="text-xs text-[rgb(var(--muted))] line-clamp-1">{wordOfDay.definition}</p>
-                </div>
-              </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
+                Dnevni izazov
+              </p>
+              <p className="text-xs text-[rgb(var(--muted))] mt-0.5">
+                {todayClaimed
+                  ? "✓ Završen danas · +30 XP zarađeno — vrati se sutra!"
+                  : "Nije preuzet — posjeti Akademiju i osvoji +30 XP"}
+              </p>
+            </div>
+            {!todayClaimed && (
+              <span className="flex-shrink-0 text-xs font-bold text-[rgb(var(--primary))] uppercase tracking-wide">
+                +30 XP →
+              </span>
             )}
           </div>
         )}
