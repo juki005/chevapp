@@ -13,9 +13,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Loader2, Navigation, MapPin, X, Compass } from "lucide-react";
-import Link from "next/link";
-import { useLocale } from "next-intl";
+import { ChevronDown, Loader2, Navigation, MapPin, X } from "lucide-react";
 import { getLocationFromCoords } from "@/lib/actions/discovery";
 import { COUNTRY_CONFIG } from "@/constants/cities";
 import { useDebounce } from "@/lib/hooks/useDebounce";
@@ -43,8 +41,6 @@ const STORAGE_KEY = "chevapp_last_location";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function LocationFilter({ value, onChange, className }: LocationFilterProps) {
-  const locale = useLocale();
-
   const [predictions,  setPredictions]  = useState<Prediction[]>([]);
   const [showDrop,     setShowDrop]     = useState(false);
   const [inputValue,   setInputValue]   = useState(value.city);
@@ -348,23 +344,6 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
         <span className="sm:hidden ml-2 text-xs font-medium">Koristi lokaciju</span>
       </button>
 
-      {/* ── "Istraži" — TripAdvisor-green link to Community / Explore tab ─── */}
-      <Link
-        href={`/${locale}/community?tab=explore${value.city ? `&search=${encodeURIComponent(value.city)}` : ""}`}
-        title="Istraži grad na TripAdvisoru i zajednici"
-        aria-label="Istraži Community stranicu"
-        className={cn(
-          "flex-shrink-0 flex items-center justify-center gap-1.5",
-          "w-full sm:w-auto sm:px-3 h-[44px] rounded-xl text-sm font-semibold",
-          "transition-all active:scale-95",
-          "bg-[#00af87] text-white hover:bg-[#008a6a]",
-          "shadow-sm hover:shadow-md",
-        )}
-      >
-        <Compass className="w-4 h-4 flex-shrink-0" />
-        <span className="hidden sm:inline text-xs whitespace-nowrap">Istraži</span>
-        <span className="sm:hidden text-xs font-medium">Istraži zajednicu</span>
-      </Link>
     </div>
   );
 }

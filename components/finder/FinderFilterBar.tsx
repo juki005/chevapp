@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Search, Map, List, Loader2, Heart, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { Search, Map, List, Loader2, Heart, X, Compass } from "lucide-react";
+import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import { StyleFilter } from "@/components/finder/StyleFilter";
 import { LocationFilter, type LocationValue } from "@/components/finder/LocationFilter";
 import type { CevapStyle } from "@/types";
@@ -39,7 +40,8 @@ export function FinderFilterBar({
   hasActiveFilters, onClearFilters,
   onOpenRulet,
 }: FinderFilterBarProps) {
-  const t = useTranslations("finder");
+  const t      = useTranslations("finder");
+  const locale = useLocale();
 
   return (
     <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-4 mb-5 space-y-3">
@@ -145,6 +147,18 @@ export function FinderFilterBar({
           >
             🎡 RULET
           </motion.button>
+
+          {/* 🧭 Istraži — TripAdvisor-green link to Community Explore tab */}
+          <Link
+            href={`/${locale}/community?tab=explore${locationValue.city ? `&search=${encodeURIComponent(locationValue.city)}` : ""}`}
+            title="Istraži grad na TripAdvisoru i zajednici"
+            aria-label="Istraži Community stranicu"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 text-white bg-[#00af87] hover:bg-[#008a6a] shadow-sm hover:shadow-md whitespace-nowrap"
+            style={{ fontFamily: "Oswald, sans-serif", letterSpacing: "0.05em" }}
+          >
+            <Compass className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="hidden sm:inline">ISTRAŽI</span>
+          </Link>
 
           {/* Favorites-only toggle */}
           <button
