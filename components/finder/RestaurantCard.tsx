@@ -227,12 +227,13 @@ export function RestaurantCard({
               aria-label={`Ostavi recenziju — ${restaurant.name}`}
               title="Ostavi recenziju"
               className={cn(
-                "flex items-center justify-center w-9 h-9 rounded-[12px] flex-shrink-0",
+                "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-[12px] flex-shrink-0",
                 "border border-amber-500/40 text-amber-600 dark:text-amber-400",
-                "hover:bg-amber-500/10 transition-all",
+                "hover:bg-amber-500/10 transition-all text-xs font-semibold",
               )}
             >
               <Star className="w-4 h-4" />
+              <span className="hidden lg:inline">Recenzija</span>
             </button>
           )}
           {onAddToJournal && (
@@ -241,12 +242,13 @@ export function RestaurantCard({
               aria-label={`Dodaj u dnevnik — ${restaurant.name}`}
               title="Dodaj u dnevnik"
               className={cn(
-                "flex items-center justify-center w-9 h-9 rounded-[12px] flex-shrink-0",
+                "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-[12px] flex-shrink-0",
                 "border border-[rgb(var(--primary)/0.35)] text-[rgb(var(--primary))]",
-                "hover:bg-[rgb(var(--primary)/0.08)] transition-all",
+                "hover:bg-[rgb(var(--primary)/0.08)] transition-all text-xs font-semibold",
               )}
             >
               <BookOpen className="w-4 h-4" />
+              <span className="hidden lg:inline">Dnevnik</span>
             </button>
           )}
           <button
@@ -254,12 +256,13 @@ export function RestaurantCard({
             aria-label={`Otvori profil — ${restaurant.name}`}
             title="Otvori profil"
             className={cn(
-              "flex items-center justify-center w-9 h-9 rounded-[12px] flex-shrink-0",
+              "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-[12px] flex-shrink-0",
               "border border-[rgb(var(--border))]",
-              "text-[rgb(var(--muted))] hover:text-[rgb(var(--primary))] hover:border-[rgb(var(--primary)/0.4)] transition-all",
+              "text-[rgb(var(--muted))] hover:text-[rgb(var(--primary))] hover:border-[rgb(var(--primary)/0.4)] transition-all text-xs font-semibold",
             )}
           >
             <LayoutList className="w-4 h-4" />
+            <span className="hidden lg:inline">Profil</span>
           </button>
 
           <DirectionsButton

@@ -112,9 +112,10 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
               onClick={(e) => { e.stopPropagation(); onReviewClick(); }}
               aria-label={`Ostavi recenziju — ${r.name}`}
               title="Ostavi recenziju"
-              className="flex items-center justify-center w-9 h-9 rounded-lg border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all flex-shrink-0"
+              className="flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-lg border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all flex-shrink-0 text-xs font-semibold"
             >
               <Star className="w-4 h-4" />
+              <span className="hidden lg:inline">Recenzija</span>
             </button>
           )}
           <button
@@ -134,9 +135,10 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
             }}
             aria-label={t("openProfile")}
             title={t("openProfile")}
-            className="flex items-center justify-center w-9 h-9 rounded-lg text-sm border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[#4285f4] hover:border-[#4285f4]/40 transition-all flex-shrink-0"
+            className="flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-lg text-sm border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[#4285f4] hover:border-[#4285f4]/40 transition-all flex-shrink-0"
           >
-            🔍
+            <span>🔍</span>
+            <span className="hidden lg:inline text-xs font-semibold">Profil</span>
           </button>
 
           <DirectionsButton
