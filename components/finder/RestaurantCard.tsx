@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, CheckCircle, LayoutList, Sparkles, BookOpen } from "lucide-react";
+import { MapPin, CheckCircle, LayoutList, Sparkles, BookOpen, Star } from "lucide-react";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { VibrantBadge } from "@/components/ui/VibrantBadge";
 import { DirectionsButton } from "./DirectionsButton";
@@ -68,6 +68,7 @@ interface RestaurantCardProps {
   className?:      string;
   onProfileClick?: () => void;
   onAddToJournal?: () => void;
+  onReviewClick?:  () => void;
 }
 
 export function RestaurantCard({
@@ -76,6 +77,7 @@ export function RestaurantCard({
   className,
   onProfileClick,
   onAddToJournal,
+  onReviewClick,
 }: RestaurantCardProps) {
   const styleKey = restaurant.style && STYLE_PALETTE[restaurant.style as string]
     ? (restaurant.style as string)
@@ -208,6 +210,21 @@ export function RestaurantCard({
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+          {onReviewClick && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onReviewClick(); }}
+              aria-label={`Ostavi recenziju — ${restaurant.name}`}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap",
+                "border border-amber-500/40 text-amber-600 dark:text-amber-400",
+                "hover:bg-amber-500/10 transition-all",
+              )}
+              style={{ fontFamily: "Oswald, sans-serif" }}
+            >
+              <Star className="w-3 h-3" />
+              RECENZIJA
+            </button>
+          )}
           {onAddToJournal && (
             <button
               onClick={(e) => { e.stopPropagation(); onAddToJournal(); }}

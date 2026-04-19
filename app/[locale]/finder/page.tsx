@@ -17,6 +17,7 @@ import { RestaurantGridSkeleton } from "@/components/finder/RestaurantCardSkelet
 import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/RestaurantDetailModal";
 import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
 import { QuickLogModal } from "@/components/journal/QuickLogModal";
+import { ReviewModal } from "@/components/finder/ReviewModal";
 import { FinderFilterBar } from "@/components/finder/FinderFilterBar";
 import { PlaceResultCard } from "@/components/finder/PlaceResultCard";
 import { CITY_COUNTRY, COUNTRY_CONFIG, resolveCityCoords } from "@/constants/cities";
@@ -125,6 +126,9 @@ function FinderPageInner() {
 
   // ── Quick Journal Log ──────────────────────────────────────────────────────
   const [quickLogRestaurant, setQuickLogRestaurant] = useState<Restaurant | null>(null);
+
+  // ── Review modal target ────────────────────────────────────────────────────
+  const [reviewTarget, setReviewTarget] = useState<{ placeId: string; placeName: string } | null>(null);
 
   // ── Ćevap-Rulet ───────────────────────────────────────────────────────────
   const [ruletOpen, setRuletOpen] = useState(false);
@@ -712,6 +716,7 @@ function FinderPageInner() {
                             avgRating={avgRatings[r.id] ?? null}
                             onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified, rating: avgRatings[r.id] ?? r.rating ?? null })}
                             onAddToJournal={() => setQuickLogRestaurant(r)}
+                            onReviewClick={() => setReviewTarget({ placeId: r.google_place_id ?? r.id, placeName: r.name })}
                           />
                         </div>
                       ))}
@@ -777,6 +782,7 @@ function FinderPageInner() {
                           isSelected={r.place_id === selectedMapKey}
                           onSelect={() => setSelectedMapKey(r.place_id === selectedMapKey ? null : r.place_id)}
                           onProfileClick={setSelectedRestaurant}
+                          onReviewClick={() => setReviewTarget({ placeId: r.place_id, placeName: r.name })}
                         />
                       ))}
                       {/* Skeleton cards while Load More is in-flight */}
@@ -849,6 +855,15 @@ function FinderPageInner() {
         restaurant={quickLogRestaurant}
         onClose={() => setQuickLogRestaurant(null)}
       />
+
+      {/* Review modal */}
+      {reviewTarget && (
+        <ReviewModal
+          placeId={reviewTarget.placeId}
+          placeName={reviewTarget.placeName}
+          onClose={() => setReviewTarget(null)}
+        />
+      )}
     </div>
   );
 }

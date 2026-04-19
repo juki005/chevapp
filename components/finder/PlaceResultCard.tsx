@@ -1,5 +1,6 @@
 "use client";
 
+import { Star } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { PlaceResult } from "@/types/places";
 import type { ProfileTarget } from "@/components/finder/RestaurantDetailModal";
@@ -11,9 +12,10 @@ interface PlaceResultCardProps {
   isSelected:     boolean;
   onSelect:       () => void;
   onProfileClick: (target: ProfileTarget) => void;
+  onReviewClick?: () => void;
 }
 
-export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClick }: PlaceResultCardProps) {
+export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClick, onReviewClick }: PlaceResultCardProps) {
   const t = useTranslations("finder");
   const cleanTypes = r.types
     .filter((t) => t !== "point_of_interest" && t !== "establishment" && t !== "food")
@@ -92,7 +94,18 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
           <span />
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {onReviewClick && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onReviewClick(); }}
+              aria-label={`Ostavi recenziju — ${r.name}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all"
+              style={{ fontFamily: "Oswald, sans-serif" }}
+            >
+              <Star className="w-3 h-3" />
+              RECENZIJA
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();

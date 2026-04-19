@@ -9,6 +9,8 @@ import {
 import { AccommodationModal } from "@/components/finder/AccommodationModal";
 import { StyleTagSection, type CevapStyle } from "@/components/finder/modal/StyleTagSection";
 import { QuickLogModal } from "@/components/journal/QuickLogModal";
+import { ReviewModal } from "@/components/finder/ReviewModal";
+import { ReviewList } from "@/components/finder/ReviewList";
 import { createClient } from "@/lib/supabase/client";
 import type { Restaurant } from "@/types";
 
@@ -98,6 +100,8 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
   const [favLoading,   setFavLoading]   = useState(false);
   const [wishLoading,  setWishLoading]  = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [reviewOpen,   setReviewOpen]   = useState(false);
+  const [reviewRefresh,setReviewRefresh]= useState(0);
 
   // Crowdsourced style tag
   const [dbStyleTag,     setDbStyleTag]     = useState<CevapStyle | null>(null);
@@ -637,6 +641,31 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
             </div>
 
             {/* Accommodation CTA */}
+            {/* ── Reviews section ─────────────────────────────────────────── */}
+            {(restaurant.google_place_id || restaurant.id) && (
+              <div style={{ borderRadius: "16px", border: "1px solid rgb(var(--border))", background: "rgb(var(--surface) / 0.4)", padding: "20px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", gap: "12px", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Star style={{ width: "16px", height: "16px", color: "#f59e0b", fill: "#f59e0b" }} />
+                    <p style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "14px", textTransform: "uppercase", letterSpacing: "0.08em", color: "rgb(var(--foreground))", margin: 0 }}>
+                      Recenzije zajednice
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setReviewOpen(true)}
+                    style={{ display: "flex", alignItems: "center", gap: "6px", padding: "6px 12px", borderRadius: "10px", border: "1px solid rgba(245,158,11,0.4)", background: "transparent", color: "#d97706", fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}
+                  >
+                    <Star style={{ width: "12px", height: "12px" }} />
+                    OSTAVI RECENZIJU
+                  </button>
+                </div>
+                <ReviewList
+                  placeId={restaurant.google_place_id ?? restaurant.id ?? ""}
+                  refreshKey={reviewRefresh}
+                />
+              </div>
+            )}
+
             <div style={{ borderRadius: "16px", border: "1px solid rgba(211,84,0,0.25)", background: "rgba(211,84,0,0.06)", padding: "20px" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
                 <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: "rgba(211,84,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -686,6 +715,15 @@ export function RestaurantDetailModal({ restaurant, onClose }: Props) {
             google_place_id: restaurant.google_place_id ?? null,
           }}
           onClose={() => setQuickLogOpen(false)}
+        />
+      )}
+
+      {reviewOpen && (
+        <ReviewModal
+          placeId={restaurant.google_place_id ?? restaurant.id ?? ""}
+          placeName={restaurant.name}
+          onClose={() => setReviewOpen(false)}
+          onSubmitted={() => setReviewRefresh((n) => n + 1)}
         />
       )}
     </>
