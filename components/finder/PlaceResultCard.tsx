@@ -86,33 +86,35 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
         </div>
       )}
 
-      {/* Footer: rating + actions */}
-      <div className="mt-auto flex items-center justify-between pt-3 border-t border-[rgb(var(--border)/0.5)]">
-        <div className="flex items-center gap-2 flex-wrap">
-          {r.rating != null ? (
+      {/* Footer: ratings on top, single-row action bar below */}
+      <div className="mt-auto pt-3 border-t border-[rgb(var(--border)/0.5)] space-y-2.5">
+        {/* ── Info row ──────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 flex-wrap min-h-[18px]">
+          {r.rating != null && (
             <p className="text-xs text-[rgb(var(--muted))]">
               ⭐ <span className="text-[rgb(var(--foreground))] font-medium">{r.rating.toFixed(1)}</span>
               <span className="text-[rgb(var(--muted))]">/5</span>
               <span className="ml-1 text-[10px] opacity-70">Google</span>
             </p>
-          ) : (
-            <span />
           )}
           {reviewStats && reviewStats.count > 0 && (
             <ReviewStatsBadge avg={reviewStats.avg} count={reviewStats.count} compact />
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* ── Action row — single line, never wraps.
+            Secondary buttons render as icon-only square chips; the primary
+            "Kreni po ćevape" CTA keeps its full label and occupies the
+            remaining space. aria-label + title preserve accessibility. */}
+        <div className="flex items-center justify-end gap-1.5 flex-nowrap">
           {onReviewClick && (
             <button
               onClick={(e) => { e.stopPropagation(); onReviewClick(); }}
               aria-label={`Ostavi recenziju — ${r.name}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all"
-              style={{ fontFamily: "Oswald, sans-serif" }}
+              title="Ostavi recenziju"
+              className="flex items-center justify-center w-9 h-9 rounded-lg border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all flex-shrink-0"
             >
-              <Star className="w-3 h-3" />
-              RECENZIJA
+              <Star className="w-4 h-4" />
             </button>
           )}
           <button
@@ -130,10 +132,11 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
                 types:           r.types,
               });
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[#4285f4] hover:border-[#4285f4]/40 transition-all"
-            style={{ fontFamily: "Oswald, sans-serif" }}
+            aria-label={t("openProfile")}
+            title={t("openProfile")}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-sm border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[#4285f4] hover:border-[#4285f4]/40 transition-all flex-shrink-0"
           >
-            🔍 {t("openProfile")}
+            🔍
           </button>
 
           <DirectionsButton
@@ -142,6 +145,7 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
             city={r.city}
             lat={r.latitude}
             lng={r.longitude}
+            className="flex-shrink-0 !h-9 !min-h-0 !px-2.5 !text-xs"
           />
         </div>
       </div>

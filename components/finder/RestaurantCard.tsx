@@ -200,9 +200,9 @@ export function RestaurantCard({
         </div>
       </div>
 
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <div className="mt-auto px-4 pt-3 pb-4 border-t border-[rgb(var(--border)/0.6)] flex flex-wrap items-center justify-between gap-2 bg-gray-50/50 dark:bg-transparent">
-        {/* Quick emoji reactions */}
+      {/* ── Footer: emoji row + single action-bar row ─────────────────────── */}
+      <div className="mt-auto px-4 pt-3 pb-4 border-t border-[rgb(var(--border)/0.6)] bg-gray-50/50 dark:bg-transparent space-y-2">
+        {/* Quick emoji reactions — own row, left-aligned */}
         <div className="flex gap-0.5">
           {(["🧅", "🔥", "🥯"] as const).map((e) => (
             <button
@@ -216,50 +216,50 @@ export function RestaurantCard({
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+        {/* Action row — single horizontal line, nowrap.
+            Secondary buttons render as icon-only 36×36 chips with aria-label
+            + title tooltips so the primary CTA ("Kreni po ćevape") always
+            fits on the same row regardless of breakpoint. */}
+        <div className="flex items-center justify-end gap-1.5 flex-nowrap">
           {onReviewClick && (
             <button
               onClick={(e) => { e.stopPropagation(); onReviewClick(); }}
               aria-label={`Ostavi recenziju — ${restaurant.name}`}
+              title="Ostavi recenziju"
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap",
+                "flex items-center justify-center w-9 h-9 rounded-[12px] flex-shrink-0",
                 "border border-amber-500/40 text-amber-600 dark:text-amber-400",
                 "hover:bg-amber-500/10 transition-all",
               )}
-              style={{ fontFamily: "Oswald, sans-serif" }}
             >
-              <Star className="w-3 h-3" />
-              RECENZIJA
+              <Star className="w-4 h-4" />
             </button>
           )}
           {onAddToJournal && (
             <button
               onClick={(e) => { e.stopPropagation(); onAddToJournal(); }}
               aria-label={`Dodaj u dnevnik — ${restaurant.name}`}
+              title="Dodaj u dnevnik"
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap",
+                "flex items-center justify-center w-9 h-9 rounded-[12px] flex-shrink-0",
                 "border border-[rgb(var(--primary)/0.35)] text-[rgb(var(--primary))]",
                 "hover:bg-[rgb(var(--primary)/0.08)] transition-all",
               )}
-              style={{ fontFamily: "Oswald, sans-serif" }}
             >
-              <BookOpen className="w-3 h-3" />
-              DNEVNIK
+              <BookOpen className="w-4 h-4" />
             </button>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onProfileClick?.(); }}
-            tabIndex={-1}
-            aria-hidden="true"
+            aria-label={`Otvori profil — ${restaurant.name}`}
+            title="Otvori profil"
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap",
+              "flex items-center justify-center w-9 h-9 rounded-[12px] flex-shrink-0",
               "border border-[rgb(var(--border))]",
               "text-[rgb(var(--muted))] hover:text-[rgb(var(--primary))] hover:border-[rgb(var(--primary)/0.4)] transition-all",
             )}
-            style={{ fontFamily: "Oswald, sans-serif" }}
           >
-            <LayoutList className="w-3 h-3" />
-            PROFIL
+            <LayoutList className="w-4 h-4" />
           </button>
 
           <DirectionsButton
@@ -269,6 +269,7 @@ export function RestaurantCard({
             lat={restaurant.latitude}
             lng={restaurant.longitude}
             phone={restaurant.phone}
+            className="flex-shrink-0 !h-9 !min-h-0 !px-2.5 !text-xs"
           />
         </div>
       </div>
