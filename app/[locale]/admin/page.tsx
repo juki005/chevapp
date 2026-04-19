@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import {
-  Shield, Users, Store, FileText, BarChart2, Loader2, Lock,
+  Shield, Users, Store, FileText, BarChart2, Loader2, Lock, ShieldAlert,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -12,14 +12,16 @@ import { UsersTab }       from "@/components/admin/UsersTab";
 import { RestaurantsTab } from "@/components/admin/RestaurantsTab";
 import { CmsTab }         from "@/components/admin/CmsTab";
 import { StatsTab }       from "@/components/admin/StatsTab";
+import { ModerationTab }  from "@/components/admin/ModerationTab";
 
-type AdminTab = "stats" | "users" | "restaurants" | "cms";
+type AdminTab = "stats" | "users" | "restaurants" | "moderation" | "cms";
 
 const TABS: { key: AdminTab; icon: React.ReactNode; label: string }[] = [
-  { key: "stats",       icon: <BarChart2 className="w-4 h-4" />, label: "Statistike"  },
-  { key: "users",       icon: <Users     className="w-4 h-4" />, label: "Korisnici"   },
-  { key: "restaurants", icon: <Store     className="w-4 h-4" />, label: "Restorani"   },
-  { key: "cms",         icon: <FileText  className="w-4 h-4" />, label: "CMS"         },
+  { key: "stats",       icon: <BarChart2   className="w-4 h-4" />, label: "Statistike" },
+  { key: "users",       icon: <Users       className="w-4 h-4" />, label: "Korisnici"  },
+  { key: "restaurants", icon: <Store       className="w-4 h-4" />, label: "Restorani"  },
+  { key: "moderation",  icon: <ShieldAlert className="w-4 h-4" />, label: "Moderacija" },
+  { key: "cms",         icon: <FileText    className="w-4 h-4" />, label: "CMS"        },
 ];
 
 export default function AdminPage() {
@@ -176,6 +178,7 @@ export default function AdminPage() {
         {activeTab === "stats"       && <StatsTab />}
         {activeTab === "users"       && <UsersTab />}
         {activeTab === "restaurants" && <RestaurantsTab />}
+        {activeTab === "moderation"  && <ModerationTab />}
         {activeTab === "cms"         && <CmsTab />}
       </div>
     </div>

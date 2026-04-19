@@ -18,6 +18,8 @@ import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/R
 import { CevapRuletModal } from "@/components/finder/CevapRuletModal";
 import { QuickLogModal } from "@/components/journal/QuickLogModal";
 import { ReviewModal } from "@/components/finder/ReviewModal";
+import { SubmitPlaceModal } from "@/components/finder/SubmitPlaceModal";
+import { getReviewStatsForPlaces, type PlaceReviewStats } from "@/lib/actions/reviews";
 import { FinderFilterBar } from "@/components/finder/FinderFilterBar";
 import { PlaceResultCard } from "@/components/finder/PlaceResultCard";
 import { CITY_COUNTRY, COUNTRY_CONFIG, resolveCityCoords } from "@/constants/cities";
@@ -130,6 +132,16 @@ function FinderPageInner() {
   // ── Review modal target ────────────────────────────────────────────────────
   const [reviewTarget, setReviewTarget] = useState<{ placeId: string; placeName: string } | null>(null);
 
+  // ── Submit-place modal ─────────────────────────────────────────────────────
+  const [submitPlaceOpen, setSubmitPlaceOpen] = useState(false);
+
+  // ── Review stats cache (Sprint 19 — inline card badges) ───────────────────
+  // Keyed by place_id as used in place_reviews. For DB restaurants we prefer
+  // google_place_id and fall back to restaurants.id — the same convention the
+  // review modal uses when writing.
+  const [reviewStats,     setReviewStats]     = useState<Record<string, PlaceReviewStats>>({});
+  const [reviewStatsBump, setReviewStatsBump] = useState(0);
+
   // ── Ćevap-Rulet ───────────────────────────────────────────────────────────
   const [ruletOpen, setRuletOpen] = useState(false);
   const [userId,    setUserId]    = useState<string | null>(null);
@@ -199,6 +211,25 @@ function FinderPageInner() {
       setAvgRatings(Object.fromEntries(Object.entries(sums).map(([id, { sum, count }]) => [id, sum / count])));
     });
   }, []);
+
+  // ── Batch review-stats fetch for all visible places ────────────────────────
+  // Cheap & infrequent: one roundtrip per filter/page change (not per card).
+  // Stored as Record<place_id, { avg, count }>.
+  useEffect(() => {
+    const ids = [
+      ...dbRestaurants.map((r) => r.google_place_id ?? r.id).filter(Boolean),
+      ...placeResults.map((r) => r.place_id).filter(Boolean),
+    ];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    getReviewStatsForPlaces(ids).then((stats) => {
+      if (!cancelled) setReviewStats(stats);
+    });
+    return () => { cancelled = true; };
+  // We intentionally key on array length + the bump counter so this doesn't
+  // re-fire on every render when the array identities change but contents don't.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbRestaurants.length, placeResults.length, reviewStatsBump]);
 
   // Cities in the selected country — used for DB "country filter without city"
   const citiesForCountry = useMemo(() => {
@@ -606,12 +637,23 @@ function FinderPageInner() {
             )}
           </div>
 
-          {!dbLoading && dbRestaurants.length === 0 && !dbError && !hasActiveFilters && (
-            <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgb(var(--primary))] text-white text-xs font-semibold hover:bg-[rgb(var(--primary)/0.85)] transition-colors disabled:opacity-60">
-              {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              {seeding ? "Seeding..." : "Seed bazu podataka"}
+          <div className="flex items-center gap-2">
+            {/* Predloži novo mjesto — always available for signed-in users */}
+            <button
+              onClick={() => setSubmitPlaceOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgb(var(--primary)/0.4)] text-[rgb(var(--primary))] text-xs font-semibold hover:bg-[rgb(var(--primary)/0.08)] transition-colors"
+              style={{ fontFamily: "Oswald, sans-serif" }}
+            >
+              + Predloži mjesto
             </button>
-          )}
+
+            {!dbLoading && dbRestaurants.length === 0 && !dbError && !hasActiveFilters && (
+              <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgb(var(--primary))] text-white text-xs font-semibold hover:bg-[rgb(var(--primary)/0.85)] transition-colors disabled:opacity-60">
+                {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                {seeding ? "Seeding..." : "Seed bazu podataka"}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* MAP VIEW */}
@@ -714,6 +756,7 @@ function FinderPageInner() {
                           <RestaurantCard
                             restaurant={r}
                             avgRating={avgRatings[r.id] ?? null}
+                            reviewStats={reviewStats[r.google_place_id ?? r.id] ?? null}
                             onProfileClick={() => setSelectedRestaurant({ id: r.id, name: r.name, city: r.city, address: r.address, is_verified: r.is_verified, rating: avgRatings[r.id] ?? r.rating ?? null })}
                             onAddToJournal={() => setQuickLogRestaurant(r)}
                             onReviewClick={() => setReviewTarget({ placeId: r.google_place_id ?? r.id, placeName: r.name })}
@@ -780,6 +823,7 @@ function FinderPageInner() {
                           key={r.place_id}
                           result={r}
                           isSelected={r.place_id === selectedMapKey}
+                          reviewStats={reviewStats[r.place_id] ?? null}
                           onSelect={() => setSelectedMapKey(r.place_id === selectedMapKey ? null : r.place_id)}
                           onProfileClick={setSelectedRestaurant}
                           onReviewClick={() => setReviewTarget({ placeId: r.place_id, placeName: r.name })}
@@ -862,6 +906,15 @@ function FinderPageInner() {
           placeId={reviewTarget.placeId}
           placeName={reviewTarget.placeName}
           onClose={() => setReviewTarget(null)}
+          onSubmitted={() => setReviewStatsBump((n) => n + 1)}
+        />
+      )}
+
+      {/* Submit-place modal */}
+      {submitPlaceOpen && (
+        <SubmitPlaceModal
+          onClose={() => setSubmitPlaceOpen(false)}
+          defaultCity={selectedCity || undefined}
         />
       )}
     </div>

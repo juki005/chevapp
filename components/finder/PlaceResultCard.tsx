@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { PlaceResult } from "@/types/places";
 import type { ProfileTarget } from "@/components/finder/RestaurantDetailModal";
 import { DirectionsButton } from "@/components/finder/DirectionsButton";
+import { ReviewStatsBadge } from "@/components/finder/ReviewStatsBadge";
 import { cn } from "@/lib/utils";
 
 interface PlaceResultCardProps {
@@ -13,9 +14,11 @@ interface PlaceResultCardProps {
   onSelect:       () => void;
   onProfileClick: (target: ProfileTarget) => void;
   onReviewClick?: () => void;
+  /** Aggregate of place_reviews for this place_id (Sprint 19). */
+  reviewStats?:   { avg: number; count: number } | null;
 }
 
-export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClick, onReviewClick }: PlaceResultCardProps) {
+export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClick, onReviewClick, reviewStats }: PlaceResultCardProps) {
   const t = useTranslations("finder");
   const cleanTypes = r.types
     .filter((t) => t !== "point_of_interest" && t !== "establishment" && t !== "food")
@@ -85,14 +88,20 @@ export function PlaceResultCard({ result: r, isSelected, onSelect, onProfileClic
 
       {/* Footer: rating + actions */}
       <div className="mt-auto flex items-center justify-between pt-3 border-t border-[rgb(var(--border)/0.5)]">
-        {r.rating != null ? (
-          <p className="text-xs text-[rgb(var(--muted))]">
-            ⭐ <span className="text-[rgb(var(--foreground))] font-medium">{r.rating.toFixed(1)}</span>
-            <span className="text-[rgb(var(--muted))]">/5</span>
-          </p>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {r.rating != null ? (
+            <p className="text-xs text-[rgb(var(--muted))]">
+              ⭐ <span className="text-[rgb(var(--foreground))] font-medium">{r.rating.toFixed(1)}</span>
+              <span className="text-[rgb(var(--muted))]">/5</span>
+              <span className="ml-1 text-[10px] opacity-70">Google</span>
+            </p>
+          ) : (
+            <span />
+          )}
+          {reviewStats && reviewStats.count > 0 && (
+            <ReviewStatsBadge avg={reviewStats.avg} count={reviewStats.count} compact />
+          )}
+        </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {onReviewClick && (

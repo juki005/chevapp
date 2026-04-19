@@ -4,6 +4,7 @@ import { MapPin, CheckCircle, LayoutList, Sparkles, BookOpen, Star } from "lucid
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 import { VibrantBadge } from "@/components/ui/VibrantBadge";
 import { DirectionsButton } from "./DirectionsButton";
+import { ReviewStatsBadge } from "./ReviewStatsBadge";
 import type { Restaurant } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +66,8 @@ const STYLE_EMOJIS: Record<string, string> = {
 interface RestaurantCardProps {
   restaurant:      Restaurant;
   avgRating?:      number | null;
+  /** Aggregate of place_reviews for this place (Sprint 19). */
+  reviewStats?:    { avg: number; count: number } | null;
   className?:      string;
   onProfileClick?: () => void;
   onAddToJournal?: () => void;
@@ -74,6 +77,7 @@ interface RestaurantCardProps {
 export function RestaurantCard({
   restaurant,
   avgRating,
+  reviewStats,
   className,
   onProfileClick,
   onAddToJournal,
@@ -168,6 +172,9 @@ export function RestaurantCard({
               {tag}
             </span>
           ))}
+          {reviewStats && reviewStats.count > 0 && (
+            <ReviewStatsBadge avg={reviewStats.avg} count={reviewStats.count} />
+          )}
         </div>
 
         {/* Lepinja rating + community avg / status badge */}
