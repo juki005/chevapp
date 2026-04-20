@@ -8,30 +8,63 @@
    Light: "Somun & Wood"
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&family=Press+Start+2P&display=swap');
+/* Fonts (Inter + Oswald) are loaded via <link> in app/[locale]/layout.tsx.
+   Don't re-@import them here — duplicates the request and delays FCP.     */
 
 @layer base {
-  /* ── LIGHT MODE DEFAULT — Premium SaaS ───────────────────────────────── */
+  /* ═══════════════════════════════════════════════════════════════════════
+     ChevApp Design System tokens — Sprint 20
+     Canonical CSS variables. See DESIGN_SYSTEM.md for usage rules.
+     Each token has ONE job. Hex values are locked.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* ── LIGHT MODE · Somun palette (warm cream) ──────────────────────────── */
   :root {
-    --background: 249 250 251;       /* #F9FAFB — app-bg */
-    --surface:    255 255 255;       /* #FFFFFF — card bg */
-    --border:     229 231 235;       /* #E5E7EB — very subtle */
-    --foreground: 17 24 39;          /* #111827 — near-black */
-    --muted:      107 114 128;       /* #6B7280 — gray-500 */
-    --primary:            255 107 0; /* #FF6B00 — brand-orange */
-    --primary-foreground: 255 255 255;
+    --background: 249 247 242;       /* #F9F7F2 somun-bg   · app background */
+    --surface:    255 255 255;       /* #FFFFFF            · card surface   */
+    --border:     214 208 199;       /* #D6D0C7 somun-border                */
+    --foreground: 28 25 23;          /* #1C1917            · text           */
+    --muted:      120 113 108;       /* #78716C            · secondary text */
+
+    /* Vatra — primary CTA. ALWAYS #D35400 in both modes (per spec). */
+    --primary:            211 84 0;    /* #D35400 vatra                   */
+    --primary-foreground: 255 255 255; /* white on vatra                  */
+    --primary-hover:      255 107 0;   /* #FF6B00 brand-orange · hover    */
+    --primary-pressed:    160 64 0;    /* #A04000 burnt-orange-600        */
+
+    /* Semantic accents — same values in both modes (meaning is universal). */
+    --amber-xp:     217 119 6;       /* #D97706 gamification / XP ONLY   */
+    --ember-green:  22 163 74;       /* #16A34A success / confirmed       */
+    --zar-red:      230 57 70;       /* #E63946 alert / destructive       */
+    --somun-purple: 152 127 232;     /* #987FE8 passive status badges     */
+
+    /* Cream — hero text on dark only (unused in light root but declared).  */
+    --cream:        245 245 220;     /* #F5F5DC                            */
+
     --radius: 0.5rem;
   }
 
-  /* ── DARK MODE — Ugljen ──────────────────────────────────────────────── */
+  /* ── DARK MODE · Ugljen palette (charcoal) ────────────────────────────── */
   .dark {
-    --background: 13 13 13;
-    --foreground: 176 176 176;
-    --surface:    26 26 26;
-    --border:     42 42 42;
-    --muted:      83 83 83;
-    --primary:    211 84 0;
-    --primary-foreground: 245 245 220;
+    --background: 13 13 13;          /* #0D0D0D ugljen-bg                   */
+    --surface:    26 26 26;          /* #1A1A1A ugljen-surface              */
+    --border:     42 42 42;          /* #2A2A2A ugljen-border               */
+    --foreground: 176 176 176;       /* #B0B0B0 body text (use cream for    */
+    --muted:      83 83 83;          /*          hero/h1 via --cream var)   */
+
+    /* Vatra stays locked to #D35400 across modes. */
+    --primary:            211 84 0;    /* #D35400 vatra                     */
+    --primary-foreground: 245 245 220; /* #F5F5DC cream                     */
+    --primary-hover:      255 107 0;   /* #FF6B00 brand-orange              */
+    --primary-pressed:    160 64 0;    /* #A04000 burnt-orange-600          */
+
+    /* Semantic accents — unchanged between modes. */
+    --amber-xp:     217 119 6;
+    --ember-green:  22 163 74;
+    --zar-red:      230 57 70;
+    --somun-purple: 152 127 232;
+
+    --cream:        245 245 220;
   }
 
   * {

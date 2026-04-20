@@ -40,7 +40,8 @@ export async function generateMetadata({
       type: "website",
     },
     // manifest is served automatically from app/manifest.ts by Next.js
-    themeColor: "#FF6B00",
+    // Vatra (#D35400) is the primary brand color in both Ugljen + Somun modes.
+    themeColor: "#D35400",
   };
 }
 

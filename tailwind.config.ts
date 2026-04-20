@@ -11,7 +11,62 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Sprint 1: Premium SaaS Brand Tokens ──────────────────────────────
+        // ═════════════════════════════════════════════════════════════════════
+        //  ChevApp Design System — Sprint 20 (canonical tokens)
+        //  See DESIGN_SYSTEM.md for usage rules. Each token has ONE job.
+        // ═════════════════════════════════════════════════════════════════════
+
+        // ── VATRA · Primary CTA ──────────────────────────────────────────────
+        // Main buttons, icons, active nav, Finder, the-thing-users-MUST-do.
+        // Always #D35400 across BOTH modes (per spec). Never white, never gray.
+        vatra: {
+          DEFAULT: "#D35400",   // burnt-orange-500 — primary / icons / CTAs
+          hover:   "#FF6B00",   // brand-orange    — hover, glows, hero
+          pressed: "#A04000",   // burnt-orange-600 — pressed, deep accents
+        },
+
+        // ── AMBER · XP / Gamification ONLY — never on buttons ────────────────
+        "amber-xp": "#D97706",
+
+        // ── EMBER · Success / Confirmed ──────────────────────────────────────
+        // Review submitted, route saved, XP earned animation, completed states
+        "ember-green": "#16A34A",
+
+        // ── ŽAR · Alert / Error / Destructive ────────────────────────────────
+        // Validation errors, sign out, destructive actions, failed states
+        "zar-red": "#E63946",
+
+        // ── SOMUN PURPLE · Passive status badges ONLY — never interactive ───
+        // "Objavljeno", "Novo", "Trending"
+        "somun-purple": "#987FE8",
+
+        // ── UGLJEN · Dark mode surfaces ──────────────────────────────────────
+        ugljen: {
+          bg:      "#0D0D0D",   // app background
+          surface: "#1A1A1A",   // card surface
+          border:  "#2A2A2A",   // dividers, borders
+          text:    "#B0B0B0",   // body text on dark
+          "text-strong": "#D4D4D4",
+          // kept for back-compat
+          accent: "#A04000",
+          "accent-hover": "#C04800",
+        },
+
+        // ── SOMUN · Light mode surfaces ──────────────────────────────────────
+        somun: {
+          bg:      "#F9F7F2",   // app background (warm cream)
+          surface: "#FFFFFF",   // card surface
+          border:  "#D6D0C7",   // dividers, borders
+          text:    "#1C1917",   // body text on light
+          "text-muted": "#78716C",
+          cream:   "#F5F5DC",   // hero text on dark
+          // kept for back-compat
+          accent: "#D97706",
+          "accent-hover": "#B45309",
+          "accent-light": "#FEF3C7",
+        },
+
+        // ── Legacy aliases (keep so older components don't break) ───────────
         "brand-orange": "#FF6B00",
         "brand-red":    "#E63946",
         "brand-dark":   "#121212",
@@ -68,40 +123,46 @@ const config: Config = {
         muted:      "rgb(var(--muted)      / <alpha-value>)",
         surface:    "rgb(var(--surface)    / <alpha-value>)",
 
-        // --- Ugljen Dark Mode Palette ---
-        ugljen: {
-          bg: "#0D0D0D",
-          surface: "#1A1A1A",
-          border: "#2a2a2a",
-          text: "#B0B0B0",
-          "text-strong": "#D4D4D4",
-          accent: "#A04000",
-          "accent-hover": "#C04800",
-        },
-
-        // --- Somun & Wood Light Mode Palette ---
-        somun: {
-          bg: "#F9F7F2",
-          surface: "#E5E1D8",
-          border: "#D6D0C7",
-          text: "#1C1917",
-          "text-muted": "#78716C",
-          accent: "#D97706",
-          "accent-hover": "#B45309",
-          "accent-light": "#FEF3C7",
-        },
+        // Note: `ugljen.*` and `somun.*` mode-specific scales are defined
+        // above in the Design System block — don't duplicate here.
       },
       borderRadius: {
+        // ── Design-system canonical radius ───────────────────────────────────
+        // card = 20px (never < 16px for card-like surfaces)
+        card:  "20px",
+        pill:  "9999px",
+        chip:  "12px",
+        // back-compat
         "extra-rounded": "20px",
       },
       boxShadow: {
-        "soft-xl": "0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)",
+        // ── Two levels only — never mix ──────────────────────────────────────
+        // soft-md → cards, chips, inline surfaces
+        // soft-xl → modals, popovers, drawers
         "soft-md": "0 4px 16px -2px rgba(0,0,0,0.07), 0 2px 6px -2px rgba(0,0,0,0.04)",
+        "soft-xl": "0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)",
         "brand":   "0 4px 14px 0 rgba(255,107,0,0.30)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Oswald", "Impact", "sans-serif"],
+        // Inter — body, labels, captions (ONLY). Never for h1/h2/h3.
+        sans:    ["Inter",  "system-ui", "sans-serif"],
+        // Oswald — h1/h2/h3/card titles (ONLY). Never for body.
+        display: ["Oswald", "Impact",    "sans-serif"],
+      },
+      fontSize: {
+        // ── Design-system type scale — jumps must be dramatic ────────────────
+        //   hero    80px · Oswald 700 · -1px tracking       (min 72px)
+        //   section 48px · Oswald 600 · 1px tracking · UPPER
+        //   card    32px · Oswald 600 · 0.5px tracking      (min 28px)
+        //   subsec  18px · Inter 600
+        //   body    15px · Inter 400 · 1.7 line-height
+        //   label   11px · Inter 600 · 1.5px tracking · UPPER
+        hero:    ["80px",  { lineHeight: "0.95", letterSpacing: "-0.0125em", fontWeight: "700" }],
+        section: ["48px",  { lineHeight: "1.05", letterSpacing: "0.02em",    fontWeight: "600" }],
+        "card-title": ["32px", { lineHeight: "1.1",  letterSpacing: "0.005em", fontWeight: "600" }],
+        subsec:  ["18px",  { lineHeight: "1.4",  letterSpacing: "0",        fontWeight: "600" }],
+        body:    ["15px",  { lineHeight: "1.7",  letterSpacing: "0",        fontWeight: "400" }],
+        label:   ["11px",  { lineHeight: "1.4",  letterSpacing: "0.136em",  fontWeight: "600" }],
       },
       backgroundImage: {
         "hero-pattern":
