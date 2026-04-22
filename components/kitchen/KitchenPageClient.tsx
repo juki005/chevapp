@@ -15,7 +15,6 @@ import {
 } from "@/lib/actions/youtube";
 import { RecipeModal } from "@/components/kitchen/RecipeModal";
 import { GroupCalculator } from "@/components/kitchen/GroupCalculator";
-import { VibrantBadge } from "@/components/ui/VibrantBadge";
 import { cn } from "@/lib/utils";
 
 type KitchenTab = "recipes" | "videos" | "squad";
@@ -238,10 +237,11 @@ export function KitchenPageClient({ initialRecipes, initialVideos }: Props) {
                     recipe.is_pinned && "dark:border-[rgb(var(--primary)/0.35)] dark:bg-[rgb(var(--primary)/0.04)]",
                   )}
                 >
-                  {/* Admin Pick strip */}
+                  {/* Admin Pick strip — Sprint 26: tokenized, matches RestaurantCard */}
                   {recipe.is_pinned && (
-                    <div className="flex items-center gap-1.5 px-5 py-1.5 bg-orange-50 dark:bg-amber-500/15 border-b border-orange-200 dark:border-amber-500/25">
-                      <VibrantBadge variant="admin" />
+                    <div className="flex items-center gap-1.5 px-5 py-1.5 bg-primary/10 border-b border-primary/20 text-xs text-primary font-semibold">
+                      <Sparkles className="w-3 h-3" aria-hidden="true" />
+                      Admin Pick
                     </div>
                   )}
 
@@ -442,10 +442,11 @@ function VideoCard({ id, title, embedId, channel, isPinned, isPlaying, onPlay }:
           : "dark:border-[rgb(var(--border))]",
       )}
     >
-      {/* Admin Pick strip */}
+      {/* Admin Pick strip — Sprint 26: tokenized, matches RestaurantCard */}
       {isPinned && (
-        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-orange-50 dark:bg-amber-500/15 border-b border-orange-200 dark:border-amber-500/25">
-          <VibrantBadge variant="admin" />
+        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-primary/10 border-b border-primary/20 text-xs text-primary font-semibold">
+          <Sparkles className="w-3 h-3" aria-hidden="true" />
+          Admin Pick
         </div>
       )}
 

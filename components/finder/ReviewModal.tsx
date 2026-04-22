@@ -1,12 +1,27 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ReviewModal
+// ReviewModal (Sprint 26 · DS-migrated)
 // Meat + bread 5-star rating, comment, optional photo upload.
 // • Auto-loads caller's existing review (edit mode) via getMyReviewForPlace
 // • Compresses photo client-side with compressImage() before upload
 // • Uploads to user_photos bucket at {uid}/{placeId}/{uuid}.{ext}
 // • Submits via submitReview server action (upsert on user_id+place_id)
+//
+// Sprint 26 changes:
+//   - rounded-2xl / rounded-xl → rounded-card / rounded-chip tokens
+//   - bg-[rgb(var(--background))] etc. → bg-background / text-foreground /
+//     border-border / bg-surface / text-muted (Tailwind token aliases)
+//   - CheckCircle text-emerald-500 → text-ember-green
+//   - Error banner red-500 → zar-red (spec destructive token)
+//   - Delete-action red-500 → zar-red
+//   - Star fill amber-400 → amber-xp (review ratings are the
+//     gamification-adjacent accent — same choice as ReviewStatsBadge)
+//   - Submit button uses <Button variant="primary"> via primitive
+//   - Cancel/close buttons tokenized; delete button routed via
+//     <Button variant="destructive">
+//   - style={{fontFamily:"Oswald,..."}} → font-display class
+//   - Photo-upload dashed drop-zone: token-only border/hover
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef } from "react";
@@ -20,6 +35,7 @@ import {
   getMyReviewForPlace,
   type PlaceReview,
 } from "@/lib/actions/reviews";
+import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
 const BUCKET = "user_photos";
@@ -202,22 +218,20 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] shadow-2xl"
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-card border border-border bg-background shadow-soft-xl"
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--background))]">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-border bg-background">
           <div>
-            <h2
-              className="text-lg font-bold text-[rgb(var(--foreground))]"
-              style={{ fontFamily: "Oswald, sans-serif" }}
-            >
+            <h2 className="font-display text-lg font-bold text-foreground">
               {existing ? "Uredi recenziju" : "Ostavi recenziju"}
             </h2>
-            <p className="text-xs text-[rgb(var(--muted))] mt-0.5 truncate">{placeName}</p>
+            <p className="text-xs text-muted mt-0.5 truncate">{placeName}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/0.4)] transition-colors"
+            aria-label="Zatvori"
+            className="p-1.5 rounded-chip text-muted hover:bg-border/40 hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -227,12 +241,12 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
         <div className="p-5 space-y-5">
           {loading ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-6 h-6 animate-spin text-[rgb(var(--muted))]" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted" />
             </div>
           ) : done ? (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
-              <CheckCircle className="w-12 h-12 text-emerald-500" />
-              <p className="text-sm font-medium text-[rgb(var(--foreground))]">Recenzija je spremljena. Hvala!</p>
+              <CheckCircle className="w-12 h-12 text-ember-green" />
+              <p className="text-sm font-medium text-foreground">Recenzija je spremljena. Hvala!</p>
             </div>
           ) : (
             <>
@@ -254,7 +268,7 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
 
               {/* Comment */}
               <div>
-                <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-1.5">
+                <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-1.5">
                   Komentar <span className="opacity-50 normal-case tracking-normal">(opcionalno)</span>
                 </label>
                 <textarea
@@ -263,14 +277,14 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
                   placeholder="Kakvi su bili ćevapi? Meso, somun, usluga…"
                   maxLength={2000}
                   rows={4}
-                  className="w-full px-3 py-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] text-sm text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)] resize-none"
+                  className="w-full px-3 py-2 rounded-chip border border-border bg-surface/40 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-primary/50 resize-none"
                 />
-                <p className="text-[10px] text-[rgb(var(--muted))] opacity-60 mt-1 text-right">{comment.length} / 2000</p>
+                <p className="text-[10px] text-muted opacity-60 mt-1 text-right">{comment.length} / 2000</p>
               </div>
 
               {/* Photo */}
               <div>
-                <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-1.5">
+                <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-1.5">
                   Fotografija <span className="opacity-50 normal-case tracking-normal">(opcionalno)</span>
                 </label>
 
@@ -280,11 +294,12 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
                     <img
                       src={photoPreview}
                       alt="Pregled"
-                      className="w-full h-48 object-cover rounded-xl border border-[rgb(var(--border))]"
+                      className="w-full h-48 object-cover rounded-chip border border-border"
                     />
                     <button
                       onClick={clearPhoto}
-                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white hover:bg-black/80 transition-colors"
+                      aria-label="Ukloni fotografiju"
+                      className="absolute top-2 right-2 p-1.5 rounded-chip bg-black/60 text-white hover:bg-black/80 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -292,7 +307,7 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
                 ) : (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all"
+                    className="w-full flex items-center justify-center gap-2 py-6 rounded-chip border-2 border-dashed border-border text-muted hover:text-foreground hover:border-primary/40 hover:bg-primary/[0.04] transition-all"
                   >
                     <Camera className="w-5 h-5" />
                     <span className="text-sm">Dodaj fotografiju</span>
@@ -307,14 +322,17 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
                   className="hidden"
                 />
 
-                <p className="text-[10px] text-[rgb(var(--muted))] opacity-60 mt-1">
+                <p className="text-[10px] text-muted opacity-60 mt-1">
                   Slika se automatski smanjuje na 800 px / 500 KB prije slanja.
                 </p>
               </div>
 
               {/* Error */}
               {error && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-500">
+                <div
+                  role="alert"
+                  className="rounded-chip border border-zar-red/30 bg-zar-red/5 px-3 py-2 text-xs text-zar-red"
+                >
                   {error}
                 </div>
               )}
@@ -324,12 +342,12 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         {!loading && !done && (
-          <div className="sticky bottom-0 flex items-center justify-between gap-3 px-5 py-4 border-t border-[rgb(var(--border))] bg-[rgb(var(--background))]">
+          <div className="sticky bottom-0 flex items-center justify-between gap-3 px-5 py-4 border-t border-border bg-background">
             {existing ? (
               <button
                 onClick={handleDelete}
                 disabled={submitting}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-chip text-xs font-semibold text-zar-red hover:bg-zar-red/10 transition-colors disabled:opacity-40"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Obriši
@@ -337,31 +355,25 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
             ) : <span />}
 
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={onClose}
                 disabled={submitting}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/0.4)] transition-colors disabled:opacity-40"
               >
                 Odustani
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleSubmit}
                 disabled={submitting || ratingMeat < 1 || ratingBread < 1}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40",
-                  "bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary)/0.85)] active:scale-95",
-                )}
-                style={{ fontFamily: "Oswald, sans-serif" }}
+                loading={submitting}
               >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {uploading ? "Šaljem sliku…" : "Spremam…"}
-                  </>
-                ) : (
-                  existing ? "Spremi izmjene" : "Objavi"
-                )}
-              </button>
+                {submitting
+                  ? (uploading ? "Šaljem sliku…" : "Spremam…")
+                  : (existing ? "Spremi izmjene" : "Objavi")}
+              </Button>
             </div>
           </div>
         )}
@@ -373,6 +385,8 @@ export function ReviewModal({ placeId, placeName, onClose, onSubmitted }: Props)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // StarPicker — interactive 5-star rating with hover preview
+// Uses amber-xp token (matches ReviewStatsBadge choice — review ratings are
+// gamification-adjacent; the XP accent is the closest semantic fit).
 // ─────────────────────────────────────────────────────────────────────────────
 function StarPicker({
   label,
@@ -390,8 +404,9 @@ function StarPicker({
 
   return (
     <div>
-      <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-1.5">
-        <span className="mr-1.5">{emoji}</span>{label}
+      <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-1.5">
+        {/* TODO(icons): swap emoji for brand <Meso>/<Somun> in Sprint 27 */}
+        <span className="mr-1.5" aria-hidden="true">{emoji}</span>{label}
       </label>
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((i) => (
@@ -408,13 +423,13 @@ function StarPicker({
               className={cn(
                 "w-7 h-7 transition-colors",
                 i <= active
-                  ? "fill-amber-400 text-amber-400"
-                  : "fill-transparent text-[rgb(var(--border))]",
+                  ? "fill-amber-xp text-amber-xp"
+                  : "fill-transparent text-border",
               )}
             />
           </button>
         ))}
-        <span className="ml-2 text-sm font-semibold text-[rgb(var(--foreground))]">
+        <span className="ml-2 text-sm font-semibold text-foreground">
           {value > 0 ? `${value}/5` : "—"}
         </span>
       </div>
