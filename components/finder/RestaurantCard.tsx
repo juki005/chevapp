@@ -1,16 +1,42 @@
 "use client";
 
-import { MapPin, CheckCircle, LayoutList, Sparkles, BookOpen, Star } from "lucide-react";
+// ── RestaurantCard · Finder (Sprint 25 · DS-migrated) ─────────────────────────
+// Card for our own verified DB places (paired with PlaceResultCard which shows
+// external Google Places).
+//
+// Sprint 25 changes:
+//   - rounded-[20px] → rounded-card; inline shadow arrays → shadow-soft-xl
+//   - bg-white → bg-surface (mode-aware)
+//   - text-emerald-500 verified check → text-ember-green
+//   - Admin-pick strip: bg-orange-50 → bg-primary/10 text-primary
+//   - VibrantBadge variant="verified" → Badge variant="published"
+//   - Inline "🔥 Novo na mapi" chip → Badge variant="new"
+//   - Font-family inline style → font-display class
+//   - Token-based hover/gray-50 replacements throughout
+//   - Emoji placeholders (🕌🌊⛰️🌶️🔥🧅🥯) kept with TODO(icons) markers
+//     per §4 interim policy — swept in Sprint 27
+//
+// DELIBERATE EXCEPTION — per-style color palette (Sarajevski/Banjalučki/
+// Travnički/Leskovački/Ostalo ↔ amber/blue/emerald/red/orange):
+//   These are categorical visual markers for ćevapi regional styles, not
+//   semantic status colors. They use Tailwind's built-in palettes (no raw
+//   hex), and collapsing them to a single accent would erase a core
+//   recognition affordance. Keep them. If we ever introduce "style tokens"
+//   (vatra-sa/vatra-bl/vatra-tv/...), migrate then.
+// ────────────────────────────────────────────────────────────────────────────────
+
+import { MapPin, LayoutList, Sparkles, BookOpen, Star } from "lucide-react";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
-import { VibrantBadge } from "@/components/ui/VibrantBadge";
+import { Badge } from "@/components/ui/Badge";
 import { DirectionsButton } from "./DirectionsButton";
 import { ReviewStatsBadge } from "./ReviewStatsBadge";
 import type { Restaurant } from "@/types";
 import { cn } from "@/lib/utils";
 
 // ── Per-style accent palette ──────────────────────────────────────────────────
+// See file header for why this isn't migrated to semantic tokens.
 // Light: white card, coloured left-border accent strip + coloured badge
-// Dark:  subtle coloured bg tint + coloured border (existing behaviour)
+// Dark:  subtle coloured bg tint + coloured border
 const STYLE_PALETTE: Record<string, {
   leftBar:  string;   // 4px left border strip (light)
   badge:    string;   // style chip colours (both modes via dark:)
@@ -55,6 +81,7 @@ const STYLE_PALETTE: Record<string, {
   },
 };
 
+// TODO(icons): swap for brand <Roštilj-style> icon set — Sprint 27
 const STYLE_EMOJIS: Record<string, string> = {
   Sarajevski:   "🕌",
   "Banjalučki": "🌊",
@@ -97,15 +124,14 @@ export function RestaurantCard({
     <div
       className={cn(
         // ── Base shape ──────────────────────────────────────────────────────
-        "group rounded-[20px] overflow-hidden transition-all duration-200",
+        "group rounded-card overflow-hidden transition-all duration-200",
         // ── Flex column — card sizes to content; overflow-hidden never clips ─
         "flex flex-col",
-        // ── Light: white card + soft shadow + coloured left strip ──────────
-        "bg-white border border-[rgb(var(--border))] border-l-4",
-        "shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),_0_10px_10px_-5px_rgba(0,0,0,0.02)]",
+        // ── Light: surface fill + soft shadow + coloured left strip ─────────
+        "bg-surface border border-border border-l-4 shadow-soft-xl",
         "hover:shadow-[0_24px_30px_-5px_rgba(0,0,0,0.09),_0_12px_14px_-5px_rgba(0,0,0,0.04)]",
         "hover:-translate-y-0.5",
-        // ── Dark: transparent bg + coloured border ─────────────────────────
+        // ── Dark: transparent bg + coloured border (shadows hidden per §3) ──
         "dark:bg-transparent dark:shadow-none dark:hover:translate-y-0 dark:hover:brightness-110",
         palette.leftBar,
         palette.darkBorder,
@@ -113,10 +139,10 @@ export function RestaurantCard({
         className,
       )}
     >
-      {/* Admin-Pick strip */}
+      {/* Admin-Pick strip — featured ribbon, vatra-tinted */}
       {restaurant.is_pinned && (
-        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-orange-50 dark:bg-amber-500/15 border-b border-orange-200 dark:border-amber-500/25 text-xs text-orange-600 dark:text-amber-400 font-semibold">
-          <Sparkles className="w-3 h-3" />
+        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-primary/10 border-b border-primary/20 text-xs text-primary font-semibold">
+          <Sparkles className="w-3 h-3" aria-hidden="true" />
           Admin Pick
         </div>
       )}
@@ -125,30 +151,29 @@ export function RestaurantCard({
       <button
         onClick={(e) => { e.stopPropagation(); onProfileClick?.(); }}
         aria-label={`Otvori profil — ${restaurant.name}`}
-        className="w-full text-left flex items-center gap-3 px-5 pt-5 pb-3 hover:bg-gray-50/70 dark:hover:bg-white/[0.02] transition-colors"
+        className="w-full text-left flex items-center gap-3 px-5 pt-5 pb-3 hover:bg-primary/[0.03] transition-colors"
       >
-        {/* Style emoji icon */}
+        {/* Style emoji icon — TODO(icons): swap for brand style-icon set */}
         <div className={cn(
           "w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0",
           palette.iconBg,
         )}>
-          {emoji}
+          <span aria-hidden="true">{emoji}</span>
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3
-              className="font-bold text-[rgb(var(--foreground))] text-base leading-tight truncate group-hover:text-[rgb(var(--primary))] transition-colors"
-              style={{ fontFamily: "Oswald, sans-serif" }}
-            >
+            <h3 className="font-display font-bold text-foreground text-base leading-tight truncate group-hover:text-primary transition-colors">
               {restaurant.name}
             </h3>
             {restaurant.is_verified && (
-              <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <Badge variant="published" icon={null} className="!px-1.5 !py-0 !text-[9px]">
+                ✓
+              </Badge>
             )}
           </div>
-          <div className="flex items-center gap-1 text-xs text-[rgb(var(--muted))] mt-0.5">
-            <MapPin className="w-3 h-3 flex-shrink-0" />
+          <div className="flex items-center gap-1 text-xs text-muted mt-0.5">
+            <MapPin className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
             <span className="truncate">{restaurant.city} · {restaurant.address}</span>
           </div>
         </div>
@@ -159,7 +184,7 @@ export function RestaurantCard({
         {/* Style badge + tags */}
         <div className="flex flex-wrap gap-1.5 mb-3">
           <span className={cn(
-            "text-xs px-2.5 py-1 rounded-full border font-semibold",
+            "text-xs px-2.5 py-1 rounded-pill border font-semibold",
             palette.badge,
           )}>
             {restaurant.style ?? "Ostalo"}
@@ -167,7 +192,7 @@ export function RestaurantCard({
           {restaurant.tags?.slice(0, 2).map((tag) => (
             <span
               key={tag}
-              className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[rgb(var(--border)/0.6)] text-[rgb(var(--muted))]"
+              className="text-xs px-2.5 py-1 rounded-pill bg-border/60 text-muted"
             >
               {tag}
             </span>
@@ -183,35 +208,35 @@ export function RestaurantCard({
 
           {hasRating ? (
             <div className="flex items-center gap-1 text-xs">
-              <span className="text-[rgb(var(--primary))]">
+              {/* TODO(icons): swap 🔥 for brand <Vatra> icon repetition */}
+              <span className="text-primary" aria-hidden="true">
                 {"🔥".repeat(Math.min(Math.round(avgRating!), 5))}
               </span>
-              <span className="font-semibold text-[rgb(var(--foreground))]">
+              <span className="font-semibold text-foreground">
                 {avgRating!.toFixed(1)}
               </span>
             </div>
           ) : restaurant.is_verified ? (
-            <VibrantBadge variant="verified" />
+            <Badge variant="published">Verificirano</Badge>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/25">
-              🔥 Novo na mapi
-            </span>
+            <Badge variant="new">Novo na mapi</Badge>
           )}
         </div>
       </div>
 
       {/* ── Footer: emoji row + single action-bar row ─────────────────────── */}
-      <div className="mt-auto px-4 pt-3 pb-4 border-t border-[rgb(var(--border)/0.6)] bg-gray-50/50 dark:bg-transparent space-y-2">
-        {/* Quick emoji reactions — own row, left-aligned */}
+      <div className="mt-auto px-4 pt-3 pb-4 border-t border-border/60 bg-surface/60 dark:bg-transparent space-y-2">
+        {/* Quick emoji reactions — own row, left-aligned.
+            TODO(icons): swap 🧅 🔥 🥯 for brand <Luk> <Vatra> <Somun> in Sprint 27. */}
         <div className="flex gap-0.5">
           {(["🧅", "🔥", "🥯"] as const).map((e) => (
             <button
               key={e}
               onClick={(ev) => ev.stopPropagation()}
               aria-label={e === "🧅" ? "Luk" : e === "🔥" ? "Vatra" : "Lepinja"}
-              className="w-8 h-8 rounded-xl hover:bg-[rgb(var(--primary)/0.08)] dark:hover:bg-[rgb(var(--primary)/0.1)] transition-colors text-sm flex items-center justify-center hover:scale-110"
+              className="w-8 h-8 rounded-chip hover:bg-primary/10 transition-colors text-sm flex items-center justify-center hover:scale-110"
             >
-              {e}
+              <span aria-hidden="true">{e}</span>
             </button>
           ))}
         </div>
@@ -227,9 +252,9 @@ export function RestaurantCard({
               aria-label={`Ostavi recenziju — ${restaurant.name}`}
               title="Ostavi recenziju"
               className={cn(
-                "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-[12px] flex-shrink-0",
-                "border border-amber-500/40 text-amber-600 dark:text-amber-400",
-                "hover:bg-amber-500/10 transition-all text-xs font-semibold",
+                "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-chip flex-shrink-0",
+                "border border-amber-xp/40 text-amber-xp",
+                "hover:bg-amber-xp/10 transition-all text-xs font-semibold",
               )}
             >
               <Star className="w-4 h-4" />
@@ -242,9 +267,9 @@ export function RestaurantCard({
               aria-label={`Dodaj u dnevnik — ${restaurant.name}`}
               title="Dodaj u dnevnik"
               className={cn(
-                "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-[12px] flex-shrink-0",
-                "border border-[rgb(var(--primary)/0.35)] text-[rgb(var(--primary))]",
-                "hover:bg-[rgb(var(--primary)/0.08)] transition-all text-xs font-semibold",
+                "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-chip flex-shrink-0",
+                "border border-primary/35 text-primary",
+                "hover:bg-primary/10 transition-all text-xs font-semibold",
               )}
             >
               <BookOpen className="w-4 h-4" />
@@ -256,9 +281,9 @@ export function RestaurantCard({
             aria-label={`Otvori profil — ${restaurant.name}`}
             title="Otvori profil"
             className={cn(
-              "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-[12px] flex-shrink-0",
-              "border border-[rgb(var(--border))]",
-              "text-[rgb(var(--muted))] hover:text-[rgb(var(--primary))] hover:border-[rgb(var(--primary)/0.4)] transition-all text-xs font-semibold",
+              "flex items-center justify-center gap-1.5 w-9 lg:w-auto lg:px-3 h-9 rounded-chip flex-shrink-0",
+              "border border-border text-muted",
+              "hover:text-primary hover:border-primary/40 transition-all text-xs font-semibold",
             )}
           >
             <LayoutList className="w-4 h-4" />
