@@ -31,15 +31,18 @@ export function StyleFilter({
     onStyleChange?.(style);
   };
 
-  const btnBase = "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all";
-  const btnActive = "border-[rgb(var(--primary)/0.6)] bg-[rgb(var(--primary)/0.12)] text-[rgb(var(--primary))]";
-  const btnIdle = "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]";
+  // ── Sprint 26g · DS-migrated ──────────────────────────────────────────────
+  // Idle state follows the 7shifts inactive-contrast rule: transparent fill +
+  // foreground text + border only (never muted grey fill).
+  const btnBase   = "px-3 py-1.5 rounded-chip text-xs font-medium border transition-all";
+  const btnActive = "border-primary/60 bg-primary/10 text-primary";
+  const btnIdle   = "border-border text-muted hover:text-foreground";
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <Filter className="w-3.5 h-3.5 text-[rgb(var(--muted))]" />
-        <span className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
+        <Filter className="w-3.5 h-3.5 text-muted" />
+        <span className="text-xs text-muted uppercase tracking-widest font-medium">
           {t("filterStyle")}
         </span>
       </div>
@@ -65,10 +68,13 @@ export function StyleFilter({
               className={cn(
                 "flex items-center gap-1.5",
                 btnBase,
-                selectedStyle === value ? btnActive : btnIdle
+                selectedStyle === value ? btnActive : btnIdle,
               )}
             >
-              <span>{emoji}</span>
+              {/* TODO(icons): style emojis are categorical markers —
+                  Sprint 27 may or may not replace them (they're closer to
+                  content than chrome). Leaving as-is for now. */}
+              <span aria-hidden="true">{emoji}</span>
               <span>{t(i18nKey)}</span>
             </button>
           );

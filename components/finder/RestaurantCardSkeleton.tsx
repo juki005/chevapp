@@ -1,39 +1,28 @@
-/**
- * Skeleton placeholder for a RestaurantCard while DB/Places results are loading.
- * Uses animate-pulse (Tailwind) + CSS variable colours so it respects light/dark mode.
- */
+// ── RestaurantCardSkeleton · finder (Sprint 26g · DS-migrated) ──────────────
+// Skeleton placeholder for a RestaurantCard while DB/Places results are loading.
+// Uses animate-pulse (Tailwind) and semantic colour tokens so it respects both
+// Ugljen (dark) and Somun (light) modes.
+//
+// Sprint 26g changes:
+//   - All inline style={{ background: "rgb(var(--token))" }} blocks collapsed
+//     to className utilities (bg-surface/50, bg-border, border-border).
+//   - rounded-2xl → rounded-card, rounded-xl → rounded-chip, rounded-lg →
+//     rounded-chip (stays within DS shape scale).
+// ────────────────────────────────────────────────────────────────────────────────
+
 export function RestaurantCardSkeleton() {
   return (
-    <div
-      className="rounded-2xl border p-4 animate-pulse"
-      style={{
-        background:   "rgb(var(--surface)/0.5)",
-        borderColor:  "rgb(var(--border))",
-      }}
-    >
+    <div className="rounded-card border border-border bg-surface/50 p-4 animate-pulse">
       {/* Image placeholder */}
-      <div
-        className="w-full h-36 rounded-xl mb-3"
-        style={{ background: "rgb(var(--border))" }}
-      />
+      <div className="w-full h-36 rounded-chip mb-3 bg-border" />
       {/* Title */}
-      <div
-        className="h-4 rounded-lg mb-2 w-3/4"
-        style={{ background: "rgb(var(--border))" }}
-      />
+      <div className="h-4 rounded-chip mb-2 w-3/4 bg-border" />
       {/* Subtitle / city */}
-      <div
-        className="h-3 rounded-lg mb-3 w-1/2"
-        style={{ background: "rgb(var(--border))" }}
-      />
+      <div className="h-3 rounded-chip mb-3 w-1/2 bg-border" />
       {/* Rating dots */}
       <div className="flex gap-1.5">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className="w-4 h-4 rounded-full"
-            style={{ background: "rgb(var(--border))" }}
-          />
+          <div key={i} className="w-4 h-4 rounded-full bg-border" />
         ))}
       </div>
     </div>
