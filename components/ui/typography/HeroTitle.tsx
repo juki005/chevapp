@@ -26,7 +26,7 @@ export const HeroTitle = forwardRef<HTMLHeadingElement, HeroTitleProps>(
       ref={ref}
       className={cn(
         "font-display text-hero uppercase",
-        "text-foreground dark:text-[rgb(var(--cream))]",
+        "text-foreground dark:text-cream",
         className,
       )}
       {...rest}

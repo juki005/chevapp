@@ -1,6 +1,19 @@
 "use client";
 
+// ── Root error boundary · /[locale] (Sprint 26d · DS-migrated) ──────────────
+// Shown when a page below this route throws during render. Kept intentionally
+// minimal — no i18n lookup, because that's one of the subsystems that might
+// have failed. Copy is HR hardcoded (matches the default locale fallback).
+//
+// Sprint 26d changes:
+//   - All inline style={{...}} → Tailwind className tokens.
+//   - #D35400 button + fontFamily:"Oswald" → <Button variant="primary">.
+//   - rgb(var(--foreground/muted)) → text-foreground / text-muted.
+//   - Emoji 🍖 kept as placeholder with TODO(icons) for Sprint 27.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useEffect } from "react";
+import { Button } from "@/components/ui/Button";
 
 export default function Error({
   error,
@@ -14,49 +27,18 @@ export default function Error({
   }, [error]);
 
   return (
-    <div
-      style={{
-        minHeight: "60vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "16px",
-        padding: "40px 20px",
-        textAlign: "center",
-      }}
-    >
-      <div style={{ fontSize: "48px" }}>🍖</div>
-      <h2
-        style={{
-          fontFamily: "Oswald, sans-serif",
-          fontSize: "22px",
-          fontWeight: 700,
-          color: "rgb(var(--foreground))",
-          margin: 0,
-        }}
-      >
+    <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-5 py-10 text-center">
+      {/* TODO(icons): swap 🍖 for brand <Cevapi> when Sprint 27 lands */}
+      <div className="text-5xl" aria-hidden="true">🍖</div>
+      <h2 className="font-display text-[22px] font-bold text-foreground m-0">
         Nešto je pošlo po krivu
       </h2>
-      <p style={{ fontSize: "14px", color: "rgb(var(--muted))", margin: 0, maxWidth: "320px" }}>
+      <p className="text-sm text-muted m-0 max-w-[320px]">
         Došlo je do neočekivane greške. Pokušaj ponovo ili osvježi stranicu.
       </p>
-      <button
-        onClick={reset}
-        style={{
-          padding: "10px 24px",
-          borderRadius: "12px",
-          background: "#D35400",
-          color: "#fff",
-          fontFamily: "Oswald, sans-serif",
-          fontWeight: 700,
-          fontSize: "14px",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
+      <Button variant="primary" onClick={reset}>
         POKUŠAJ PONOVO
-      </button>
+      </Button>
     </div>
   );
 }

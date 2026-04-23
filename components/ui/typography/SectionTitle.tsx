@@ -25,7 +25,7 @@ export const SectionTitle = forwardRef<HTMLHeadingElement, SectionTitleProps>(
       ref={ref}
       className={cn(
         "font-display text-section uppercase",
-        "text-foreground dark:text-[rgb(var(--cream))]",
+        "text-foreground dark:text-cream",
         className,
       )}
       {...rest}
