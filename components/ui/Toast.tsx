@@ -1,5 +1,22 @@
 "use client";
 
+// ── Toast · ui (Sprint 26f · DS-migrated) ────────────────────────────────────
+// Lightweight transient notification system. 4 variants:
+//   success → ember-green (confirmed action)
+//   error   → zar-red     (failure / destructive)
+//   info    → somun-purple (passive status — per DS §6 "Novo/Objavljeno" family)
+//   xp      → primary / vatra (hit for gamification events — matches XP badges)
+//
+// Sprint 26f changes:
+//   - Tailwind arbitrary rgb(var(--token)) classes → semantic aliases
+//     (bg-surface, text-foreground, text-muted, bg-primary, etc.).
+//   - Raw green-/red-/blue-500 palette → semantic tokens; "info" remapped
+//     from blue to somun-purple so the app palette stays inside the 5
+//     canonical semantic colors.
+//   - rounded-2xl → rounded-card (20px · DS shape scale).
+//   - shadow-xl → shadow-soft-xl (DS shadow scale).
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useEffect, useState } from "react";
 import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,17 +31,18 @@ export interface ToastData {
 }
 
 const ICONS = {
-  success: <CheckCircle className="w-4 h-4 text-green-400" />,
-  error:   <AlertCircle className="w-4 h-4 text-red-400" />,
-  info:    <Info className="w-4 h-4 text-blue-400" />,
-  xp:      <span className="text-sm">⚡</span>,
+  success: <CheckCircle className="w-4 h-4 text-ember-green" />,
+  error:   <AlertCircle className="w-4 h-4 text-zar-red" />,
+  info:    <Info        className="w-4 h-4 text-somun-purple" />,
+  // TODO(icons): swap ⚡ for brand <XP> when Sprint 27 lands
+  xp:      <span className="text-sm" aria-hidden="true">⚡</span>,
 };
 
 const BORDERS = {
-  success: "border-green-500/40 bg-green-500/8",
-  error:   "border-red-500/40 bg-red-500/8",
-  info:    "border-blue-500/40 bg-blue-500/8",
-  xp:      "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)]",
+  success: "border-ember-green/40 bg-ember-green/10",
+  error:   "border-zar-red/40 bg-zar-red/10",
+  info:    "border-somun-purple/40 bg-somun-purple/10",
+  xp:      "border-primary/50 bg-primary/10",
 };
 
 // ── Single toast item ─────────────────────────────────────────────────────────
@@ -50,26 +68,27 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 px-4 py-3 rounded-2xl border shadow-xl backdrop-blur-sm transition-all duration-300 min-w-[240px] max-w-[340px]",
+        "flex items-start gap-3 px-4 py-3 rounded-card border shadow-soft-xl backdrop-blur-sm transition-all duration-300 min-w-[240px] max-w-[340px]",
         BORDERS[toast.type],
-        "bg-[rgb(var(--surface))]",
-        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+        "bg-surface",
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
       )}
     >
       <div className="flex-shrink-0 mt-0.5">{ICONS[toast.type]}</div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-[rgb(var(--foreground))] leading-tight">
+        <p className="text-sm font-semibold text-foreground leading-tight">
           {toast.title}
         </p>
         {toast.message && (
-          <p className="text-xs text-[rgb(var(--muted))] mt-0.5 leading-snug">
+          <p className="text-xs text-muted mt-0.5 leading-snug">
             {toast.message}
           </p>
         )}
       </div>
       <button
         onClick={() => { setVisible(false); setTimeout(() => onDismiss(toast.id), 300); }}
-        className="flex-shrink-0 text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors"
+        aria-label="Zatvori"
+        className="flex-shrink-0 text-muted hover:text-foreground transition-colors"
       >
         <X className="w-3.5 h-3.5" />
       </button>
