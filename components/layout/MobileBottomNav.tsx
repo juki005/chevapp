@@ -1,5 +1,25 @@
 "use client";
 
+// ── MobileBottomNav · layout (Sprint 26e · DS-migrated) ──────────────────────
+// Mobile bottom tab bar (md:hidden). 5-slot layout: Finder | Kuhinja | Rulet |
+// Zajednica | Profil. Rulet is the center CTA — brand-orange pill.
+//
+// Sprint 26e changes:
+//   - Container: bg-white/80 + dark:bg-gray-950/85 → bg-surface/80
+//     (mode-aware via CSS var — one class, both themes). Same for borders:
+//     border-gray-200/80 + dark:border-white/[0.07] → border-border/80.
+//   - Active tab: bg-orange-100 / dark:bg-orange-500/20 → bg-primary/10;
+//     text-orange-500 → text-primary.
+//   - Inactive tab: text-gray-400 + dark:text-gray-500 → text-muted
+//     (both modes through one token).
+//   - Active "glow" boxShadow inline style → shadow-brand token (the
+//     vatra glow shadow already in tailwind.config).
+//   - Rulet button: inline linear-gradient + inline boxShadow dropped.
+//     DS §8 forbids gradients on primary CTAs — flattened to bg-primary
+//     + shadow-brand. Icon stroke uses text-primary-fg.
+//   - rounded-2xl → rounded-chip (12px · matches DS shape scale).
+// ─────────────────────────────────────────────────────────────────────────────
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MapPin, Users, ChefHat, User, Shuffle } from "lucide-react";
@@ -45,12 +65,8 @@ export function MobileBottomNav({ locale }: MobileBottomNavProps) {
     <nav
       aria-label="Glavna navigacija"
       className={cn(
-        "md:hidden fixed bottom-0 left-0 right-0 z-50",
-        "border-t",
-        // ── Light: frosted white glass ─────────────────────────────────────────
-        "bg-white/80 backdrop-blur-xl border-gray-200/80",
-        // ── Dark: frosted dark glass ───────────────────────────────────────────
-        "dark:bg-gray-950/85 dark:backdrop-blur-xl dark:border-white/[0.07]",
+        "md:hidden fixed bottom-0 left-0 right-0 z-50 border-t",
+        "bg-surface/80 backdrop-blur-xl border-border/80",
       )}
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
@@ -70,28 +86,21 @@ export function MobileBottomNav({ locale }: MobileBottomNavProps) {
             >
               <div
                 className={cn(
-                  "w-10 h-7 rounded-2xl flex items-center justify-center transition-all duration-200",
-                  active
-                    ? "bg-orange-100 dark:bg-orange-500/20"
-                    : "bg-transparent",
+                  "w-10 h-7 rounded-chip flex items-center justify-center transition-all duration-200",
+                  active ? "bg-primary/10 shadow-brand" : "bg-transparent",
                 )}
-                style={active ? {
-                  boxShadow: "0 0 12px rgba(255,107,0,0.30)",
-                } : {}}
               >
                 <Icon
                   className={cn(
                     "w-5 h-5 transition-all duration-200",
-                    active ? "scale-110 text-orange-500" : "text-gray-400 dark:text-gray-500",
+                    active ? "scale-110 text-primary" : "text-muted",
                   )}
                 />
               </div>
               <span
                 className={cn(
                   "text-[10px] tracking-wide leading-none truncate max-w-[52px] text-center transition-colors",
-                  active
-                    ? "font-bold text-orange-500"
-                    : "font-medium text-gray-400 dark:text-gray-500",
+                  active ? "font-bold text-primary" : "font-medium text-muted",
                 )}
               >
                 {t(labelKey)}
@@ -100,22 +109,22 @@ export function MobileBottomNav({ locale }: MobileBottomNavProps) {
           );
         })}
 
-        {/* ── Rulet action button — raised brand-orange pill ─────────────────── */}
+        {/* ── Rulet action button — flat bg-primary per DS §8 (no gradients on
+            primary CTAs); shadow-brand for the same vatra glow effect. ─────── */}
         <button
           onClick={handleRulet}
           aria-label={t("openRulet")}
           className="flex flex-col items-center justify-center gap-0.5 flex-1 px-2 min-h-[48px] transition-all duration-150"
         >
           <div
-            className="w-12 h-8 -mt-3 rounded-2xl flex items-center justify-center shadow-lg transition-transform active:scale-90 duration-150"
-            style={{
-              background: "linear-gradient(135deg, #E84E0F 0%, #FF6B00 100%)",
-              boxShadow: "0 4px 18px rgba(255,107,0,0.50)",
-            }}
+            className={cn(
+              "w-12 h-8 -mt-3 rounded-chip flex items-center justify-center",
+              "bg-primary shadow-brand transition-transform active:scale-90 duration-150",
+            )}
           >
-            <Shuffle className="w-[18px] h-[18px] text-white" />
+            <Shuffle className="w-[18px] h-[18px] text-primary-fg" />
           </div>
-          <span className="text-[10px] font-bold tracking-wide leading-none text-orange-500">
+          <span className="text-[10px] font-bold tracking-wide leading-none text-primary">
             {t("rulet")}
           </span>
         </button>
@@ -134,28 +143,21 @@ export function MobileBottomNav({ locale }: MobileBottomNavProps) {
             >
               <div
                 className={cn(
-                  "w-10 h-7 rounded-2xl flex items-center justify-center transition-all duration-200",
-                  active
-                    ? "bg-orange-100 dark:bg-orange-500/20"
-                    : "bg-transparent",
+                  "w-10 h-7 rounded-chip flex items-center justify-center transition-all duration-200",
+                  active ? "bg-primary/10 shadow-brand" : "bg-transparent",
                 )}
-                style={active ? {
-                  boxShadow: "0 0 12px rgba(255,107,0,0.30)",
-                } : {}}
               >
                 <Icon
                   className={cn(
                     "w-5 h-5 transition-all duration-200",
-                    active ? "scale-110 text-orange-500" : "text-gray-400 dark:text-gray-500",
+                    active ? "scale-110 text-primary" : "text-muted",
                   )}
                 />
               </div>
               <span
                 className={cn(
                   "text-[10px] tracking-wide leading-none truncate max-w-[52px] text-center transition-colors",
-                  active
-                    ? "font-bold text-orange-500"
-                    : "font-medium text-gray-400 dark:text-gray-500",
+                  active ? "font-bold text-primary" : "font-medium text-muted",
                 )}
               >
                 {t(labelKey)}
