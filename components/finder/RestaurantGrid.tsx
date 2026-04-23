@@ -1,5 +1,24 @@
 "use client";
 
+// ── RestaurantGrid · finder (Sprint 26h · DS-migrated) ───────────────────────
+// Paginated grid of DB-backed restaurants. Shows loading, error, empty, and
+// populated states with a "load more" button.
+//
+// Sprint 26h changes:
+//   - text-cream/40 and text-cream/30 → text-muted. cream is a hero-only token
+//     (locked across modes); these helper-text strings need to be mode-aware
+//     or they become invisible on the somun (cream) background.
+//   - text-burnt-orange-500 / 400 → text-primary / text-vatra-hover (the
+//     brighter hover-tone for the inline code chip).
+//   - Red error states: text-red-500/50 + text-red-400/70 → text-zar-red/50 +
+//     text-zar-red/70 (DS alert/destructive token).
+//   - bg-charcoal-700 inline code → bg-border (subtle mode-aware chip).
+//   - Load-more button: rgb(var(--token)) arbitrary classes → semantic
+//     aliases (border-border, text-muted, hover:text-foreground,
+//     hover:border-primary/40). rounded-xl → rounded-chip.
+//   - Empty-state 🍖 tagged TODO(icons) + aria-hidden.
+// ────────────────────────────────────────────────────────────────────────────────
+
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { RestaurantCard } from "./RestaurantCard";
@@ -51,8 +70,8 @@ export function RestaurantGrid() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-cream/40">
-        <Loader2 className="w-8 h-8 animate-spin text-burnt-orange-500" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
         <p className="text-sm">Učitavanje restorana...</p>
       </div>
     );
@@ -60,11 +79,11 @@ export function RestaurantGrid() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-cream/40">
-        <ServerCrash className="w-10 h-10 text-red-500/50" />
-        <p className="text-sm text-red-400/70 text-center max-w-sm">{error}</p>
-        <p className="text-xs text-cream/30">
-          Pokreni <code className="bg-charcoal-700 px-1.5 py-0.5 rounded text-burnt-orange-400">POST /api/seed</code> za unos testnih podataka.
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted">
+        <ServerCrash className="w-10 h-10 text-zar-red/50" />
+        <p className="text-sm text-zar-red/70 text-center max-w-sm">{error}</p>
+        <p className="text-xs text-muted">
+          Pokreni <code className="bg-border px-1.5 py-0.5 rounded text-vatra-hover">POST /api/seed</code> za unos testnih podataka.
         </p>
       </div>
     );
@@ -72,8 +91,9 @@ export function RestaurantGrid() {
 
   if (restaurants.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-cream/40">
-        <span className="text-5xl">🍖</span>
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted">
+        {/* TODO(icons): swap 🍖 for brand <Cevapi> when Sprint 27 lands */}
+        <span className="text-5xl" aria-hidden="true">🍖</span>
         <p className="text-sm text-center">
           Nema restorana u bazi. Pokrenite seed endpoint.
         </p>
@@ -83,7 +103,7 @@ export function RestaurantGrid() {
 
   return (
     <div>
-      <p className="text-xs text-cream/30 mb-4">{restaurants.length} lokacija pronađeno</p>
+      <p className="text-xs text-muted mb-4">{restaurants.length} lokacija pronađeno</p>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {restaurants.map((r) => (
           <RestaurantCard key={r.id} restaurant={r} />
@@ -94,7 +114,7 @@ export function RestaurantGrid() {
           <button
             onClick={loadMore}
             disabled={loadingMore}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-[rgb(var(--border))] text-sm font-semibold text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.4)] transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-chip border border-border text-sm font-semibold text-muted hover:text-foreground hover:border-primary/40 transition-all disabled:opacity-50"
           >
             {loadingMore
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Učitavanje...</>
