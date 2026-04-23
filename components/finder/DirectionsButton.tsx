@@ -1,5 +1,22 @@
 "use client";
 
+// ── DirectionsButton · Finder (Sprint 26b · DS-migrated) ─────────────────────
+// "Kreni po ćevape" — the primary CTA on restaurant cards. Combines an optional
+// phone-call chip with a Google Maps / Waze dropdown.
+//
+// Sprint 26b changes:
+//   - bg-burnt-orange-500 → bg-primary (vatra). This IS a primary CTA; it now
+//     uses the same token as every other primary button in the app.
+//   - Phone chip: green-500/green-400 → ember-green (semantic "confirmed
+//     action" — matches the open_now indicator in PlaceResultCard).
+//   - Dropdown panel: charcoal-800/ugljen-surface duo → bg-surface; all
+//     cream/xx opacity text → text-foreground / text-muted.
+//   - Shapes: rounded-xl → rounded-chip (trigger + phone chip), rounded-2xl
+//     → rounded-card (dropdown panel).
+//   - Emoji (🗺️ 🚗) kept as placeholders until Sprint 27 swap-in of brand
+//     icons. aria-hidden to keep them out of AT.
+// ────────────────────────────────────────────────────────────────────────────────
+
 import { useState } from "react";
 import { Navigation, ChevronDown, X, Phone } from "lucide-react";
 import { getWazeUrl } from "@/lib/utils";
@@ -35,31 +52,36 @@ export function DirectionsButton({
 
   return (
     <div className="relative flex items-center gap-2">
-      {/* Phone call button — shown only when phone number is available */}
+      {/* Phone call button — shown only when phone number is available.
+          ember-green because placing a call is a confirmed-success action,
+          same semantic family as open_now. */}
       {phone && (
         <a
           href={`tel:${phone}`}
           title={`Pozovi: ${phone}`}
+          aria-label={`Pozovi: ${phone}`}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "flex items-center justify-center rounded-xl transition-all",
+            "flex items-center justify-center rounded-chip transition-all",
             "w-11 h-11 min-h-[44px] min-w-[44px]",
-            "border border-green-500/30 bg-green-500/10",
-            "text-green-400 hover:bg-green-500/20 hover:border-green-500/60",
+            "border border-ember-green/30 bg-ember-green/10 text-ember-green",
+            "hover:bg-ember-green/20 hover:border-ember-green/60",
           )}
         >
           <Phone className="w-4 h-4" />
         </a>
       )}
 
-      {/* Navigation dropdown trigger */}
+      {/* Navigation dropdown trigger — primary CTA styling (vatra). */}
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={cn(
-          "flex items-center gap-1.5 px-3 min-h-[44px] h-11 rounded-xl text-sm font-semibold transition-all",
-          "bg-burnt-orange-500 text-white hover:bg-burnt-orange-600",
-          "shadow-md hover:shadow-burnt-orange-900/40 active:scale-95",
-          "border border-burnt-orange-600/50",
+          "flex items-center gap-1.5 px-3 min-h-[44px] h-11 rounded-chip text-sm font-semibold transition-all",
+          "bg-primary text-primary-fg shadow-brand",
+          "hover:bg-vatra-hover hover:-translate-y-px",
+          "active:bg-vatra-pressed active:translate-y-0 active:shadow-none",
           className,
         )}
       >
@@ -79,13 +101,17 @@ export function DirectionsButton({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
           {/* Dropdown */}
-          <div className="absolute bottom-full mb-2 right-0 z-50 w-56 rounded-2xl border border-charcoal-600 dark:border-ugljen-border bg-charcoal-800 dark:bg-ugljen-surface shadow-2xl overflow-hidden animate-slide-up">
+          <div
+            role="menu"
+            className="absolute bottom-full mb-2 right-0 z-50 w-56 rounded-card border border-border bg-surface shadow-soft-xl overflow-hidden animate-slide-up"
+          >
             {/* Header */}
-            <div className="px-3 py-2.5 border-b border-charcoal-700 dark:border-ugljen-border flex items-center justify-between">
-              <span className="text-xs text-cream/50 font-medium truncate max-w-[160px]">{name}</span>
+            <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
+              <span className="text-xs text-muted font-medium truncate max-w-[160px]">{name}</span>
               <button
                 onClick={() => setOpen(false)}
-                className="text-cream/30 hover:text-cream/60 ml-2 flex-shrink-0"
+                aria-label="Zatvori"
+                className="text-muted hover:text-foreground ml-2 flex-shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -96,13 +122,15 @@ export function DirectionsButton({
               href={googleUrl}
               target="_blank"
               rel="noopener noreferrer"
+              role="menuitem"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-3.5 text-sm text-cream/70 hover:text-cream hover:bg-charcoal-700 dark:hover:bg-ugljen-border transition-colors min-h-[44px]"
+              className="flex items-center gap-3 px-4 py-3.5 text-sm text-foreground hover:bg-border/40 transition-colors min-h-[44px]"
             >
-              <span className="text-xl leading-none">🗺️</span>
+              {/* TODO(icons): swap 🗺️ for brand <Finder> */}
+              <span className="text-xl leading-none" aria-hidden="true">🗺️</span>
               <div>
                 <p className="font-semibold">Google Maps</p>
-                <p className="text-[10px] text-cream/30">Otvara navigaciju</p>
+                <p className="text-[10px] text-muted">Otvara navigaciju</p>
               </div>
             </a>
 
@@ -111,27 +139,30 @@ export function DirectionsButton({
               href={wazeUrl}
               target="_blank"
               rel="noopener noreferrer"
+              role="menuitem"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-3.5 text-sm text-cream/70 hover:text-cream hover:bg-charcoal-700 dark:hover:bg-ugljen-border transition-colors min-h-[44px] border-t border-charcoal-700/50 dark:border-ugljen-border/50"
+              className="flex items-center gap-3 px-4 py-3.5 text-sm text-foreground hover:bg-border/40 transition-colors min-h-[44px] border-t border-border/50"
             >
-              <span className="text-xl leading-none">🚗</span>
+              {/* TODO(icons): swap 🚗 for brand <GastroRuta> */}
+              <span className="text-xl leading-none" aria-hidden="true">🚗</span>
               <div>
                 <p className="font-semibold">Waze</p>
-                <p className="text-[10px] text-cream/30">Živi promet</p>
+                <p className="text-[10px] text-muted">Živi promet</p>
               </div>
             </a>
 
-            {/* Phone — in dropdown too */}
+            {/* Phone — in dropdown too, mirrors outer chip in ember-green. */}
             {phone && (
               <a
                 href={`tel:${phone}`}
+                role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-4 py-3.5 text-sm text-green-400 hover:text-green-300 hover:bg-charcoal-700 dark:hover:bg-ugljen-border transition-colors min-h-[44px] border-t border-charcoal-700/50 dark:border-ugljen-border/50"
+                className="flex items-center gap-3 px-4 py-3.5 text-sm text-ember-green hover:bg-ember-green/10 transition-colors min-h-[44px] border-t border-border/50"
               >
                 <Phone className="w-4 h-4 flex-shrink-0" />
                 <div>
                   <p className="font-semibold">Pozovi</p>
-                  <p className="text-[10px] text-green-400/60">{phone}</p>
+                  <p className="text-[10px] text-ember-green/70">{phone}</p>
                 </div>
               </a>
             )}

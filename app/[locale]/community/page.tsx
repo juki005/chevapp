@@ -9,7 +9,6 @@ import {
   Landmark, Star, ExternalLink, Search, Loader2, Plus, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { VibrantBadge } from "@/components/ui/VibrantBadge";
 import { CommunityNews } from "@/components/community/CommunityNews";
 import { createClient } from "@/lib/supabase/client";
 import {
