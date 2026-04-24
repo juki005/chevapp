@@ -1,6 +1,6 @@
 "use client";
 
-// ── LocationFilter ─────────────────────────────────────────────────────────────
+// ── LocationFilter · finder (Sprint 26l · DS-migrated) ────────────────────────
 // 2-step location picker: Country (ISO code) → City (Google Places Autocomplete).
 //
 // • Country: fixed list from COUNTRY_CONFIG (Balkans + diaspora)
@@ -8,7 +8,29 @@
 //            with componentRestrictions applied server-side
 // • Geolocation button: auto-fills both fields via reverse geocode
 // • Persistence: localStorage key "chevapp_last_location"
-// • Framer Motion: city row slides down when enabled; dropdown fades in
+// • Framer Motion: city row fades when disabled; dropdown fades in
+//
+// Sprint 26l changes:
+//   - All arbitrary rgb(var(--token)) classes → semantic aliases
+//     (bg-background, border-border, text-foreground, text-muted,
+//     text-muted/40, border-border/50, placeholder:text-muted).
+//   - All hardcoded #FF6B00 → vatra-hover / primary tokens depending on role:
+//     · "Selected" border rings keep border-vatra-hover/60 (the brighter
+//       accent hue, matches the pre-DS halo tone).
+//     · Hover/active affordances on geolocation + dropdown rows use
+//       bg-primary / text-primary (the theme-aware base).
+//   - Custom halo shadow-[0_0_0_2px_rgba(255,107,0,0.1/0.08)] →
+//     ring-2 ring-vatra-hover/10 (cleaner Tailwind idiom, same pixel effect).
+//   - Autocomplete dropdown: previously brand-locked bg-[#161616] +
+//     text-white + white/[0.05] divider (sprint-spec era, predates DS).
+//     Migrated to mode-aware bg-surface + border-border + text-foreground /
+//     text-muted to match the Navbar user dropdown (Sprint 26k) and
+//     LanguageSwitcher (Sprint 26f). Row marker and hover tint use primary.
+//   - shadow-[0_12px_40px_rgba(0,0,0,0.45)] → shadow-soft-xl (DS elevation).
+//   - rounded-[20px] wrapper → rounded-card; rounded-xl → rounded-chip
+//     (DS shape scale — same pixels, named tokens).
+//   - 🌍 globe + country flag emoji kept: native <option> elements can't
+//     render custom SVG, and flags are categorical data markers, not chrome.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -201,24 +223,24 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className={cn(
-      "flex flex-col rounded-[20px] gap-3",
+      "flex flex-col rounded-card gap-3",
       "sm:flex-row sm:rounded-none sm:gap-3",
       className,
     )}>
 
       {/* ── Country Select ──────────────────────────────────────────────────── */}
       <div className="relative sm:w-52 flex-shrink-0">
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[rgb(var(--muted))] pointer-events-none z-10" />
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none z-10" />
         <select
           value={value.country}
           onChange={(e) => handleCountryChange(e.target.value)}
           className={cn(
-            "w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border text-sm",
+            "w-full appearance-none pl-3 pr-8 py-2.5 rounded-chip border text-sm",
             "transition-all outline-none cursor-pointer",
-            "bg-[rgb(var(--background))]",
+            "bg-background",
             value.country
-              ? "border-[#FF6B00]/60 text-[rgb(var(--foreground))] shadow-[0_0_0_2px_rgba(255,107,0,0.10)]"
-              : "border-[rgb(var(--border))] text-[rgb(var(--muted))]",
+              ? "border-vatra-hover/60 text-foreground ring-2 ring-vatra-hover/10"
+              : "border-border text-muted",
           )}
         >
           <option value="">🌍 Odaberi državu</option>
@@ -237,11 +259,11 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
         {/* Input */}
         <div className="relative">
           {loadingSugg ? (
-            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF6B00] animate-spin pointer-events-none" />
+            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vatra-hover animate-spin pointer-events-none" />
           ) : (
             <MapPin className={cn(
               "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none",
-              cityEnabled ? "text-[rgb(var(--muted))]" : "text-[rgb(var(--muted))/0.4]",
+              cityEnabled ? "text-muted" : "text-muted/40",
             )} />
           )}
 
@@ -254,18 +276,18 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
             disabled={!cityEnabled}
             placeholder={cityEnabled ? "Upiši grad..." : "Prvo odaberi državu"}
             className={cn(
-              "w-full pl-9 py-2.5 rounded-xl border text-sm",
-              "bg-[rgb(var(--background))] placeholder:text-[rgb(var(--muted))]",
+              "w-full pl-9 py-2.5 rounded-chip border text-sm",
+              "bg-background placeholder:text-muted",
               "transition-all outline-none",
               value.city ? "pr-8" : "pr-3",
               cityEnabled
                 ? cn(
-                    "text-[rgb(var(--foreground))] cursor-text",
+                    "text-foreground cursor-text",
                     value.city
-                      ? "border-[#FF6B00]/60 shadow-[0_0_0_2px_rgba(255,107,0,0.10)]"
-                      : "border-[rgb(var(--border))] focus:border-[#FF6B00]/50 focus:shadow-[0_0_0_2px_rgba(255,107,0,0.08)]",
+                      ? "border-vatra-hover/60 ring-2 ring-vatra-hover/10"
+                      : "border-border focus:border-vatra-hover/50 focus:ring-2 focus:ring-vatra-hover/10",
                   )
-                : "border-[rgb(var(--border))/0.5] text-[rgb(var(--muted))] cursor-not-allowed",
+                : "border-border/50 text-muted cursor-not-allowed",
             )}
           />
 
@@ -273,7 +295,8 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
           {value.city && cityEnabled && (
             <button
               onClick={handleClearCity}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors"
+              aria-label="Očisti grad"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted hover:text-foreground transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -289,31 +312,33 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
               animate={{ opacity: 1, y: 0,  scale: 1    }}
               exit={{    opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.13, ease: "easeOut" }}
+              role="listbox"
               className={cn(
                 "absolute top-full mt-1.5 left-0 right-0 z-50",
-                "rounded-xl overflow-hidden",
-                // Dark card — brand-orange accent — matches sprint spec
-                "bg-[#161616] border border-[#FF6B00]/20",
-                "shadow-[0_12px_40px_rgba(0,0,0,0.45)]",
+                "rounded-chip overflow-hidden",
+                // Mode-aware popover — matches Navbar user dropdown + LanguageSwitcher
+                "bg-surface border border-border shadow-soft-xl",
               )}
             >
               {predictions.map((p, i) => (
                 <button
                   key={p.place_id}
+                  role="option"
+                  aria-selected={value.city === p.city}
                   onMouseDown={(e) => {
                     e.preventDefault(); // prevent blur before click registers
                     handleCitySelect(p.city);
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-2.5 text-left",
-                    "transition-colors hover:bg-[#FF6B00]/12 active:bg-[#FF6B00]/20",
-                    i < predictions.length - 1 && "border-b border-white/[0.05]",
+                    "transition-colors hover:bg-primary/10 active:bg-primary/20",
+                    i < predictions.length - 1 && "border-b border-border/50",
                   )}
                 >
-                  <MapPin className="w-3.5 h-3.5 text-[#FF6B00] flex-shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate leading-snug">{p.city}</p>
-                    <p className="text-xs text-white/35 truncate leading-snug">{p.subtitle}</p>
+                    <p className="text-sm font-medium text-foreground truncate leading-snug">{p.city}</p>
+                    <p className="text-xs text-muted truncate leading-snug">{p.subtitle}</p>
                   </div>
                 </button>
               ))}
@@ -330,11 +355,11 @@ export function LocationFilter({ value, onChange, className }: LocationFilterPro
         aria-label="Automatski detektuj lokaciju"
         className={cn(
           "flex-shrink-0 flex items-center justify-center",
-          "w-full sm:w-[44px] h-[44px] rounded-xl border text-sm",
+          "w-full sm:w-[44px] h-[44px] rounded-chip border text-sm",
           "transition-all active:scale-95",
           geolocating
-            ? "border-[#FF6B00]/40 bg-[#FF6B00]/08 text-[#FF6B00] cursor-wait"
-            : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-[#FF6B00]/50 hover:text-[#FF6B00] hover:bg-[#FF6B00]/06",
+            ? "border-primary/40 bg-primary/10 text-primary cursor-wait"
+            : "border-border text-muted hover:border-primary/50 hover:text-primary hover:bg-primary/10",
         )}
       >
         {geolocating
