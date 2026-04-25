@@ -1,5 +1,32 @@
 "use client";
 
+// ── AuthModal · auth (Sprint 26m · DS-migrated) ──────────────────────────────
+// Sign-in / register modal with Google SSO + email/password.
+//
+// Sprint 26m changes:
+//   - All arbitrary rgb(var(--token)) classes → semantic aliases
+//     (bg-surface, border-border, text-foreground, text-muted, bg-primary,
+//     text-primary, focus:border-primary/60, placeholder:text-muted).
+//   - Two style={{fontFamily:"Oswald"}} inline overrides → font-display.
+//   - Wordmark accent "App" text-primary → text-vatra-hover to match the
+//     brighter Navbar logo treatment (Sprint 26k).
+//   - Submit button: bg-primary + text-white + hover:opacity-90 →
+//     bg-primary + text-primary-fg + hover:bg-vatra-hover (no opacity-based
+//     CTA hovers per DS — use the explicit hover token).
+//   - Error block: red-500/10 + red-500/30 + red-400 → zar-red token family
+//     (DS alert).
+//   - Success block: green-500/10 + green-500/30 + green-400 → ember-green
+//     token family (DS confirm).
+//   - rounded-2xl modal → rounded-card; rounded-xl/lg → rounded-chip.
+//   - shadow-2xl → shadow-soft-xl (DS elevation).
+//   - Google SSO button: white + gray-700 + gray-200 chrome kept as a
+//     documented external-brand exception (same rationale as TripAdvisor
+//     green in FinderFilterBar Sprint 26j) — Google's brand guidelines
+//     mandate the white/multi-colour-G mark, this is a legitimate cross-
+//     brand surface, not app chrome.
+//   - A11y: aria-label on the password show/hide toggle.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState } from "react";
 import { X, Flame, Mail, Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -15,7 +42,9 @@ interface AuthModalProps {
   onSuccess?: () => void;
 }
 
-// Official four-colour Google 'G' mark — no external asset needed
+// Official four-colour Google 'G' mark — no external asset needed.
+// Hex literals are Google's mandated brand colours; documented external-brand
+// exception, not app chrome.
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -138,33 +167,32 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md bg-surface border border-border rounded-card shadow-soft-xl overflow-hidden">
 
         {/* Header */}
-        <div className="relative px-6 pt-6 pb-5 border-b border-[rgb(var(--border))]">
+        <div className="relative px-6 pt-6 pb-5 border-b border-border">
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-9 h-9 rounded-xl bg-[rgb(var(--primary)/0.15)] flex items-center justify-center">
-              <Flame className="w-5 h-5 text-[rgb(var(--primary))]" />
+            <div className="w-9 h-9 rounded-chip bg-primary/15 flex items-center justify-center">
+              <Flame className="w-5 h-5 text-primary" />
             </div>
-            <span className="text-xl font-bold text-[rgb(var(--foreground))] tracking-widest uppercase"
-              style={{ fontFamily: "Oswald, sans-serif" }}>
-              Chev<span className="text-[rgb(var(--primary))]">App</span>
+            <span className="font-display text-xl font-bold text-foreground tracking-widest uppercase">
+              Chev<span className="text-vatra-hover">App</span>
             </span>
           </div>
-          <p className="text-xs text-[rgb(var(--muted))] mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             {tab === "login" ? t("loginTitle") : t("registerTitle")}
           </p>
           <button
             onClick={() => { reset(); onClose(); }}
             aria-label={tCommon("close")}
-            className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)] transition-colors"
+            className="absolute top-4 right-4 w-8 h-8 rounded-chip flex items-center justify-center text-muted hover:text-foreground hover:bg-border/50 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[rgb(var(--border))]">
+        <div className="flex border-b border-border">
           {(["login", "register"] as AuthTab[]).map((tabKey) => (
             <button
               key={tabKey}
@@ -172,8 +200,8 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               className={cn(
                 "flex-1 py-3 text-sm font-semibold transition-colors",
                 tab === tabKey
-                  ? "text-[rgb(var(--primary))] border-b-2 border-[rgb(var(--primary))]"
-                  : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted hover:text-foreground"
               )}
             >
               {tabKey === "login" ? t("tabSignIn") : t("tabRegister")}
@@ -184,12 +212,14 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
 
-          {/* ── Google SSO ─────────────────────────────────────────────── */}
+          {/* ── Google SSO ─────────────────────────────────────────────────
+              External-brand button: white background + Google's 4-colour
+              G mark per Google brand guidelines. Documented exception. */}
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200 shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-chip bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200 shadow-soft-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {googleLoading
               ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
@@ -199,46 +229,46 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
           {/* ── Divider ────────────────────────────────────────────────── */}
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-[rgb(var(--border))]" />
-            <span className="text-xs text-[rgb(var(--muted))] select-none">{t("dividerOr")}</span>
-            <div className="flex-1 h-px bg-[rgb(var(--border))]" />
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted select-none">{t("dividerOr")}</span>
+            <div className="flex-1 h-px bg-border" />
           </div>
 
           {tab === "register" && (
             <div>
-              <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">{t("fullName")}</label>
+              <label className="text-xs text-muted mb-1.5 block">{t("fullName")}</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={t("namePlaceholder")}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.6)] transition-colors"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-chip border border-border bg-background text-foreground text-sm placeholder:text-muted outline-none focus:border-primary/60 transition-colors"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">{t("email")}</label>
+            <label className="text-xs text-muted mb-1.5 block">{t("email")}</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tvoj@email.com"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.6)] transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 rounded-chip border border-border bg-background text-foreground text-sm placeholder:text-muted outline-none focus:border-primary/60 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] mb-1.5 block">{t("password")}</label>
+            <label className="text-xs text-muted mb-1.5 block">{t("password")}</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input
                 type={showPassword ? "text" : "password"}
                 required
@@ -246,27 +276,28 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={tab === "register" ? t("passwordMin") : "••••••••"}
-                className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.6)] transition-colors"
+                className="w-full pl-10 pr-10 py-2.5 rounded-chip border border-border bg-background text-foreground text-sm placeholder:text-muted outline-none focus:border-primary/60 transition-colors"
               />
               <button
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors"
+                aria-label={showPassword ? "Sakrij lozinku" : "Prikaži lozinku"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
-          {/* Error / Success */}
+          {/* Error / Success — DS alert + confirm token families */}
           {error && (
-            <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+            <div role="alert" className="rounded-chip bg-zar-red/10 border border-zar-red/30 px-4 py-3 text-sm text-zar-red">
               {friendlyError(error)}
             </div>
           )}
           {success && (
-            <div className="rounded-xl bg-green-500/10 border border-green-500/30 px-4 py-3 text-sm text-green-400">
+            <div role="status" className="rounded-chip bg-ember-green/10 border border-ember-green/30 px-4 py-3 text-sm text-ember-green">
               {success}
             </div>
           )}
@@ -275,8 +306,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           <button
             type="submit"
             disabled={loading || !!success}
-            className="w-full py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-bold tracking-wide uppercase hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ fontFamily: "Oswald, sans-serif" }}
+            className="font-display w-full py-2.5 rounded-chip bg-primary text-primary-fg text-sm font-bold tracking-wide uppercase hover:bg-vatra-hover active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {loading
@@ -285,18 +315,18 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </button>
 
           {/* Switch tab hint */}
-          <p className="text-center text-xs text-[rgb(var(--muted))]">
+          <p className="text-center text-xs text-muted">
             {tab === "login" ? (
               <>{t("noAccount")}{" "}
                 <button type="button" onClick={() => switchTab("register")}
-                  className="text-[rgb(var(--primary))] hover:underline">
+                  className="text-primary hover:underline">
                   {t("tabRegister")}
                 </button>
               </>
             ) : (
               <>{t("hasAccount")}{" "}
                 <button type="button" onClick={() => switchTab("login")}
-                  className="text-[rgb(var(--primary))] hover:underline">
+                  className="text-primary hover:underline">
                   {t("tabSignIn")}
                 </button>
               </>
