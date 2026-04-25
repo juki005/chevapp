@@ -1,5 +1,18 @@
 "use client";
 
+// ── RecipeVideoPlayer · kitchen (Sprint 26s · DS-migrated) ────────────────────
+// 16:9 video player wrapper for YouTube / Vimeo / direct URLs.
+//
+// Sprint 26s changes:
+//   - border-[rgb(var(--border))] → border-border
+//   - rounded-xl wrapper → rounded-chip; rounded-lg control buttons →
+//     rounded-chip (DS shape scale).
+//   - Vimeo embed colour param ?color=e65100 → ?color=d35400 (vatra brand).
+//     Hex stays inline because the value goes into Vimeo's URL, not a Tailwind
+//     class — same precedent as theme_color in app/manifest.ts (Sprint 26e).
+//   - A11y: aria-label on the two icon-only overlay controls.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useRef, useCallback } from "react";
 import { Maximize2, Minimize2, ExternalLink } from "lucide-react";
 
@@ -44,7 +57,9 @@ function buildEmbedUrl(url: string, kind: VideoKind): string | null {
   }
   if (kind === "vimeo") {
     const id = parseVimeoId(url);
-    return id ? `https://player.vimeo.com/video/${id}?color=e65100` : null;
+    // d35400 = vatra (DS primary). Hex inline because the value goes into
+    // Vimeo's URL, not a Tailwind class.
+    return id ? `https://player.vimeo.com/video/${id}?color=d35400` : null;
   }
   return null; // direct — rendered as <video>
 }
@@ -70,7 +85,7 @@ export function RecipeVideoPlayer({ url }: RecipeVideoPlayerProps) {
   return (
     <div
       ref={containerRef}
-      className="rounded-xl overflow-hidden border border-[rgb(var(--border))] bg-black relative group"
+      className="rounded-chip overflow-hidden border border-border bg-black relative group"
     >
       {/* 16:9 aspect ratio wrapper */}
       <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
@@ -103,8 +118,9 @@ export function RecipeVideoPlayer({ url }: RecipeVideoPlayerProps) {
         {/* Fullscreen toggle (works for direct <video> and surrounding div) */}
         <button
           onClick={toggleFullscreen}
-          className="w-7 h-7 rounded-lg bg-black/70 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/90 transition-colors"
+          className="w-7 h-7 rounded-chip bg-black/70 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/90 transition-colors"
           title={expanded ? "Smanji" : "Cijeli zaslon"}
+          aria-label={expanded ? "Smanji" : "Cijeli zaslon"}
         >
           {expanded
             ? <Minimize2 className="w-3.5 h-3.5" />
@@ -117,8 +133,9 @@ export function RecipeVideoPlayer({ url }: RecipeVideoPlayerProps) {
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-7 h-7 rounded-lg bg-black/70 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/90 transition-colors"
+          className="w-7 h-7 rounded-chip bg-black/70 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/90 transition-colors"
           title="Otvori u novom tabu"
+          aria-label="Otvori video u novom tabu"
         >
           <ExternalLink className="w-3.5 h-3.5" />
         </a>
