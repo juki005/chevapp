@@ -1,5 +1,25 @@
 "use client";
 
+// ── AdminPage · admin shell (Sprint 26n · DS-migrated) ────────────────────────
+// Auth-gated dashboard shell. Routes between the 5 admin tabs.
+//
+// Sprint 26n changes:
+//   - All arbitrary rgb(var(--token)) classes → semantic aliases
+//     (bg-background, bg-surface, bg-surface/80, border-border, text-foreground,
+//     text-muted, bg-primary, text-primary, hover:bg-border/50).
+//   - Two style={{fontFamily:"Oswald"}} inline styles → font-display class
+//     (denied-state title, header h1).
+//   - Access-denied panel red-500 family → zar-red token throughout
+//     (border, bg, lock icon ring, error mono text). DS alert family.
+//   - Header Shield ring red-500/15 + red-400 → zar-red/15 + zar-red.
+//     Admin/Command-Center surface = high-stakes = alert family per DS.
+//   - "Idi na početnu" CTA: bg-primary + text-white + hover:opacity-90 →
+//     bg-primary + text-primary-fg + hover:bg-vatra-hover (DS rule —
+//     explicit hover token, no opacity-fade CTAs).
+//   - Tab buttons rgb(var(--primary)/0.x) chains → primary/10, primary/50.
+//   - rounded-2xl → rounded-card; rounded-xl/lg → rounded-chip.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
@@ -82,8 +102,8 @@ export default function AdminPage() {
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--background))]">
-        <Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -91,33 +111,33 @@ export default function AdminPage() {
   // ── Access denied ───────────────────────────────────────────────────────────
   if (status === "denied") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--background))] p-4">
-        <div className="max-w-sm w-full rounded-2xl border border-red-500/30 bg-red-500/5 p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-red-400" />
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="max-w-sm w-full rounded-card border border-zar-red/30 bg-zar-red/5 p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-zar-red/10 border border-zar-red/20 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-zar-red" />
           </div>
-          <h1 className="text-xl font-bold text-[rgb(var(--foreground))] mb-2" style={{ fontFamily: "Oswald, sans-serif" }}>
+          <h1 className="font-display text-xl font-bold text-foreground mb-2">
             Pristup odbijen
           </h1>
-          <p className="text-sm text-[rgb(var(--muted))] mb-4">
+          <p className="text-sm text-muted mb-4">
             Ova stranica je dostupna samo administratorima.
           </p>
           {debugInfo && (
-            <div className="mb-5 rounded-xl bg-[rgb(var(--surface))] border border-[rgb(var(--border))] px-4 py-3 text-left">
-              <p className="text-xs font-semibold text-[rgb(var(--muted))] uppercase tracking-wider mb-1">Razlog odbijanja</p>
-              <p className="text-xs text-red-400 font-mono break-all">{debugInfo}</p>
+            <div className="mb-5 rounded-chip bg-surface border border-border px-4 py-3 text-left">
+              <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Razlog odbijanja</p>
+              <p className="text-xs text-zar-red font-mono break-all">{debugInfo}</p>
             </div>
           )}
           <div className="flex flex-col gap-2">
             <button
               onClick={() => { setStatus("loading"); setDebugInfo(""); setRetryKey((k) => k + 1); }}
-              className="px-6 py-2.5 rounded-xl border border-[rgb(var(--border))] text-sm font-bold text-[rgb(var(--foreground))] hover:bg-[rgb(var(--surface))] transition-colors"
+              className="px-6 py-2.5 rounded-chip border border-border text-sm font-bold text-foreground hover:bg-surface transition-colors"
             >
               Pokušaj ponovo
             </button>
             <button
               onClick={() => router.push(`/${locale}`)}
-              className="px-6 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-bold hover:opacity-90 transition-opacity"
+              className="px-6 py-2.5 rounded-chip bg-primary text-primary-fg text-sm font-bold hover:bg-vatra-hover transition-colors"
             >
               Idi na početnu
             </button>
@@ -129,25 +149,22 @@ export default function AdminPage() {
 
   // ── Admin Dashboard ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
+    <div className="min-h-screen bg-background text-foreground">
 
       {/* Header + Tab bar */}
-      <div className="border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.8)] backdrop-blur-sm sticky top-0 z-20">
+      <div className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 py-4 flex-wrap gap-y-2">
-            {/* Icon + title */}
+            {/* Icon + title — Shield uses zar-red (admin = alert family) */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-red-500/15 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-red-400" />
+              <div className="w-9 h-9 rounded-chip bg-zar-red/15 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-zar-red" />
               </div>
               <div>
-                <h1
-                  className="text-lg font-bold text-[rgb(var(--foreground))] uppercase tracking-wide leading-tight"
-                  style={{ fontFamily: "Oswald, sans-serif" }}
-                >
+                <h1 className="font-display text-lg font-bold text-foreground uppercase tracking-wide leading-tight">
                   Command Center
                 </h1>
-                <p className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-widest">ChevApp Admin</p>
+                <p className="text-[10px] text-muted uppercase tracking-widest">ChevApp Admin</p>
               </div>
             </div>
 
@@ -158,10 +175,10 @@ export default function AdminPage() {
                   key={key}
                   onClick={() => setActiveTab(key)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors whitespace-nowrap flex-shrink-0",
+                    "flex items-center gap-1.5 px-3 py-2 rounded-chip text-sm font-medium border transition-colors whitespace-nowrap flex-shrink-0",
                     activeTab === key
-                      ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
-                      : "border-transparent text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)]"
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-transparent text-muted hover:text-foreground hover:bg-border/50"
                   )}
                 >
                   {icon}
