@@ -1,9 +1,35 @@
 "use client";
 
+// ── CommunityNews · community (Sprint 26x · DS-migrated) ──────────────────────
+// News feed on the community page — admin-authored posts with an optional
+// inline create form (admin-only). Loads up to 20 most recent.
+//
+// Sprint 26x changes:
+//   - Comprehensive style={{ background: "rgb(var(--token))", ... }} →
+//     Tailwind className tokens. This file used inline-CSS objects throughout
+//     instead of Tailwind utilities (~25 separate style props), each one a
+//     scattered rgb(var(--token)) call. Now pure className with semantic
+//     aliases (bg-surface, bg-surface/X, bg-background, border-border,
+//     text-foreground, text-muted, text-primary).
+//   - 2× style={{fontFamily:"Oswald"}} on h3/h4 titles → font-display.
+//   - "Dodaj novost" + "Objavi" CTAs: ad-hoc primary/border-style toggle →
+//     standard primary CTA (bg-primary + text-primary-fg + hover:bg-vatra-
+//     hover) with disabled-state opacity. Also rationalised: the inline
+//     style.color "#fff" → text-primary-fg semantic.
+//   - Trash button hover hover:bg-red-500/10 → hover:bg-zar-red/10
+//     hover:text-zar-red (DS alert).
+//   - Loading spinner: borderColor: "rgb(var(--primary))" inline →
+//     border-primary border-t-transparent classes.
+//   - rounded-2xl → rounded-card; rounded-xl → rounded-chip;
+//     rounded-lg → rounded-chip.
+//   - A11y: aria-label on the Trash delete button.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect } from "react";
 import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, X, Newspaper, Calendar, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface NewsPost {
   id:         string;
@@ -13,6 +39,9 @@ interface NewsPost {
   created_at: string;
   author_id:  string | null;
 }
+
+// Shared input className — DRY across the 3 form fields
+const fieldCls = "w-full px-4 py-3 rounded-chip text-sm outline-none bg-background border border-border text-foreground focus:border-primary/50 transition-colors";
 
 export function CommunityNews() {
   const locale    = useLocale();
@@ -97,26 +126,28 @@ export function CommunityNews() {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" });
 
+  const canSubmit = formTitle.trim() && formBody.trim();
+
   return (
     <div className="space-y-4">
 
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Newspaper className="w-4 h-4" style={{ color: "rgb(var(--primary))" }} />
-          <h3 className="font-bold text-base uppercase tracking-wide"
-            style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
+          <Newspaper className="w-4 h-4 text-primary" />
+          <h3 className="font-display font-bold text-base uppercase tracking-wide text-foreground">
             NOVOSTI
           </h3>
         </div>
         {isAdmin && (
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-            style={{
-              background: showForm ? "rgb(var(--border))" : "rgb(var(--primary))",
-              color: showForm ? "rgb(var(--muted))" : "#fff",
-            }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2 rounded-chip text-xs font-semibold transition-all",
+              showForm
+                ? "bg-border text-muted"
+                : "bg-primary text-primary-fg hover:bg-vatra-hover",
+            )}
           >
             {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             {showForm ? "Zatvori" : "Dodaj novost"}
@@ -126,9 +157,8 @@ export function CommunityNews() {
 
       {/* Admin form */}
       {showForm && isAdmin && (
-        <div className="rounded-2xl p-5 space-y-3"
-          style={{ background: "rgb(var(--surface)/0.6)", border: "1px solid rgb(var(--primary)/0.3)" }}>
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "rgb(var(--primary))" }}>
+        <div className="rounded-card p-5 space-y-3 bg-surface/60 border border-primary/30">
+          <p className="text-xs font-bold uppercase tracking-widest text-primary">
             Nova objava
           </p>
 
@@ -137,12 +167,7 @@ export function CommunityNews() {
             value={formTitle}
             onChange={(e) => setFormTitle(e.target.value)}
             placeholder="Naslov *"
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{
-              background: "rgb(var(--background))",
-              border: "1px solid rgb(var(--border))",
-              color: "rgb(var(--foreground))",
-            }}
+            className={fieldCls}
           />
 
           <textarea
@@ -150,12 +175,7 @@ export function CommunityNews() {
             onChange={(e) => setFormBody(e.target.value)}
             placeholder="Tekst objave *"
             rows={4}
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
-            style={{
-              background: "rgb(var(--background))",
-              border: "1px solid rgb(var(--border))",
-              color: "rgb(var(--foreground))",
-            }}
+            className={`${fieldCls} resize-none`}
           />
 
           <input
@@ -163,29 +183,25 @@ export function CommunityNews() {
             value={formImage}
             onChange={(e) => setFormImage(e.target.value)}
             placeholder="URL slike (opcionalno)"
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{
-              background: "rgb(var(--background))",
-              border: "1px solid rgb(var(--border))",
-              color: "rgb(var(--foreground))",
-            }}
+            className={fieldCls}
           />
 
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowForm(false)}
-              className="px-4 py-2 rounded-xl text-sm font-medium"
-              style={{ background: "rgb(var(--border))", color: "rgb(var(--muted))" }}>
+            <button
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 rounded-chip text-sm font-medium bg-border text-muted hover:text-foreground transition-colors"
+            >
               Odustani
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!formTitle.trim() || !formBody.trim() || submitting}
-              className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5"
-              style={{
-                background: formTitle.trim() && formBody.trim() ? "rgb(var(--primary))" : "rgb(var(--border))",
-                color: formTitle.trim() && formBody.trim() ? "#fff" : "rgb(var(--muted))",
-                cursor: formTitle.trim() && formBody.trim() ? "pointer" : "not-allowed",
-              }}
+              disabled={!canSubmit || submitting}
+              className={cn(
+                "px-4 py-2 rounded-chip text-sm font-semibold flex items-center gap-1.5 transition-all",
+                canSubmit
+                  ? "bg-primary text-primary-fg hover:bg-vatra-hover cursor-pointer"
+                  : "bg-border text-muted cursor-not-allowed",
+              )}
             >
               {submitting ? (
                 <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -199,21 +215,20 @@ export function CommunityNews() {
       {/* Posts */}
       {loading ? (
         <div className="flex justify-center py-10">
-          <span className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: "rgb(var(--primary))", borderTopColor: "transparent" }} />
+          <span className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : posts.length === 0 ? (
-        <div className="rounded-2xl border border-dashed py-10 text-center"
-          style={{ borderColor: "rgb(var(--border))" }}>
-          <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: "rgb(var(--muted))" }} />
-          <p className="text-sm" style={{ color: "rgb(var(--muted))" }}>Nema novosti za sada.</p>
+        <div className="rounded-card border border-dashed border-border py-10 text-center">
+          <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-20 text-muted" />
+          <p className="text-sm text-muted">Nema novosti za sada.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {posts.map((post) => (
-            <div key={post.id}
-              className="rounded-2xl overflow-hidden transition-all hover:scale-[1.005] flex flex-col"
-              style={{ background: "rgb(var(--surface)/0.5)", border: "1px solid rgb(var(--border))" }}>
+            <div
+              key={post.id}
+              className="rounded-card overflow-hidden transition-all hover:scale-[1.005] flex flex-col bg-surface/50 border border-border"
+            >
 
               {/* Image */}
               {post.image_url && (
@@ -230,16 +245,15 @@ export function CommunityNews() {
 
               <div className="p-4 flex-1 flex flex-col">
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <h4 className="font-bold text-base leading-snug"
-                    style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
+                  <h4 className="font-display font-bold text-base leading-snug text-foreground">
                     {post.title}
                   </h4>
                   {isAdmin && (
                     <button
                       onClick={() => handleDelete(post.id)}
-                      className="flex-shrink-0 p-1.5 rounded-lg transition-colors hover:bg-red-500/10"
-                      style={{ color: "rgb(var(--muted))" }}
+                      className="flex-shrink-0 p-1.5 rounded-chip text-muted hover:text-zar-red hover:bg-zar-red/10 transition-colors"
                       title="Izbriši"
+                      aria-label={`Izbriši ${post.title}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -247,13 +261,13 @@ export function CommunityNews() {
                 </div>
 
                 <div className="flex items-center gap-1 mb-2">
-                  <Calendar className="w-3 h-3" style={{ color: "rgb(var(--muted))" }} />
-                  <span className="text-xs" style={{ color: "rgb(var(--muted))" }}>
+                  <Calendar className="w-3 h-3 text-muted" />
+                  <span className="text-xs text-muted">
                     {formatDate(post.created_at)}
                   </span>
                 </div>
 
-                <p className="text-sm leading-relaxed" style={{ color: "rgb(var(--foreground)/0.85)" }}>
+                <p className="text-sm leading-relaxed text-foreground/85">
                   {post.content}
                 </p>
               </div>
