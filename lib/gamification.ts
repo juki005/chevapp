@@ -18,6 +18,19 @@ import type { Database } from "@/types/database";
 export type GameClient = ReturnType<typeof createBrowserClient<Database>>;
 
 // ── Rank system ───────────────────────────────────────────────────────────────
+//
+// RANKS[] uses plain Tailwind palette colours (green/blue/purple/amber/orange-400)
+// for the 5 tiers — categorical content markers exception (DS Sprint 26y).
+// The DS only has 5 semantic colour tokens and 4 are role-locked (vatra=CTA,
+// amber-xp=gamification single-state, ember-green=confirm, zar-red=alert,
+// somun-purple=passive), so 5 mutually-distinct tier hues need to live outside
+// strict DS chrome rules. Same precedent as RestaurantCard per-style palette,
+// CmsTab event tags, and QuickLogModal style tints. These rendered className
+// strings flow into <span> badges via getRank() — passive readouts on
+// transparent backgrounds, not button fills, so even amber-400 → fine.
+//
+// emoji per tier: TODO(icons) tagged at the call sites — Sprint 27 may swap
+// for brand <Tier> SVG sprites or keep the emoji for cultural texture.
 
 export const RANKS = [
   { title: "Početnik",    minXP: 0,    maxXP: 499,  emoji: "🌱", color: "text-green-400",  bg: "bg-green-400/10"  },
