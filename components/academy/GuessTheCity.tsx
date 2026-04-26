@@ -1,5 +1,22 @@
 "use client";
 
+// ── GuessTheCity · academy (Sprint 26aa · DS-migrated) ────────────────────────
+// 5-question multiple-choice quiz: hint → 4 city options. +10 bonus XP per
+// correct answer on top of GameContainer's base reward.
+//
+// Sprint 26aa changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases.
+//   - Progress pips: bg-green-400 / bg-red-400 → bg-ember-green / bg-zar-red
+//     (DS confirm + alert tokens).
+//   - Answer-revealed states: green-500 family → ember-green family;
+//     red-500 family → zar-red family.
+//   - rounded-2xl → rounded-card; rounded-xl → rounded-chip.
+//   - 🇧🇦 / 🇭🇷 / 🇷🇸 country flags kept — categorical data markers (same
+//     precedent as flag emoji in LocationFilter Sprint 26l), aria-hidden.
+//   - 🗺️ emoji passed as prop to GameContainer is data — that component
+//     handles its own a11y.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, MapPin } from "lucide-react";
@@ -101,16 +118,16 @@ function QuizGame({ onWin }: QuizGameProps) {
                 className={cn(
                   "w-2.5 h-2.5 rounded-full transition-colors",
                   i < round
-                    ? res?.correct ? "bg-green-400" : "bg-red-400"
+                    ? res?.correct ? "bg-ember-green" : "bg-zar-red"
                     : i === round
-                    ? "bg-[rgb(var(--primary))]"
-                    : "bg-[rgb(var(--border))]"
+                    ? "bg-primary"
+                    : "bg-border"
                 )}
               />
             );
           })}
         </div>
-        <span className="text-xs text-[rgb(var(--muted))] ml-auto">
+        <span className="text-xs text-muted ml-auto">
           {round + 1}/{total} · {correctSoFar} tačnih
         </span>
       </div>
@@ -123,15 +140,15 @@ function QuizGame({ onWin }: QuizGameProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.25 }}
-          className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5"
+          className="rounded-card border border-border bg-surface/50 p-5"
         >
           <div className="flex items-center gap-2 mb-3">
-            <MapPin className="w-4 h-4 text-[rgb(var(--primary))]" />
-            <span className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
-              Koji je ovo grad? {current.flag}
+            <MapPin className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted uppercase tracking-widest font-medium">
+              Koji je ovo grad? <span aria-hidden="true">{current.flag}</span>
             </span>
           </div>
-          <p className="text-sm text-[rgb(var(--foreground)/0.85)] leading-relaxed">
+          <p className="text-sm text-foreground/85 leading-relaxed">
             {current.hint}
           </p>
         </motion.div>
@@ -150,22 +167,22 @@ function QuizGame({ onWin }: QuizGameProps) {
               onClick={() => handleChoice(option)}
               disabled={chosen !== null}
               className={cn(
-                "relative px-4 py-3 rounded-xl border text-sm font-semibold transition-all text-left",
+                "relative px-4 py-3 rounded-chip border text-sm font-semibold transition-all text-left",
                 revealed && isCorrect
-                  ? "border-green-500/50 bg-green-500/10 text-green-400"
+                  ? "border-ember-green/50 bg-ember-green/10 text-ember-green"
                   : revealed && isChosen && !isCorrect
-                  ? "border-red-500/50 bg-red-500/10 text-red-400"
+                  ? "border-zar-red/50 bg-zar-red/10 text-zar-red"
                   : chosen !== null
-                  ? "border-[rgb(var(--border))] text-[rgb(var(--muted))] opacity-50"
-                  : "border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.5)] hover:bg-[rgb(var(--primary)/0.05)] active:scale-[0.98]"
+                  ? "border-border text-muted opacity-50"
+                  : "border-border text-foreground hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
               )}
             >
               {option}
               {revealed && isCorrect && (
-                <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400" />
+                <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ember-green" />
               )}
               {revealed && isChosen && !isCorrect && (
-                <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-400" />
+                <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zar-red" />
               )}
             </button>
           );
@@ -173,7 +190,7 @@ function QuizGame({ onWin }: QuizGameProps) {
       </div>
 
       {/* XP hint */}
-      <p className="text-center text-xs text-[rgb(var(--muted))]">
+      <p className="text-center text-xs text-muted">
         +10 bonus XP po tačnom odgovoru
       </p>
     </div>

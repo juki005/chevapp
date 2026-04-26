@@ -1,11 +1,26 @@
 "use client";
 
+// ── CevapNinja · academy (Sprint 26aa · DS-migrated) ─────────────────────────
+// Slice-the-floating-emoji game (60s, 3 misses = end). 1 XP per slice, capped
+// at MAX_XP. Spawn rate accelerates over time.
+//
+// Sprint 26aa changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases.
+//   - Inline style={{fontFamily:"Oswald"}} on score → font-display class.
+//   - Timer warning text-red-400 → text-zar-red (DS alert family).
+//   - Arena placeholder text-[rgb(var(--border))] → text-border (semantic).
+//   - rounded-2xl arena → rounded-card.
+//   - ❤️ lives, 🔪 placeholder, ✨ slash effect, EMOJIS array tagged
+//     TODO(icons) + aria-hidden — content/categorical markers, Sprint 27.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameContainer } from "./GameContainer";
 import { cn } from "@/lib/utils";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+// EMOJIS array: categorical content markers for slice targets — kept as data
 const EMOJIS      = ["🌯", "🧅", "🍞", "🧀", "🥩", "🧆", "🫙", "🧄", "🥓", "🫕"];
 const GAME_HEIGHT = 340; // px — height of the arena div
 const GAME_SECS   = 60;
@@ -118,16 +133,21 @@ function NinjaGame({ onWin }: NinjaGameProps) {
     });
   }, [endGame]);
 
-  const timeColor = timeLeft <= 10 ? "text-red-400" : "text-[rgb(var(--muted))]";
+  const timeColor = timeLeft <= 10 ? "text-zar-red" : "text-muted";
 
   return (
     <div className="space-y-3 select-none">
       {/* HUD */}
       <div className="flex items-center justify-between px-1">
         {/* Lives */}
-        <div className="flex gap-0.5">
+        <div className="flex gap-0.5" aria-label={`Životi: ${MAX_MISSES - misses} od ${MAX_MISSES}`}>
           {Array.from({ length: MAX_MISSES }, (_, i) => (
-            <span key={i} className={cn("text-lg transition-opacity", i < MAX_MISSES - misses ? "opacity-100" : "opacity-20")}>
+            <span
+              key={i}
+              aria-hidden="true"
+              className={cn("text-lg transition-opacity", i < MAX_MISSES - misses ? "opacity-100" : "opacity-20")}
+            >
+              {/* TODO(icons): swap ❤️ for brand <Heart> */}
               ❤️
             </span>
           ))}
@@ -135,8 +155,8 @@ function NinjaGame({ onWin }: NinjaGameProps) {
 
         {/* Score */}
         <span
-          className="text-3xl font-bold text-[rgb(var(--foreground))]"
-          style={{ fontFamily: "Oswald, sans-serif" }}
+          className="font-display text-3xl font-bold text-foreground"
+          aria-label={`Rezultat: ${score}`}
         >
           {score}
         </span>
@@ -149,12 +169,13 @@ function NinjaGame({ onWin }: NinjaGameProps) {
 
       {/* Arena */}
       <div
-        className="relative w-full overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.3)]"
+        className="relative w-full overflow-hidden rounded-card border border-border bg-surface/30"
         style={{ height: GAME_HEIGHT }}
       >
         {/* Placeholder text */}
-        <p className="absolute inset-0 flex items-center justify-center text-[rgb(var(--border))] text-sm pointer-events-none">
-          Klikni emojije! 🔪
+        <p className="absolute inset-0 flex items-center justify-center text-border text-sm pointer-events-none">
+          {/* TODO(icons): swap 🔪 for brand <Slice> */}
+          Klikni emojije! <span aria-hidden="true">🔪</span>
         </p>
 
         {/* Floating targets */}
@@ -174,8 +195,9 @@ function NinjaGame({ onWin }: NinjaGameProps) {
               handleSlice(t.id, e.clientX - rect.left, e.clientY - rect.top);
             }}
             whileTap={{ scale: 1.5 }}
+            aria-label="Zasjeci"
           >
-            {t.emoji}
+            <span aria-hidden="true">{t.emoji}</span>
           </motion.button>
         ))}
 
@@ -190,7 +212,9 @@ function NinjaGame({ onWin }: NinjaGameProps) {
               animate={{ opacity: 0, scale: 2 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
+              aria-hidden="true"
             >
+              {/* TODO(icons): swap ✨ for brand <Sparkle> */}
               ✨
             </motion.div>
           ))}
@@ -198,7 +222,7 @@ function NinjaGame({ onWin }: NinjaGameProps) {
       </div>
 
       {/* XP hint */}
-      <p className="text-center text-xs text-[rgb(var(--muted))]">
+      <p className="text-center text-xs text-muted">
         1 XP po zasjecu · max +{MAX_XP} XP · propusti {MAX_MISSES} = kraj
       </p>
     </div>
