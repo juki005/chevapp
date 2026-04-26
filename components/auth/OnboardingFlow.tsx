@@ -68,6 +68,9 @@ const TOTAL_STEPS = 4;
 // orange as the kajmak/ajvar binary choice (visual differentiation needs
 // distinct hue, not from DS semantic palette).
 const AJVAR_RED = "#e74c3c";
+// 8-char hex (#RRGGBBAA): "1F" alpha = 31/255 ≈ 12% — same tint weight as
+// the kajmak `bg-primary/10` so both active states read as equally-soft fills.
+const AJVAR_TINT = `${AJVAR_RED}1F`;
 
 // ── Slide animation ───────────────────────────────────────────────────────────
 
@@ -88,6 +91,28 @@ function primaryBtnCls(active: boolean): string {
       ? "bg-primary text-primary-fg hover:bg-vatra-hover cursor-pointer"
       : "bg-border text-muted cursor-not-allowed",
   );
+}
+
+// ── Step 1 condiment-button styles ───────────────────────────────────────────
+// Three discrete states (kajmak-active, ajvar-active, inactive) with no
+// overlapping conditional branches. Returns both className AND optional inline
+// style — Ajvar needs inline style because AJVAR_RED is a categorical brand
+// hex outside the DS palette (can't be expressed as a Tailwind token).
+function condimentBtnStyles(
+  active: boolean,
+  useAjvarRed: boolean,
+): { className: string; style?: React.CSSProperties } {
+  const base = "flex flex-col items-center gap-3 rounded-3xl p-6 transition-all border-2";
+  if (!active) {
+    return { className: cn(base, "bg-background border-border") };
+  }
+  if (useAjvarRed) {
+    return {
+      className: cn(base, "scale-[1.03]"),
+      style: { background: AJVAR_TINT, borderColor: AJVAR_RED },
+    };
+  }
+  return { className: cn(base, "bg-primary/10 border-primary scale-[1.03]") };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -304,22 +329,13 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                     { key: "ajvar"  as const, emoji: "🫑", label: "AJVAR",  sub: "Dimljeno, začinjeno, balkansko", useAjvarRed: true  },
                   ].map(({ key, emoji, label, sub, useAjvarRed }) => {
                     const active = condiment === key;
-                    // Kajmak uses primary (vatra), Ajvar uses red (categorical
-                    // pair — see AJVAR_RED constant header note).
-                    const accentStyle: React.CSSProperties = useAjvarRed
-                      ? { background: active ? `${AJVAR_RED}1F` : undefined, borderColor: active ? AJVAR_RED : undefined }
-                      : {};
+                    const btn = condimentBtnStyles(active, useAjvarRed);
                     return (
                       <button
                         key={key}
                         onClick={() => setCondiment(key)}
-                        className={cn(
-                          "flex flex-col items-center gap-3 rounded-3xl p-6 transition-all border-2",
-                          active && !useAjvarRed && "bg-primary/10 border-primary scale-[1.03]",
-                          !active && "bg-background border-border",
-                          active && useAjvarRed && "scale-[1.03]",
-                        )}
-                        style={accentStyle}
+                        className={btn.className}
+                        style={btn.style}
                       >
                         {/* TODO(icons): swap 🧈 / 🫑 for brand <Kajmak> / <Ajvar> */}
                         <span className="text-5xl" aria-hidden="true">{emoji}</span>
@@ -330,6 +346,12 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                           <p className="text-xs mt-0.5 text-muted">{sub}</p>
                         </div>
                         {active && (
+                          // Active badge sits on a coloured fill (AJVAR_RED hex
+                          // OR bg-primary). Neither maps to a single DS *-fg
+                          // token, so the Ajvar branch uses literal text-white
+                          // for guaranteed contrast on the categorical-red bg;
+                          // the kajmak branch uses the semantic text-primary-fg
+                          // pair on bg-primary.
                           <span
                             className={cn(
                               "text-xs font-bold px-2 py-0.5 rounded-full",
