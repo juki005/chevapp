@@ -1,11 +1,30 @@
 "use client";
 
+// ── CevapMemory · academy (Sprint 26ab · DS-migrated) ─────────────────────────
+// 4×5 memory match — flip pairs of ćevap-ingredient emoji cards. +25 XP if
+// solved in ≤12 moves, +10 if ≤16, +0 otherwise (on top of base 75 reward).
+//
+// Sprint 26ab changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases.
+//   - Matched-card front: bg-green-500/10 + border-green-500/40 +
+//     text-green-400 → ember-green family (DS confirm — same token used
+//     for "verified", "confirmed", "approved" surfaces across the app).
+//   - rounded-xl → rounded-chip.
+//   - 🍖 card-back face tagged TODO(icons) + aria-hidden — this IS UI
+//     chrome (the back of every card in the grid), Sprint 27 swap target.
+//   - PAIRS array emojis (🥩 🥯 🧈 🫑 🧅 🔥 🌶️ 🧂 🍽️ ♨️) kept as
+//     content data — these are the categorical pair-tokens the player is
+//     matching. Same approach as EditProfileModal AVATARS array.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { GameContainer } from "./GameContainer";
 import { cn } from "@/lib/utils";
 
 // ── Card data ─────────────────────────────────────────────────────────────────
+// PAIRS emojis are categorical content (the things the player matches),
+// not chrome. TODO(icons) at use sites where they render as visible tiles.
 const PAIRS = [
   { id: "cevap",    emoji: "🥩", label: "Ćevap"    },
   { id: "somun",    emoji: "🥯", label: "Somun"    },
@@ -57,6 +76,9 @@ function CardTile({ card, onClick, locked }: CardTileProps) {
       className="relative cursor-pointer"
       style={{ perspective: 600 }}
       onClick={() => !locked && !card.matched && !card.flipped && onClick()}
+      role="button"
+      aria-label={isVisible ? card.label : "Skrivena karta"}
+      aria-pressed={card.matched}
     >
       <motion.div
         className="w-full"
@@ -67,32 +89,34 @@ function CardTile({ card, onClick, locked }: CardTileProps) {
         {/* Back face */}
         <div
           className={cn(
-            "absolute inset-0 rounded-xl flex items-center justify-center text-2xl border-2 transition-colors",
-            "bg-[rgb(var(--surface)/0.6)] border-[rgb(var(--border))]",
+            "absolute inset-0 rounded-chip flex items-center justify-center text-2xl border-2 transition-colors aspect-square",
+            "bg-surface/60 border-border",
             "[backface-visibility:hidden]",
-            "aspect-square"
           )}
           style={{ backfaceVisibility: "hidden" }}
+          aria-hidden="true"
         >
+          {/* TODO(icons): swap 🍖 card-back for brand <CardBack> SVG */}
           🍖
         </div>
 
-        {/* Front face */}
+        {/* Front face — matched cards adopt ember-green confirm tint;
+            unmatched-but-flipped cards use the primary tint. */}
         <div
           className={cn(
-            "rounded-xl flex flex-col items-center justify-center gap-1 border-2 transition-colors aspect-square",
+            "rounded-chip flex flex-col items-center justify-center gap-1 border-2 transition-colors aspect-square",
             "[backface-visibility:hidden]",
             card.matched
-              ? "bg-green-500/10 border-green-500/40 text-green-400"
-              : "bg-[rgb(var(--primary)/0.08)] border-[rgb(var(--primary)/0.4)]"
+              ? "bg-ember-green/10 border-ember-green/40 text-ember-green"
+              : "bg-primary/10 border-primary/40",
           )}
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
           }}
         >
-          <span className="text-2xl leading-none">{card.emoji}</span>
-          <span className="text-[10px] font-semibold text-[rgb(var(--muted))] leading-none px-1 text-center">
+          <span className="text-2xl leading-none" aria-hidden="true">{card.emoji}</span>
+          <span className="text-[10px] font-semibold text-muted leading-none px-1 text-center">
             {card.label}
           </span>
         </div>
@@ -189,15 +213,15 @@ function MemoryGame({ onWin }: MemoryGameProps) {
     <div className="space-y-4">
       {/* Stats bar */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-[rgb(var(--muted))]">
-          Parovi: <span className="text-[rgb(var(--foreground))] font-bold">{matched}/{totalPairs}</span>
+        <span className="text-muted">
+          Parovi: <span className="text-foreground font-bold">{matched}/{totalPairs}</span>
         </span>
-        <span className="text-[rgb(var(--muted))]">
-          Potezi: <span className="text-[rgb(var(--foreground))] font-bold">{moves}</span>
+        <span className="text-muted">
+          Potezi: <span className="text-foreground font-bold">{moves}</span>
         </span>
         <button
           onClick={restart}
-          className="text-xs text-[rgb(var(--primary))] hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           Resetuj
         </button>
@@ -216,7 +240,7 @@ function MemoryGame({ onWin }: MemoryGameProps) {
       </div>
 
       {/* Efficiency hint */}
-      <p className="text-center text-xs text-[rgb(var(--muted))]">
+      <p className="text-center text-xs text-muted">
         ≤12 poteza → +25 bonus XP · ≤16 poteza → +10 bonus XP
       </p>
     </div>
