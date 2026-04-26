@@ -1,5 +1,42 @@
 "use client";
 
+// ── MerakCorner · home (Sprint 26u · DS-migrated) ─────────────────────────────
+// "Word of the day" carousel — pinned daily word + browseable history with
+// share button. Lives on the homepage above the fold.
+//
+// Sprint 26u changes:
+//   - Legacy palette → DS tokens throughout:
+//       border-charcoal-700/X + dark:border-ugljen-border duo → border-border
+//       bg-charcoal-800/X + dark:bg-ugljen-surface/X duo → bg-surface
+//       bg-charcoal-700 + dark:bg-ugljen-border (skeleton) → bg-border
+//       bg-charcoal-900/30 + dark:bg-ugljen-bg/30 (controls) → bg-background/30
+//       border-burnt-orange-500/20 → border-primary/20 (main card frame)
+//       text-burnt-orange-400 (BookOpen) → text-primary
+//       bg-burnt-orange-500/20 + text-burnt-orange-400 +
+//         border-burnt-orange-500/30 (today badge) → primary token family
+//       bg-burnt-orange-500/10 + text-burnt-orange-400/80 +
+//         border-burnt-orange-500/20 (tags) → primary token family
+//       Share-button hover text-burnt-orange-400 + bg-burnt-orange-500/10 →
+//         text-primary + bg-primary/10
+//   - Cream-on-cream invisibility fixes (text-cream/X → text-muted /
+//     text-foreground per role) — same latent bug Sprint 26h fixed in
+//     RestaurantGrid, Sprint 26k in Navbar, Sprint 26u (this file) elsewhere:
+//       text-cream/40 (tag chrome) → text-muted
+//       text-cream/65 (definition body) → text-foreground/80 (body content
+//                                                              needs strong
+//                                                              contrast)
+//       text-cream (h3 word title) → text-foreground
+//       text-cream/25 (counter) → text-muted
+//       text-cream/15 (disabled prev/next) → text-muted/40
+//       text-cream/50 + hover:text-cream → text-muted + hover:text-foreground
+//   - Inline style={{fontFamily:"Oswald"}} on word title → font-display.
+//   - Copy-confirmation Check text-green-400 → text-ember-green (DS confirm).
+//   - shadow-lg + shadow-burnt-orange-900/20 → shadow-soft-xl (DS elevation).
+//   - rounded-2xl card → rounded-card; rounded-lg buttons → rounded-chip.
+//   - 💡 emoji in handleShare share text — content (user-shareable string),
+//     not chrome — kept as-is.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, BookOpen, Share2, Check } from "lucide-react";
@@ -92,6 +129,8 @@ export function MerakCorner() {
   const handleShare = async () => {
     const current = words[index];
     if (!current) return;
+    // 💡 here is shareable user-facing content (going into clipboard / native
+    // share sheet), not app chrome — kept as-is.
     const text = `💡 Riječ dana: ${current.word}\n\n${current.definition}\n\n— ChevApp Merak Rječnik`;
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
@@ -113,11 +152,11 @@ export function MerakCorner() {
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="rounded-2xl border border-charcoal-700/50 dark:border-ugljen-border bg-charcoal-800/60 dark:bg-ugljen-surface/60 p-8 animate-pulse">
-          <div className="h-4 bg-charcoal-700 dark:bg-ugljen-border rounded w-24 mb-6" />
-          <div className="h-8 bg-charcoal-700 dark:bg-ugljen-border rounded w-40 mb-4" />
-          <div className="h-4 bg-charcoal-700 dark:bg-ugljen-border rounded w-full mb-2" />
-          <div className="h-4 bg-charcoal-700 dark:bg-ugljen-border rounded w-3/4" />
+        <div className="rounded-card border border-border/50 bg-surface/60 p-8 animate-pulse">
+          <div className="h-4 bg-border rounded w-24 mb-6" />
+          <div className="h-8 bg-border rounded w-40 mb-4" />
+          <div className="h-4 bg-border rounded w-full mb-2" />
+          <div className="h-4 bg-border rounded w-3/4" />
         </div>
       </div>
     );
@@ -127,23 +166,23 @@ export function MerakCorner() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="rounded-2xl border border-burnt-orange-500/20 bg-charcoal-800/80 dark:bg-ugljen-surface/80 backdrop-blur-sm overflow-hidden shadow-lg shadow-burnt-orange-900/20">
+      <div className="rounded-card border border-primary/20 bg-surface/80 backdrop-blur-sm overflow-hidden shadow-soft-xl">
 
         {/* Header bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-charcoal-700/60 dark:border-ugljen-border">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border/60">
           <div className="flex items-center gap-2">
-            <BookOpen className="w-3.5 h-3.5 text-burnt-orange-400" />
-            <span className="text-xs text-cream/40 uppercase tracking-widest font-medium">
+            <BookOpen className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs text-muted uppercase tracking-widest font-medium">
               Merak Rječnik
             </span>
             {isToday && (
-              <span className="text-[10px] bg-burnt-orange-500/20 text-burnt-orange-400 px-1.5 py-0.5 rounded-full font-medium border border-burnt-orange-500/30">
+              <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-medium border border-primary/30">
                 danas
               </span>
             )}
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-xs text-cream/25">
+            <span className="text-xs text-muted">
               {index + 1} / {words.length}
             </span>
           </div>
@@ -162,15 +201,12 @@ export function MerakCorner() {
               className="flex flex-col gap-4"
             >
               {/* Word */}
-              <h3
-                className="text-3xl sm:text-4xl font-bold text-cream leading-tight"
-                style={{ fontFamily: "Oswald, sans-serif" }}
-              >
+              <h3 className="font-display text-3xl sm:text-4xl font-bold text-foreground leading-tight">
                 {current.word}
               </h3>
 
-              {/* Definition */}
-              <p className="text-cream/65 text-sm sm:text-base leading-relaxed">
+              {/* Definition — body content needs strong contrast in both modes */}
+              <p className="text-foreground/80 text-sm sm:text-base leading-relaxed">
                 {current.definition}
               </p>
 
@@ -180,7 +216,7 @@ export function MerakCorner() {
                   {current.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-[11px] px-2 py-0.5 rounded-full bg-burnt-orange-500/10 text-burnt-orange-400/80 border border-burnt-orange-500/20 font-medium"
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium"
                     >
                       {tag}
                     </span>
@@ -192,17 +228,17 @@ export function MerakCorner() {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-charcoal-700/60 dark:border-ugljen-border bg-charcoal-900/30 dark:bg-ugljen-bg/30">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border/60 bg-background/30">
 
           {/* Prev button */}
           <button
             onClick={() => go(1)}
             disabled={isAtOldest}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-chip text-xs font-medium transition-all",
               isAtOldest
-                ? "text-cream/15 cursor-not-allowed"
-                : "text-cream/50 hover:text-cream hover:bg-charcoal-700/60 dark:hover:bg-ugljen-border active:scale-95"
+                ? "text-muted/40 cursor-not-allowed"
+                : "text-muted hover:text-foreground hover:bg-border/60 active:scale-95"
             )}
             aria-label="Prethodna riječ"
           >
@@ -213,11 +249,11 @@ export function MerakCorner() {
           {/* Share button */}
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cream/40 hover:text-burnt-orange-400 hover:bg-burnt-orange-500/10 transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-chip text-xs font-medium text-muted hover:text-primary hover:bg-primary/10 transition-all active:scale-95"
             aria-label="Podijeli"
           >
             {copied
-              ? <><Check className="w-3.5 h-3.5 text-green-400" /><span className="text-green-400">Kopirano!</span></>
+              ? <><Check className="w-3.5 h-3.5 text-ember-green" /><span className="text-ember-green">Kopirano!</span></>
               : <><Share2 className="w-3.5 h-3.5" /> Podijeli</>
             }
           </button>
@@ -227,10 +263,10 @@ export function MerakCorner() {
             onClick={() => go(-1)}
             disabled={isAtNewest}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-chip text-xs font-medium transition-all",
               isAtNewest
-                ? "text-cream/15 cursor-not-allowed"
-                : "text-cream/50 hover:text-cream hover:bg-charcoal-700/60 dark:hover:bg-ugljen-border active:scale-95"
+                ? "text-muted/40 cursor-not-allowed"
+                : "text-muted hover:text-foreground hover:bg-border/60 active:scale-95"
             )}
             aria-label="Sljedeća riječ"
           >
