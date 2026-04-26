@@ -1,10 +1,50 @@
 "use client";
 
+// ── OnboardingFlow · auth (Sprint 26z · DS-migrated) ─────────────────────────
+// 4-step new-user onboarding modal: identity → kajmak/ajvar → city/weight →
+// finalize (with confetti + XP bonus). Bottom-sheet on mobile, centered card
+// on desktop.
+//
+// Sprint 26z changes:
+//   - Heaviest style-prop migration so far: ~40 inline style={{ ... }} objects
+//     converted to Tailwind className tokens. Same pattern as CommunityNews
+//     (Sprint 26x) but bigger.
+//   - `primaryBtn()` helper rewritten: was returning React.CSSProperties with
+//     hardcoded rgb(var(--token)) strings — now a `primaryBtnCls()` className
+//     builder using semantic aliases (bg-primary + text-primary-fg +
+//     hover:bg-vatra-hover when active, bg-border + text-muted when disabled).
+//   - 6× style={{fontFamily:"Oswald"}} on h2 titles + buttons → font-display.
+//   - Hex literals:
+//     · "#fff" on primary buttons → text-primary-fg (semantic).
+//     · "#e74c3c" used for Ajvar accent KEPT (categorical content marker —
+//       kajmak/ajvar is a binary visual choice paired with vatra orange,
+//       same precedent as per-style colours and tier palette). Documented
+//       inline.
+//     · "#e74c3c" used for weight-input error → text-zar-red (DS alert,
+//       consistent with all other error reds).
+//   - Confetti colour array (#D35400, #F39C12, #E74C3C, #2ecc71, #3498db)
+//     KEPT — passed to canvas-confetti API as raw hex strings (not Tailwind
+//     classes). Could swap to brand-only palette in a future visual-polish
+//     pass; leaving as-is so confetti stays festive.
+//   - Backdrop rgba(0,0,0,0.72) + backdropFilter: "blur(12px)" → bg-black/70
+//     + backdrop-blur-md (Tailwind handles -webkit prefix automatically).
+//   - Heavy-touch button heights kept as arbitrary (h-[52px], h-[56px]) —
+//     deliberate big-tap-target sizes that don't fit DS scale.
+//   - Emoji throughout (🧑‍🍳 🍽️ ✈️ 🏠 🧈 🫑 🔥 🌱 🏆 🍖 🎁) tagged
+//     TODO(icons) + aria-hidden where appropriate. AVATARS array stays
+//     emoji as user-pickable identity content (same approach as
+//     EditProfileModal AVATARS array, Sprint 26y).
+//   - rounded-2xl → rounded-card; rounded-3xl bottom-sheet kept (24px —
+//     intentional drawer treatment, same as RecipeModal Sprint 26t).
+//   - shadow-2xl → shadow-soft-xl.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -24,6 +64,11 @@ const CITIES = [
 
 const TOTAL_STEPS = 4;
 
+// Ajvar brand-red — categorical exception, kept inline. Paired with vatra
+// orange as the kajmak/ajvar binary choice (visual differentiation needs
+// distinct hue, not from DS semantic palette).
+const AJVAR_RED = "#e74c3c";
+
 // ── Slide animation ───────────────────────────────────────────────────────────
 
 const slideVariants = {
@@ -34,23 +79,15 @@ const slideVariants = {
 
 const slideTransition = { type: "spring", stiffness: 300, damping: 30 };
 
-// ── Shared button style helpers ───────────────────────────────────────────────
+// ── Shared button className helper ────────────────────────────────────────────
 
-function primaryBtn(active: boolean): React.CSSProperties {
-  return {
-    height: 52,
-    background: active ? "rgb(var(--primary))" : "rgb(var(--border))",
-    color: active ? "#fff" : "rgb(var(--muted))",
-    fontFamily: "Oswald, sans-serif",
-    fontSize: 16,
-    letterSpacing: "0.04em",
-    cursor: active ? "pointer" : "not-allowed",
-    borderRadius: 16,
-    width: "100%",
-    fontWeight: 700,
-    border: "none",
-    transition: "all 0.2s",
-  };
+function primaryBtnCls(active: boolean): string {
+  return cn(
+    "font-display w-full h-[52px] rounded-card text-base font-bold tracking-wider border-0 transition-all",
+    active
+      ? "bg-primary text-primary-fg hover:bg-vatra-hover cursor-pointer"
+      : "bg-border text-muted cursor-not-allowed",
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -120,7 +157,8 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
     setSaving(false);
     setDone(true);
 
-    // 3. Confetti
+    // 3. Confetti — raw hex strings passed to canvas-confetti API.
+    //    Could swap to brand-only palette in a visual-polish pass.
     const end = Date.now() + 2200;
     const colors = ["#D35400", "#F39C12", "#E74C3C", "#2ecc71", "#3498db"];
     (function burst() {
@@ -135,19 +173,12 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
   const progressPct = Math.round(((step + 1) / TOTAL_STEPS) * 100);
 
   return (
-    <div
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4"
-      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
-    >
-      <div
-        className="relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
-        style={{ background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", maxHeight: "92dvh" }}
-      >
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md">
+      <div className="relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-soft-xl bg-surface border border-border max-h-[92dvh]">
         {/* Progress bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 z-10" style={{ background: "rgb(var(--border))" }}>
+        <div className="absolute top-0 left-0 right-0 h-1 z-10 bg-border">
           <motion.div
-            className="h-full"
-            style={{ background: "rgb(var(--primary))" }}
+            className="h-full bg-primary"
             animate={{ width: `${progressPct}%` }}
             transition={{ duration: 0.4, ease: "easeOut" }}
           />
@@ -157,8 +188,8 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
         {step > 0 && step < 3 && !done && (
           <button
             onClick={back}
-            className="absolute top-4 left-4 z-10 w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: "rgb(var(--border))", color: "rgb(var(--muted))" }}
+            aria-label="Nazad"
+            className="absolute top-4 left-4 z-10 w-9 h-9 rounded-chip flex items-center justify-center bg-border text-muted hover:text-foreground transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -166,13 +197,12 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
 
         {/* Step counter */}
         <div className="absolute top-4 right-4 z-10">
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-            style={{ background: "rgb(var(--primary) / 0.12)", color: "rgb(var(--primary))" }}>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
             {step + 1} / {TOTAL_STEPS}
           </span>
         </div>
 
-        <div className="overflow-y-auto" style={{ maxHeight: "92dvh" }}>
+        <div className="overflow-y-auto max-h-[92dvh]">
           <AnimatePresence mode="wait" custom={dir}>
 
             {/* ══ STEP 0 — Identity ══════════════════════════════════════ */}
@@ -182,18 +212,20 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                 className="p-7 pt-14 flex flex-col gap-5">
 
                 <div>
-                  <p className="text-xs uppercase tracking-widest font-semibold mb-1"
-                    style={{ color: "rgb(var(--primary))" }}>Dobrodošao/la u ChevApp</p>
-                  <h2 className="text-3xl font-bold"
-                    style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>KO SI TI?</h2>
-                  <p className="text-sm mt-1" style={{ color: "rgb(var(--muted))" }}>
+                  <p className="text-xs uppercase tracking-widest font-semibold mb-1 text-primary">
+                    Dobrodošao/la u ChevApp
+                  </p>
+                  <h2 className="font-display text-3xl font-bold text-foreground">
+                    KO SI TI?
+                  </h2>
+                  <p className="text-sm mt-1 text-muted">
                     Daj nam ime i odaberi avatara
                   </p>
                 </div>
 
                 {/* Name */}
                 <div>
-                  <label className="text-xs font-medium mb-1.5 block" style={{ color: "rgb(var(--muted))" }}>
+                  <label className="text-xs font-medium mb-1.5 block text-muted">
                     Tvoje ime ili nadimak *
                   </label>
                   <input
@@ -203,34 +235,38 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="npr. Grill Maestro Juki"
                     maxLength={30}
-                    className="w-full px-4 rounded-xl text-sm outline-none transition-all"
-                    style={{
-                      height: 52,
-                      background: "rgb(var(--background))",
-                      border: `1px solid ${name.length >= 2 ? "rgb(var(--primary) / 0.5)" : "rgb(var(--border))"}`,
-                      color: "rgb(var(--foreground))",
-                    }}
+                    className={cn(
+                      "w-full h-[52px] px-4 rounded-chip text-sm outline-none transition-all bg-background text-foreground border",
+                      name.length >= 2 ? "border-primary/50" : "border-border",
+                    )}
                     onKeyDown={(e) => e.key === "Enter" && nameRef.current?.blur()}
                   />
                 </div>
 
                 {/* Avatar grid */}
                 <div>
-                  <label className="text-xs font-medium mb-2 block" style={{ color: "rgb(var(--muted))" }}>
+                  <label className="text-xs font-medium mb-2 block text-muted">
                     Tvoj avatar *
                   </label>
+                  {/* TODO(icons): AVATARS user-pickable identity content. */}
                   <div className="grid grid-cols-4 gap-2">
                     {AVATARS.map(({ emoji, label }) => (
-                      <button key={emoji} onClick={() => setAvatar(emoji)}
-                        className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all"
-                        style={{
-                          background: avatar === emoji ? "rgb(var(--primary) / 0.12)" : "rgb(var(--background))",
-                          border: `1px solid ${avatar === emoji ? "rgb(var(--primary) / 0.5)" : "rgb(var(--border))"}`,
-                          transform: avatar === emoji ? "scale(1.06)" : "scale(1)",
-                        }}>
-                        <span className="text-3xl leading-none">{emoji}</span>
-                        <span className="text-[10px] font-medium text-center px-1"
-                          style={{ color: avatar === emoji ? "rgb(var(--primary))" : "rgb(var(--muted))" }}>
+                      <button
+                        key={emoji}
+                        onClick={() => setAvatar(emoji)}
+                        aria-label={label}
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 py-3 rounded-card border transition-all",
+                          avatar === emoji
+                            ? "bg-primary/10 border-primary/50 scale-[1.06]"
+                            : "bg-background border-border",
+                        )}
+                      >
+                        <span className="text-3xl leading-none" aria-hidden="true">{emoji}</span>
+                        <span className={cn(
+                          "text-[10px] font-medium text-center px-1",
+                          avatar === emoji ? "text-primary" : "text-muted",
+                        )}>
                           {label}
                         </span>
                       </button>
@@ -238,7 +274,7 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                   </div>
                 </div>
 
-                <button onClick={advance} disabled={!step0Valid} style={primaryBtn(step0Valid)}>
+                <button onClick={advance} disabled={!step0Valid} className={primaryBtnCls(step0Valid)}>
                   DALJE →
                 </button>
               </motion.div>
@@ -251,42 +287,56 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                 className="p-7 pt-14 flex flex-col gap-6">
 
                 <div>
-                  <p className="text-xs uppercase tracking-widest font-semibold mb-1"
-                    style={{ color: "rgb(var(--primary))" }}>Vječna dilema</p>
-                  <h2 className="text-3xl font-bold"
-                    style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
+                  <p className="text-xs uppercase tracking-widest font-semibold mb-1 text-primary">
+                    Vječna dilema
+                  </p>
+                  <h2 className="font-display text-3xl font-bold text-foreground">
                     KAJMAK ILI AJVAR?
                   </h2>
-                  <p className="text-sm mt-1" style={{ color: "rgb(var(--muted))" }}>
+                  <p className="text-sm mt-1 text-muted">
                     Ovo je jedino ispravno pitanje. Odaberi svoju stranu.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { key: "kajmak" as const, emoji: "🧈", label: "KAJMAK", sub: "Kremasto, toplo, savršeno",    accent: "rgb(var(--primary))", accentBg: "rgba(211,84,0,0.12)"  },
-                    { key: "ajvar"  as const, emoji: "🫑", label: "AJVAR",   sub: "Dimljeno, začinjeno, balkansko", accent: "#e74c3c",             accentBg: "rgba(231,76,60,0.12)" },
-                  ].map(({ key, emoji, label, sub, accent, accentBg }) => {
+                    { key: "kajmak" as const, emoji: "🧈", label: "KAJMAK", sub: "Kremasto, toplo, savršeno",     useAjvarRed: false },
+                    { key: "ajvar"  as const, emoji: "🫑", label: "AJVAR",  sub: "Dimljeno, začinjeno, balkansko", useAjvarRed: true  },
+                  ].map(({ key, emoji, label, sub, useAjvarRed }) => {
                     const active = condiment === key;
+                    // Kajmak uses primary (vatra), Ajvar uses red (categorical
+                    // pair — see AJVAR_RED constant header note).
+                    const accentStyle: React.CSSProperties = useAjvarRed
+                      ? { background: active ? `${AJVAR_RED}1F` : undefined, borderColor: active ? AJVAR_RED : undefined }
+                      : {};
                     return (
-                      <button key={key} onClick={() => setCondiment(key)}
-                        className="flex flex-col items-center gap-3 rounded-3xl p-6 transition-all"
-                        style={{
-                          background: active ? accentBg : "rgb(var(--background))",
-                          border: `2px solid ${active ? accent : "rgb(var(--border))"}`,
-                          transform: active ? "scale(1.03)" : "scale(1)",
-                        }}>
-                        <span className="text-5xl">{emoji}</span>
+                      <button
+                        key={key}
+                        onClick={() => setCondiment(key)}
+                        className={cn(
+                          "flex flex-col items-center gap-3 rounded-3xl p-6 transition-all border-2",
+                          active && !useAjvarRed && "bg-primary/10 border-primary scale-[1.03]",
+                          !active && "bg-background border-border",
+                          active && useAjvarRed && "scale-[1.03]",
+                        )}
+                        style={accentStyle}
+                      >
+                        {/* TODO(icons): swap 🧈 / 🫑 for brand <Kajmak> / <Ajvar> */}
+                        <span className="text-5xl" aria-hidden="true">{emoji}</span>
                         <div className="text-center">
-                          <p className="font-bold text-base"
-                            style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
+                          <p className="font-display font-bold text-base text-foreground">
                             {label}
                           </p>
-                          <p className="text-xs mt-0.5" style={{ color: "rgb(var(--muted))" }}>{sub}</p>
+                          <p className="text-xs mt-0.5 text-muted">{sub}</p>
                         </div>
                         {active && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                            style={{ background: accent, color: "#fff" }}>
+                          <span
+                            className={cn(
+                              "text-xs font-bold px-2 py-0.5 rounded-full",
+                              useAjvarRed ? "text-white" : "bg-primary text-primary-fg",
+                            )}
+                            style={useAjvarRed ? { background: AJVAR_RED } : undefined}
+                          >
                             ✓ MOJ IZBOR
                           </span>
                         )}
@@ -295,7 +345,7 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                   })}
                 </div>
 
-                <button onClick={advance} disabled={!condiment} style={primaryBtn(!!condiment)}>
+                <button onClick={advance} disabled={!condiment} className={primaryBtnCls(!!condiment)}>
                   DALJE →
                 </button>
               </motion.div>
@@ -308,13 +358,13 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                 className="p-7 pt-14 flex flex-col gap-5">
 
                 <div>
-                  <p className="text-xs uppercase tracking-widest font-semibold mb-1"
-                    style={{ color: "rgb(var(--primary))" }}>Tvoj teritorij</p>
-                  <h2 className="text-3xl font-bold"
-                    style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
+                  <p className="text-xs uppercase tracking-widest font-semibold mb-1 text-primary">
+                    Tvoj teritorij
+                  </p>
+                  <h2 className="font-display text-3xl font-bold text-foreground">
                     BAZA OPERACIJA
                   </h2>
-                  <p className="text-sm mt-1" style={{ color: "rgb(var(--muted))" }}>
+                  <p className="text-sm mt-1 text-muted">
                     Odaberi grad i (opcionalno) unesi svoju težinu
                   </p>
                 </div>
@@ -322,14 +372,16 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                 {/* City grid */}
                 <div className="grid grid-cols-3 gap-2">
                   {CITIES.map((c) => (
-                    <button key={c} onClick={() => setCity(c)}
-                      className="py-3 px-2 rounded-xl text-sm font-medium transition-all"
-                      style={{
-                        background: city === c ? "rgb(var(--primary) / 0.12)" : "rgb(var(--background))",
-                        border: `1px solid ${city === c ? "rgb(var(--primary) / 0.5)" : "rgb(var(--border))"}`,
-                        color: city === c ? "rgb(var(--primary))" : "rgb(var(--foreground))",
-                        transform: city === c ? "scale(1.05)" : "scale(1)",
-                      }}>
+                    <button
+                      key={c}
+                      onClick={() => setCity(c)}
+                      className={cn(
+                        "py-3 px-2 rounded-chip text-sm font-medium border transition-all",
+                        city === c
+                          ? "bg-primary/10 border-primary/50 text-primary scale-105"
+                          : "bg-background border-border text-foreground",
+                      )}
+                    >
                       {c}
                     </button>
                   ))}
@@ -337,8 +389,8 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
 
                 {/* Weight input */}
                 <div>
-                  <label className="text-xs font-medium mb-1.5 block" style={{ color: "rgb(var(--muted))" }}>
-                    Tvoja težina <span style={{ opacity: 0.6 }}>(opcionalno)</span>
+                  <label className="text-xs font-medium mb-1.5 block text-muted">
+                    Tvoja težina <span className="opacity-60">(opcionalno)</span>
                   </label>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -349,41 +401,39 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                         placeholder="npr. 78"
                         min={20}
                         max={300}
-                        className="w-full px-4 pr-12 rounded-xl text-sm outline-none transition-all"
-                        style={{
-                          height: 52,
-                          background: "rgb(var(--background))",
-                          border: `1px solid ${!weightValid ? "#e74c3c" : weightRaw ? "rgb(var(--primary) / 0.5)" : "rgb(var(--border))"}`,
-                          color: "rgb(var(--foreground))",
-                          appearance: "textfield",
-                          MozAppearance: "textfield",
-                        } as React.CSSProperties}
+                        className={cn(
+                          "w-full h-[52px] px-4 pr-12 rounded-chip text-sm outline-none transition-all bg-background text-foreground border [appearance:textfield] [-moz-appearance:textfield]",
+                          !weightValid
+                            ? "border-zar-red"
+                            : weightRaw
+                              ? "border-primary/50"
+                              : "border-border",
+                        )}
                       />
-                      <span
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold"
-                        style={{ color: "rgb(var(--muted))" }}
-                      >
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted">
                         kg
                       </span>
                     </div>
                   </div>
                   {!weightValid && (
-                    <p className="text-xs mt-1" style={{ color: "#e74c3c" }}>
+                    <p className="text-xs mt-1 text-zar-red">
                       Unesi ispravnu težinu (npr. 65 ili 82.5)
                     </p>
                   )}
                 </div>
 
                 <div className="flex gap-3">
-                  <button onClick={advance}
-                    className="flex-1 font-bold rounded-2xl transition-all"
-                    style={{ height: 52, background: "rgb(var(--border))", color: "rgb(var(--muted))", fontFamily: "Oswald, sans-serif", fontSize: 14 }}>
+                  <button
+                    onClick={advance}
+                    className="font-display flex-1 h-[52px] rounded-card text-sm font-bold bg-border text-muted transition-all"
+                  >
                     Preskoči
                   </button>
-                  <button onClick={() => { if (city && weightValid) advance(); }}
+                  <button
+                    onClick={() => { if (city && weightValid) advance(); }}
                     disabled={!city || !weightValid}
-                    className="flex-[2] font-bold rounded-2xl transition-all"
-                    style={primaryBtn(!!city && weightValid)}>
+                    className={cn("flex-[2]", primaryBtnCls(!!city && weightValid))}
+                  >
                     DALJE →
                   </button>
                 </div>
@@ -398,19 +448,19 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
 
                 {!done ? (
                   <>
-                    <div className="text-6xl">🔥</div>
+                    {/* TODO(icons): swap 🔥 for brand <Vatra> */}
+                    <div className="text-6xl" aria-hidden="true">🔥</div>
                     <div>
-                      <p className="text-xs uppercase tracking-widest font-semibold mb-1"
-                        style={{ color: "rgb(var(--primary))" }}>Skoro gotovo</p>
-                      <h2 className="text-3xl font-bold"
-                        style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
+                      <p className="text-xs uppercase tracking-widest font-semibold mb-1 text-primary">
+                        Skoro gotovo
+                      </p>
+                      <h2 className="font-display text-3xl font-bold text-foreground">
                         PROFIL SPREMAN
                       </h2>
                     </div>
 
                     {/* Summary card */}
-                    <div className="w-full rounded-2xl p-4 space-y-3 text-left"
-                      style={{ background: "rgb(var(--background))", border: "1px solid rgb(var(--border))" }}>
+                    <div className="w-full rounded-card p-4 space-y-3 text-left bg-background border border-border">
                       {[
                         { label: "Avatar",   value: `${avatar} ${name}` },
                         { label: "Izbor",    value: condiment === "kajmak" ? "🧈 Kajmak" : condiment === "ajvar" ? "🫑 Ajvar" : "—" },
@@ -419,30 +469,28 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                         { label: "XP bonus", value: "+50 XP 🎁" },
                       ].map(({ label, value }) => (
                         <div key={label} className="flex items-center justify-between">
-                          <span className="text-xs font-medium" style={{ color: "rgb(var(--muted))" }}>{label}</span>
-                          <span className="text-sm font-bold" style={{ color: "rgb(var(--foreground))" }}>{value}</span>
+                          <span className="text-xs font-medium text-muted">{label}</span>
+                          <span className="text-sm font-bold text-foreground">{value}</span>
                         </div>
                       ))}
                     </div>
 
-                    <button onClick={finalize} disabled={saving}
-                      className="w-full font-bold rounded-2xl flex items-center justify-center gap-2"
-                      style={{
-                        height: 56,
-                        background: saving ? "rgb(var(--border))" : "rgb(var(--primary))",
-                        color: saving ? "rgb(var(--muted))" : "#fff",
-                        fontFamily: "Oswald, sans-serif",
-                        fontSize: 18,
-                        letterSpacing: "0.05em",
-                        border: "none",
-                        cursor: saving ? "not-allowed" : "pointer",
-                      }}>
+                    <button
+                      onClick={finalize}
+                      disabled={saving}
+                      className={cn(
+                        "font-display w-full h-[56px] rounded-card flex items-center justify-center gap-2 text-lg font-bold tracking-wider border-0 transition-all",
+                        saving
+                          ? "bg-border text-muted cursor-not-allowed"
+                          : "bg-primary text-primary-fg hover:bg-vatra-hover cursor-pointer",
+                      )}
+                    >
                       {saving ? (
                         <>
                           <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                           KALKULIRAM GRILL STATUS...
                         </>
-                      ) : "AKTIVIRAJ PROFIL 🔥"}
+                      ) : <>AKTIVIRAJ PROFIL <span aria-hidden="true">🔥</span></>}
                     </button>
                   </>
                 ) : (
@@ -451,26 +499,28 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
                     animate={{ scale: 1,   opacity: 1 }}
                     transition={{ type: "spring", stiffness: 260, damping: 20 }}
                     className="flex flex-col items-center gap-5 py-4 w-full">
-                    <div className="text-7xl">🏆</div>
+                    {/* TODO(icons): swap 🏆 for brand <Trophy> / <Tier> */}
+                    <div className="text-7xl" aria-hidden="true">🏆</div>
                     <div>
-                      <h2 className="text-4xl font-bold mb-1"
-                        style={{ fontFamily: "Oswald, sans-serif", color: "rgb(var(--foreground))" }}>
+                      <h2 className="font-display text-4xl font-bold mb-1 text-foreground">
                         DOBRODOŠAO/LA!
                       </h2>
-                      <p className="text-sm" style={{ color: "rgb(var(--muted))" }}>
+                      <p className="text-sm text-muted">
                         {name}, tvoj grill status je aktiviran. +50 XP na računu!
                       </p>
                     </div>
-                    <div className="w-full rounded-2xl p-4"
-                      style={{ background: "rgb(var(--primary) / 0.1)", border: "1px solid rgb(var(--primary) / 0.3)" }}>
-                      <p className="text-sm font-semibold" style={{ color: "rgb(var(--primary))" }}>
-                        🌱 Rang: Početnik → skupljaj XP igrom i recenzijama da napreduješ!
+                    <div className="w-full rounded-card p-4 bg-primary/10 border border-primary/30">
+                      <p className="text-sm font-semibold text-primary">
+                        {/* TODO(icons): 🌱 → brand <Tier-Pocetnik> */}
+                        <span aria-hidden="true">🌱</span> Rang: Početnik → skupljaj XP igrom i recenzijama da napreduješ!
                       </p>
                     </div>
-                    <button onClick={onComplete}
-                      className="w-full font-bold rounded-2xl"
-                      style={{ height: 56, background: "rgb(var(--primary))", color: "#fff", fontFamily: "Oswald, sans-serif", fontSize: 20, letterSpacing: "0.06em", border: "none", cursor: "pointer" }}>
-                      HAJDE DA JEDEMO! 🍖
+                    <button
+                      onClick={onComplete}
+                      className="font-display w-full h-[56px] rounded-card text-xl font-bold tracking-wider border-0 bg-primary text-primary-fg hover:bg-vatra-hover transition-colors cursor-pointer"
+                    >
+                      {/* TODO(icons): 🍖 → brand <Cevapi> */}
+                      HAJDE DA JEDEMO! <span aria-hidden="true">🍖</span>
                     </button>
                   </motion.div>
                 )}
