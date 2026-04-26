@@ -1,5 +1,36 @@
 "use client";
 
+// ── EditProfileModal · profile (Sprint 26y · DS-migrated) ─────────────────────
+// Profile edit modal — username, avatar (emoji picker OR photo upload),
+// favourite cevap style, bio, gender, weight, height. Big form (549L).
+//
+// Sprint 26y changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases throughout
+//     (bg-surface, bg-background, border-border, text-foreground, text-muted,
+//     bg-primary, text-primary, primary/X, placeholder:text-muted).
+//   - 3× style={{fontFamily:"Oswald"}} (saved-state h2, header h2, submit
+//     button) → font-display class.
+//   - Submit CTA: hover:opacity-90 + text-white → hover:bg-vatra-hover +
+//     text-primary-fg (DS rule — explicit hover token, semantic fill).
+//   - Success-state ring + Check: bg-green-500/10 + border-green-500/30 +
+//     text-green-400 → ember-green family (DS confirm).
+//   - Error block: bg-red-500/10 + border-red-500/30 + text-red-400 →
+//     zar-red family (DS alert).
+//   - Remove-photo + upload-error text-red-400 → text-zar-red.
+//   - Avatar emoji picker (🥩 🍖 🌯 👨‍🍳 🧅 🧈 🔥 🫑): user-pickable
+//     content data (rendered as the user's identity badge). Kept as data,
+//     tagged TODO(icons) — Sprint 27 may keep emoji avatars OR swap for
+//     brand icon set. aria-label preserved on each pick button so screen
+//     readers can identify the visual choice.
+//   - 🎭 Emoji-mode toggle label tagged TODO(icons) + aria-hidden — content
+//     marker on a tab pill, Sprint 27.
+//   - rounded-2xl → rounded-card; rounded-xl/lg → rounded-chip.
+//   - shadow-2xl → shadow-soft-xl.
+//   - rank.bg / rank.color preserved — those className strings come from
+//     gamification.ts (getRank() helper). If they use legacy palette, they
+//     belong to a separate gamification.ts cleanup sprint, not this one.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { X, Loader2, CheckCircle, User, Upload, ImagePlus } from "lucide-react";
@@ -43,6 +74,9 @@ const GENDER_OPTIONS = [
 ];
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+// Shared input className — DRY across 5+ form fields
+const fieldCls = "w-full px-3 py-2.5 rounded-chip border border-border bg-background text-foreground text-sm placeholder:text-muted outline-none focus:border-primary/50 transition-colors";
 
 function isImageUrl(val: string | null): boolean {
   return !!val && (val.startsWith("http://") || val.startsWith("https://"));
@@ -213,17 +247,14 @@ export function EditProfileModal({
         onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
       >
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-        <div className="relative w-full max-w-sm bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl shadow-2xl p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-400" />
+        <div className="relative w-full max-w-sm bg-surface border border-border rounded-card shadow-soft-xl p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-ember-green/10 border border-ember-green/30 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-ember-green" />
           </div>
-          <h2
-            className="text-2xl font-bold text-[rgb(var(--foreground))] mb-1"
-            style={{ fontFamily: "Oswald, sans-serif" }}
-          >
+          <h2 className="font-display text-2xl font-bold text-foreground mb-1">
             {t("profileUpdated")}
           </h2>
-          <p className="text-sm text-[rgb(var(--muted))]">{t("changesSaved")}</p>
+          <p className="text-sm text-muted">{t("changesSaved")}</p>
         </div>
       </div>
     );
@@ -236,19 +267,19 @@ export function EditProfileModal({
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      <div className="relative w-full max-w-md bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-md bg-surface border border-border rounded-card shadow-soft-xl overflow-hidden max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-[rgb(var(--border))] flex-shrink-0">
+        <div className="px-6 pt-5 pb-4 border-b border-border flex-shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2
-                className="text-xl font-bold text-[rgb(var(--foreground))]"
-                style={{ fontFamily: "Oswald, sans-serif" }}
-              >
+              <h2 className="font-display text-xl font-bold text-foreground">
                 Uredi profil
               </h2>
-              <div className="flex items-center gap-1.5 mt-1 text-sm text-[rgb(var(--muted))]">
+              <div className="flex items-center gap-1.5 mt-1 text-sm text-muted">
+                {/* rank.bg/color come from gamification.ts (getRank helper) —
+                    a future gamification.ts cleanup sprint can DS-migrate
+                    those className strings if they still use legacy tokens. */}
                 <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border", rank.bg, rank.color, "border-current/30")}>
                   {rank.emoji} {rank.title}
                 </span>
@@ -259,7 +290,8 @@ export function EditProfileModal({
             <button
               onClick={handleClose}
               disabled={loading}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:bg-[rgb(var(--border)/0.5)] transition-colors flex-shrink-0"
+              aria-label="Zatvori"
+              className="w-8 h-8 rounded-chip flex items-center justify-center text-muted hover:text-foreground hover:bg-border/50 transition-colors flex-shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -271,33 +303,34 @@ export function EditProfileModal({
 
           {/* ── Avatar section ── */}
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-3">
+            <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-3">
               Avatar
             </label>
 
             {/* Mode toggle */}
-            <div className="flex rounded-xl border border-[rgb(var(--border))] overflow-hidden mb-3 text-sm font-medium">
+            <div className="flex rounded-chip border border-border overflow-hidden mb-3 text-sm font-medium">
               <button
                 type="button"
                 onClick={() => handleModeSwitch("emoji")}
                 className={cn(
                   "flex-1 py-2 flex items-center justify-center gap-1.5 transition-colors",
                   avatarMode === "emoji"
-                    ? "bg-[rgb(var(--primary)/0.15)] text-[rgb(var(--primary))]"
-                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted hover:text-foreground"
                 )}
               >
-                🎭 Emoji
+                {/* TODO(icons): swap 🎭 for brand <EmojiPicker> */}
+                <span aria-hidden="true">🎭</span> Emoji
               </button>
-              <div className="w-px bg-[rgb(var(--border))]" />
+              <div className="w-px bg-border" />
               <button
                 type="button"
                 onClick={() => handleModeSwitch("upload")}
                 className={cn(
                   "flex-1 py-2 flex items-center justify-center gap-1.5 transition-colors",
                   avatarMode === "upload"
-                    ? "bg-[rgb(var(--primary)/0.15)] text-[rgb(var(--primary))]"
-                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted hover:text-foreground"
                 )}
               >
                 <ImagePlus className="w-3.5 h-3.5" /> Slika
@@ -306,6 +339,8 @@ export function EditProfileModal({
 
             {/* ── Emoji picker ── */}
             {avatarMode === "emoji" && (
+              /* TODO(icons): AVATARS array — Sprint 27 may keep emoji avatars
+                  OR swap for brand icon set. User-pickable identity content. */
               <div className="grid grid-cols-9 gap-2">
                 {AVATARS.map((emoji) => (
                   <button
@@ -313,14 +348,14 @@ export function EditProfileModal({
                     type="button"
                     onClick={() => setSelectedAvatar(emoji === selectedAvatar ? null : emoji)}
                     className={cn(
-                      "w-10 h-10 rounded-xl text-2xl flex items-center justify-center border-2 transition-all hover:scale-110 active:scale-95",
+                      "w-10 h-10 rounded-chip text-2xl flex items-center justify-center border-2 transition-all hover:scale-110 active:scale-95",
                       selectedAvatar === emoji
-                        ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.12)] scale-110"
-                        : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.4)]"
+                        ? "border-primary bg-primary/10 scale-110"
+                        : "border-border hover:border-primary/40"
                     )}
-                    aria-label={emoji}
+                    aria-label={`Avatar ${emoji}`}
                   >
-                    {emoji}
+                    <span aria-hidden="true">{emoji}</span>
                   </button>
                 ))}
                 {/* No avatar */}
@@ -328,14 +363,14 @@ export function EditProfileModal({
                   type="button"
                   onClick={() => setSelectedAvatar(null)}
                   className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all",
+                    "w-10 h-10 rounded-chip flex items-center justify-center border-2 transition-all",
                     selectedAvatar === null
-                      ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary)/0.12)]"
-                      : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.4)]"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/40"
                   )}
                   aria-label="Bez avatara"
                 >
-                  <User className="w-4 h-4 text-[rgb(var(--muted))]" />
+                  <User className="w-4 h-4 text-muted" />
                 </button>
               </div>
             )}
@@ -349,20 +384,20 @@ export function EditProfileModal({
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadLoading}
                   className={cn(
-                    "w-full h-36 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer",
+                    "w-full h-36 rounded-card border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer",
                     uploadLoading
-                      ? "border-[rgb(var(--border))] opacity-60 cursor-not-allowed"
-                      : "border-[rgb(var(--border))] hover:border-[rgb(var(--primary)/0.5)] hover:bg-[rgb(var(--primary)/0.04)]"
+                      ? "border-border opacity-60 cursor-not-allowed"
+                      : "border-border hover:border-primary/50 hover:bg-primary/5"
                   )}
                 >
                   {uploadLoading ? (
                     <>
-                      <Loader2 className="w-6 h-6 animate-spin text-[rgb(var(--primary))]" />
-                      <span className="text-xs text-[rgb(var(--muted))]">Učitavanje…</span>
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-xs text-muted">Učitavanje…</span>
                     </>
                   ) : isImageUrl(selectedAvatar) ? (
                     // Show current photo preview
-                    <div className="relative w-full h-full rounded-2xl overflow-hidden">
+                    <div className="relative w-full h-full rounded-card overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={selectedAvatar!}
@@ -376,13 +411,13 @@ export function EditProfileModal({
                     </div>
                   ) : (
                     <>
-                      <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.1)] flex items-center justify-center">
-                        <Upload className="w-5 h-5 text-[rgb(var(--primary))]" />
+                      <div className="w-10 h-10 rounded-chip bg-primary/10 flex items-center justify-center">
+                        <Upload className="w-5 h-5 text-primary" />
                       </div>
-                      <span className="text-sm font-medium text-[rgb(var(--foreground)/0.8)]">
+                      <span className="text-sm font-medium text-foreground/80">
                         Odaberi fotografiju
                       </span>
-                      <span className="text-xs text-[rgb(var(--muted))]">
+                      <span className="text-xs text-muted">
                         JPG, PNG, WEBP · max 5 MB
                       </span>
                     </>
@@ -394,7 +429,7 @@ export function EditProfileModal({
                   <button
                     type="button"
                     onClick={() => setSelectedAvatar(null)}
-                    className="text-xs text-[rgb(var(--muted))] hover:text-red-400 transition-colors mx-auto block"
+                    className="text-xs text-muted hover:text-zar-red transition-colors mx-auto block"
                   >
                     Ukloni sliku
                   </button>
@@ -411,7 +446,7 @@ export function EditProfileModal({
 
                 {/* Upload error */}
                 {uploadError && (
-                  <p className="text-xs text-red-400 text-center">{uploadError}</p>
+                  <p className="text-xs text-zar-red text-center">{uploadError}</p>
                 )}
               </div>
             )}
@@ -419,7 +454,7 @@ export function EditProfileModal({
 
           {/* Username */}
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-2">
+            <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-2">
               Korisničko ime
             </label>
             <input
@@ -428,20 +463,20 @@ export function EditProfileModal({
               onChange={(e) => setUsername(e.target.value)}
               maxLength={30}
               placeholder="npr. grill_majstor"
-              className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+              className={fieldCls}
             />
-            <p className="text-right text-xs text-[rgb(var(--muted))] mt-1">{username.length}/30</p>
+            <p className="text-right text-xs text-muted mt-1">{username.length}/30</p>
           </div>
 
           {/* Favorite style */}
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-2">
+            <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-2">
               Omiljeni stil ćevapa
             </label>
             <select
               value={favoriteStyle}
               onChange={(e) => setFavoriteStyle(e.target.value as CevapStyle | "")}
-              className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+              className={fieldCls}
             >
               {STYLE_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
@@ -451,7 +486,7 @@ export function EditProfileModal({
 
           {/* Bio */}
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-2">
+            <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-2">
               Bio
             </label>
             <textarea
@@ -460,20 +495,20 @@ export function EditProfileModal({
               maxLength={200}
               rows={3}
               placeholder="Kratko o sebi… npr. Sarajlija, ljubitelj Sarajevskog stila, tražim savršeni ćevap."
-              className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors resize-none"
+              className={`${fieldCls} resize-none`}
             />
-            <p className="text-right text-xs text-[rgb(var(--muted))] mt-1">{bio.length}/200</p>
+            <p className="text-right text-xs text-muted mt-1">{bio.length}/200</p>
           </div>
 
           {/* Gender */}
           <div>
-            <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-2">
+            <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-2">
               Spol
             </label>
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+              className={fieldCls}
             >
               {GENDER_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
@@ -484,7 +519,7 @@ export function EditProfileModal({
           {/* Weight + Height */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-2">
+              <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-2">
                 Težina (kg)
               </label>
               <input
@@ -495,11 +530,11 @@ export function EditProfileModal({
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
                 placeholder="75"
-                className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+                className={fieldCls}
               />
             </div>
             <div>
-              <label className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium block mb-2">
+              <label className="text-xs text-muted uppercase tracking-widest font-medium block mb-2">
                 Visina (cm)
               </label>
               <input
@@ -510,14 +545,14 @@ export function EditProfileModal({
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
                 placeholder="180"
-                className="w-full px-3 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] text-sm placeholder-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+                className={fieldCls}
               />
             </div>
           </div>
 
           {/* Error */}
           {error && (
-            <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+            <div role="alert" className="rounded-chip bg-zar-red/10 border border-zar-red/30 px-4 py-3 text-sm text-zar-red">
               {error}
             </div>
           )}
@@ -528,15 +563,14 @@ export function EditProfileModal({
               type="button"
               onClick={handleClose}
               disabled={loading}
-              className="flex-1 py-2.5 rounded-xl border border-[rgb(var(--border))] text-sm text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors disabled:opacity-40"
+              className="flex-1 py-2.5 rounded-chip border border-border text-sm text-muted hover:text-foreground transition-colors disabled:opacity-40"
             >
               Odustani
             </button>
             <button
               type="submit"
               disabled={loading || uploadLoading || !username.trim()}
-              className="flex-1 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-              style={{ fontFamily: "Oswald, sans-serif" }}
+              className="font-display flex-1 py-2.5 rounded-chip bg-primary text-primary-fg text-sm font-bold hover:bg-vatra-hover active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? "Sprema…" : "Spremi promjene"}
