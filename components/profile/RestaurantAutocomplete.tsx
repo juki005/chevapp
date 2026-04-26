@@ -1,6 +1,6 @@
 "use client";
 
-// ── RestaurantAutocomplete.tsx ────────────────────────────────────────────────
+// ── RestaurantAutocomplete · profile (Sprint 26w · DS-migrated) ──────────────
 // Google Places Autocomplete bound to an establishment (restaurant) input.
 //
 // - Uses useMapsLibrary("places") from @vis.gl/react-google-maps
@@ -9,6 +9,17 @@
 // - Extracts city from address_components for auto-fill
 // - Falls back to a plain <input> when no API key is present
 // - Lazy-loaded (ssr: false) so the profile page stays fast
+//
+// Sprint 26w changes:
+//   - Both <input> classNames: rgb(var(--token)) chains → semantic aliases.
+//   - Inline <style> block for .pac-container (Google's autocomplete dropdown
+//     renders OUTSIDE React in document.body, so its styles must be global).
+//     Previously hardcoded Ugljen-only hex colours (#1e1b18 surface, #c9b99a
+//     muted cream, #fff8f0 bright cream, rgb(230,81,0) orange) — would render
+//     mode-mismatched on Somun (dark dropdown floating over a light page).
+//     Migrated to rgb(var(--token)) so the dropdown follows mode automatically.
+//     Same latent-bug fix pattern as GastroMapClient (Sprint 26v).
+//   - rounded-lg input → rounded-chip (DS shape scale).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef } from "react";
@@ -40,6 +51,10 @@ function extractCity(
     ""
   );
 }
+
+// Shared input className — DRY across the autocomplete + fallback paths
+const inputCls =
+  "w-full px-3 py-2 rounded-chip border border-border bg-surface/50 text-foreground text-sm placeholder:text-muted outline-none focus:border-primary/50 transition-colors";
 
 // ── Inner component (requires APIProvider context) ────────────────────────────
 function AutocompleteInner({
@@ -89,7 +104,7 @@ function AutocompleteInner({
         defaultValue={value}
         onChange={(e) => { onChange(e.target.value); onClear?.(); }}
         placeholder={placeholder ?? "npr. Željo 1, Kod Muje…"}
-        className="w-full px-3 py-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+        className={inputCls}
         autoComplete="off"
       />
     </div>
@@ -106,36 +121,40 @@ function RestaurantAutocomplete(props: RestaurantAutocompleteProps) {
         value={props.value}
         onChange={(e) => { props.onChange(e.target.value); props.onClear?.(); }}
         placeholder={props.placeholder ?? "npr. Željo 1, Kod Muje…"}
-        className="w-full px-3 py-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] text-[rgb(var(--foreground))] text-sm placeholder:text-[rgb(var(--muted))] outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+        className={inputCls}
       />
     );
   }
 
   return (
     <>
-      {/* Reuse the same dark-theme pac-container styles as CityAutocomplete */}
+      {/* Google's pac-container dropdown is portal'd to document.body, so it
+          can't inherit Tailwind utilities — needs raw global CSS. Using
+          rgb(var(--token)) so it follows Ugljen/Somun mode automatically.
+          Previously hardcoded dark-only hex (#1e1b18, #c9b99a, #fff8f0)
+          rendered mode-mismatched on Somun pages. */}
       <style>{`
         .pac-container {
-          background: #1e1b18 !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
+          background: rgb(var(--surface)) !important;
+          border: 1px solid rgb(var(--border)) !important;
           border-radius: 12px !important;
-          box-shadow: 0 8px 28px rgba(0,0,0,0.55) !important;
+          box-shadow: 0 8px 28px rgba(0,0,0,0.35) !important;
           margin-top: 4px !important;
           font-family: system-ui, sans-serif !important;
         }
         .pac-item {
           background: transparent !important;
-          border-top: 1px solid rgba(255,255,255,0.06) !important;
-          color: #c9b99a !important;
+          border-top: 1px solid rgb(var(--border) / 0.5) !important;
+          color: rgb(var(--muted)) !important;
           padding: 8px 12px !important;
           cursor: pointer !important;
           font-size: 13px !important;
         }
         .pac-item:hover, .pac-item-selected {
-          background: rgba(230,81,0,0.15) !important;
+          background: rgb(var(--primary) / 0.1) !important;
         }
-        .pac-item-query { color: #fff8f0 !important; font-size: 13px !important; }
-        .pac-matched { color: rgb(230,81,0) !important; font-weight: 600 !important; }
+        .pac-item-query { color: rgb(var(--foreground)) !important; font-size: 13px !important; }
+        .pac-matched { color: rgb(var(--primary)) !important; font-weight: 600 !important; }
         .pac-icon { display: none !important; }
         .pac-logo::after { display: none !important; }
         .hdpi .pac-icon { display: none !important; }

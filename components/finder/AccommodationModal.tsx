@@ -1,5 +1,33 @@
 "use client";
 
+// ── AccommodationModal · finder (Sprint 26w · DS-migrated) ────────────────────
+// Booking.com search builder modal — opens a pre-filled Booking.com search in
+// a new tab for the restaurant's city. ChevApp doesn't take commission.
+//
+// Sprint 26w changes:
+//   - Legacy palette swept (charcoal-700/800/900 + cream/X +
+//     burnt-orange-400/500/600 + ugljen-border/surface/bg) → DS tokens
+//     (border-border, bg-surface, bg-background, text-foreground, text-muted,
+//     text-primary, hover:bg-vatra-hover, text-primary-fg).
+//   - Cream-on-cream invisibility fixes throughout (text-cream/X → text-muted
+//     for chrome, text-foreground/X for body) — same latent bug Sprint 26h
+//     fixed in RestaurantGrid, Sprint 26k in Navbar, Sprint 26u in Theme/
+//     Jukebox/Merak.
+//   - 2× style={{fontFamily:"Oswald"}} (header h2, CTA button) → font-display.
+//   - CTA bg-burnt-orange-500 + hover:bg-burnt-orange-600 + text-white →
+//     bg-primary + hover:bg-vatra-hover + text-primary-fg (DS rule — explicit
+//     hover token, not opacity-fade or generic Tailwind hover).
+//   - Date inputs [color-scheme:dark] removed. The CSS color-scheme property
+//     was forcing dark calendar UI in browsers — would render dark calendar
+//     popovers floating over light Somun pages. Letting the browser pick
+//     based on the global page color-scheme (set in globals.css).
+//   - <option> bg-charcoal-900 hint removed — browser-styled <option>s vary
+//     by platform anyway, the inline bg was inconsistent.
+//   - rounded-2xl modal → rounded-card; rounded-xl inputs → rounded-chip;
+//     rounded-lg close → rounded-chip.
+//   - shadow-2xl → shadow-soft-xl.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState } from "react";
 import { X, Calendar, Users, BedDouble, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,30 +80,27 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
       />
 
       {/* Modal panel */}
-      <div className="relative w-full max-w-md rounded-2xl border border-charcoal-700 dark:border-ugljen-border bg-charcoal-900 dark:bg-ugljen-surface shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md rounded-card border border-border bg-surface shadow-soft-xl overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <BedDouble className="w-5 h-5 text-burnt-orange-400" />
-              <h2
-                className="text-xl font-bold text-cream"
-                style={{ fontFamily: "Oswald, sans-serif" }}
-              >
+              <BedDouble className="w-5 h-5 text-primary" />
+              <h2 className="font-display text-xl font-bold text-foreground">
                 PRONAĐI SMJEŠTAJ
               </h2>
             </div>
-            <p className="text-xs text-cream/50 leading-relaxed">
+            <p className="text-xs text-muted leading-relaxed">
               Rezerviraj smještaj u{" "}
-              <span className="text-burnt-orange-400 font-medium">{city}</span>{" "}
+              <span className="text-primary font-medium">{city}</span>{" "}
               za posjetu restoranu{" "}
-              <span className="text-cream/80 font-medium">{restaurantName}</span>
+              <span className="text-foreground/80 font-medium">{restaurantName}</span>
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Zatvori"
-            className="p-1.5 rounded-lg border border-charcoal-700 dark:border-ugljen-border text-cream/40 hover:text-cream hover:border-burnt-orange-500/40 transition-colors flex-shrink-0 ml-3"
+            className="p-1.5 rounded-chip border border-border text-muted hover:text-foreground hover:border-primary/40 transition-colors flex-shrink-0 ml-3"
           >
             <X className="w-4 h-4" />
           </button>
@@ -86,11 +111,11 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
           {/* Date row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-cream/50 uppercase tracking-widest font-medium mb-1.5">
+              <label className="block text-xs text-muted uppercase tracking-widest font-medium mb-1.5">
                 Dolazak
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cream/30 pointer-events-none" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
                 <input
                   type="date"
                   value={checkin}
@@ -104,22 +129,22 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
                       setCheckout(next.toISOString().slice(0, 10));
                     }
                   }}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-charcoal-800 dark:bg-ugljen-bg border border-charcoal-700 dark:border-ugljen-border text-cream text-sm focus:outline-none focus:border-burnt-orange-500/60 transition-colors [color-scheme:dark]"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-chip bg-background border border-border text-foreground text-sm focus:outline-none focus:border-primary/60 transition-colors"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs text-cream/50 uppercase tracking-widest font-medium mb-1.5">
+              <label className="block text-xs text-muted uppercase tracking-widest font-medium mb-1.5">
                 Odlazak
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cream/30 pointer-events-none" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
                 <input
                   type="date"
                   value={checkout}
                   min={checkin}
                   onChange={(e) => setCheckout(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-charcoal-800 dark:bg-ugljen-bg border border-charcoal-700 dark:border-ugljen-border text-cream text-sm focus:outline-none focus:border-burnt-orange-500/60 transition-colors [color-scheme:dark]"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-chip bg-background border border-border text-foreground text-sm focus:outline-none focus:border-primary/60 transition-colors"
                 />
               </div>
             </div>
@@ -128,18 +153,18 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
           {/* Guests + Rooms row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-cream/50 uppercase tracking-widest font-medium mb-1.5">
+              <label className="block text-xs text-muted uppercase tracking-widest font-medium mb-1.5">
                 Gosti
               </label>
               <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cream/30 pointer-events-none" />
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
                 <select
                   value={guests}
                   onChange={(e) => setGuests(Number(e.target.value))}
-                  className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-charcoal-800 dark:bg-ugljen-bg border border-charcoal-700 dark:border-ugljen-border text-cream text-sm focus:outline-none focus:border-burnt-orange-500/60 transition-colors appearance-none"
+                  className="w-full pl-9 pr-8 py-2.5 rounded-chip bg-background border border-border text-foreground text-sm focus:outline-none focus:border-primary/60 transition-colors appearance-none"
                 >
                   {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n} className="bg-charcoal-900">
+                    <option key={n} value={n}>
                       {n} {n === 1 ? "gost" : n < 5 ? "gosta" : "gostiju"}
                     </option>
                   ))}
@@ -147,18 +172,18 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
               </div>
             </div>
             <div>
-              <label className="block text-xs text-cream/50 uppercase tracking-widest font-medium mb-1.5">
+              <label className="block text-xs text-muted uppercase tracking-widest font-medium mb-1.5">
                 Sobe
               </label>
               <div className="relative">
-                <BedDouble className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cream/30 pointer-events-none" />
+                <BedDouble className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
                 <select
                   value={rooms}
                   onChange={(e) => setRooms(Number(e.target.value))}
-                  className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-charcoal-800 dark:bg-ugljen-bg border border-charcoal-700 dark:border-ugljen-border text-cream text-sm focus:outline-none focus:border-burnt-orange-500/60 transition-colors appearance-none"
+                  className="w-full pl-9 pr-8 py-2.5 rounded-chip bg-background border border-border text-foreground text-sm focus:outline-none focus:border-primary/60 transition-colors appearance-none"
                 >
                   {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n} className="bg-charcoal-900">
+                    <option key={n} value={n}>
                       {n} {n === 1 ? "soba" : "sobe"}
                     </option>
                   ))}
@@ -169,7 +194,7 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
 
           {/* Nights summary */}
           {checkin && checkout && checkin < checkout && (
-            <p className="text-xs text-cream/40 text-center">
+            <p className="text-xs text-muted text-center">
               {Math.round(
                 (new Date(checkout).getTime() - new Date(checkin).getTime()) / 86_400_000
               )}{" "}
@@ -182,17 +207,16 @@ export function AccommodationModal({ isOpen, onClose, restaurantName, city }: Pr
           <button
             onClick={handleSearch}
             className={cn(
-              "w-full flex items-center justify-center gap-2 py-3.5 rounded-xl",
-              "bg-burnt-orange-500 hover:bg-burnt-orange-600 active:scale-[0.98]",
-              "text-white font-bold text-sm transition-all",
+              "font-display w-full flex items-center justify-center gap-2 py-3.5 rounded-chip",
+              "bg-primary hover:bg-vatra-hover active:scale-[0.98]",
+              "text-primary-fg font-bold text-sm transition-all",
             )}
-            style={{ fontFamily: "Oswald, sans-serif" }}
           >
             <ExternalLink className="w-4 h-4" />
             PRETRAŽI SMJEŠTAJ NA BOOKING.COM
           </button>
 
-          <p className="text-[10px] text-cream/25 text-center">
+          <p className="text-[10px] text-muted text-center">
             Otvorit će se Booking.com u novom tabu. ChevApp ne prima proviziju.
           </p>
         </div>
