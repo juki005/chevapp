@@ -1,6 +1,26 @@
 "use client";
 
-// ⚠️  Load only via next/dynamic({ ssr: false }) — Leaflet touches `window` on import.
+// ── GastroMapClient · profile (Sprint 26v · DS-migrated) ──────────────────────
+// Leaflet-backed map showing best-rated city pins from the user's journal.
+// ⚠️ Load only via next/dynamic({ ssr: false }) — Leaflet touches `window`
+// on import.
+//
+// Sprint 26v changes:
+//   - All rgb(var(--token)) Tailwind classes → semantic aliases.
+//   - Inline style={{fontFamily:"Oswald"}} on Popup title → font-display.
+//   - rounded-2xl wrapper → rounded-card.
+//   - Inline <style> block for Leaflet popup theming: removed defensive
+//     CSS-var fallback values. Original was rgb(var(--surface, 30 27 24))
+//     etc. — the fallbacks hardcoded Ugljen-mode colours, which would
+//     render mode-mismatched if they ever fired (Somun mode page with
+//     dark popup chrome). In practice fallbacks never trigger because the
+//     CSS variables are always defined in globals.css; removing them
+//     prevents the latent mode-mismatch trap if globals ever stop loading
+//     in some edge case.
+//   - 🔥 / 🩶 flame rating glyphs in popup tagged TODO(icons) +
+//     aria-hidden — content marker for popup rating display, Sprint 27.
+//   - 🗺️ empty-state icon tagged TODO(icons) + aria-hidden.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { useEffect, useRef, useState, useId } from "react";
@@ -144,28 +164,32 @@ export default function GastroMapClient({
     .filter((p): p is GastroPin & { coords: [number, number] } => p.coords !== null);
 
   const positions = resolved.map((p) => p.coords);
+  // TODO(icons): swap 🔥 / 🩶 flame ratings for brand <Vatra> filled/empty SVG
   const flames    = (n: number) => "🔥".repeat(n) + "🩶".repeat(5 - n);
 
   return (
     <div
       style={{ height, width: "100%" }}
-      className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] relative z-0"
+      className="rounded-card overflow-hidden border border-border relative z-0"
     >
+      {/* Leaflet popup theming. CSS variables are guaranteed defined by
+          globals.css (both Ugljen + Somun modes) so no fallback values —
+          fallbacks would hardcode one mode and risk mismatch if they fired. */}
       <style>{`
         .gastro-marker { filter: hue-rotate(168deg) saturate(2) brightness(1.1); }
         .leaflet-popup-content-wrapper {
-          background: rgb(var(--surface, 30 27 24));
-          color: rgb(var(--foreground, 240 235 225));
-          border: 1px solid rgb(var(--border, 60 55 50));
+          background: rgb(var(--surface));
+          color: rgb(var(--foreground));
+          border: 1px solid rgb(var(--border));
           border-radius: 12px;
           box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
-        .leaflet-popup-tip { background: rgb(var(--surface, 30 27 24)); }
-        .leaflet-popup-close-button { color: rgb(var(--muted, 120 113 108)) !important; }
+        .leaflet-popup-tip { background: rgb(var(--surface)); }
+        .leaflet-popup-close-button { color: rgb(var(--muted)) !important; }
       `}</style>
 
       {!ready ? (
-        <div className="absolute inset-0 flex items-center justify-center text-[rgb(var(--muted))] text-sm">
+        <div className="absolute inset-0 flex items-center justify-center text-muted text-sm">
           Učitavam kartu…
         </div>
       ) : (
@@ -191,11 +215,13 @@ export default function GastroMapClient({
             <Marker key={`${p.city}-${i}`} position={p.coords} icon={FLAME_ICON}>
               <Popup maxWidth={200}>
                 <div className="p-1">
-                  <p className="font-bold text-sm" style={{ fontFamily: "Oswald, sans-serif" }}>
+                  <p className="font-display font-bold text-sm">
                     {p.restaurant}
                   </p>
                   <p className="text-xs opacity-60 mt-0.5">{p.city} · {p.date}</p>
-                  <p className="text-sm mt-1">{flames(p.rating)}</p>
+                  <p className="text-sm mt-1" aria-label={`Ocjena ${p.rating} od 5`}>
+                    <span aria-hidden="true">{flames(p.rating)}</span>
+                  </p>
                 </div>
               </Popup>
             </Marker>
@@ -204,9 +230,10 @@ export default function GastroMapClient({
       )}
 
       {resolved.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgb(var(--surface)/0.9)] z-[1000] rounded-2xl">
-          <span className="text-4xl mb-2">🗺️</span>
-          <p className="text-[rgb(var(--muted))] text-sm text-center px-4">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/90 z-[1000] rounded-card">
+          {/* TODO(icons): swap 🗺️ for brand <Karta> */}
+          <span className="text-4xl mb-2" aria-hidden="true">🗺️</span>
+          <p className="text-muted text-sm text-center px-4">
             Gradovi iz dnevnika pojavit će se na karti.
           </p>
         </div>

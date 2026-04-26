@@ -1,3 +1,20 @@
+// ── LepinjaRating · ui (Sprint 26v · DS-migrated) ────────────────────────────
+// 5-bagel rating row — full / half-opacity / empty-grayscale lepinje.
+// Used on restaurant cards, profile, journal — anywhere we display ratings.
+//
+// Sprint 26v changes:
+//   - Number colour text-burnt-orange-400 → text-amber-xp. Ratings are
+//     gamification-family per DS (same precedent as review stars in
+//     ReviewList Sprint 26i and ReviewModal Sprint 26). The text is on
+//     a transparent background — DS rule "amber on buttons forbidden"
+//     allows amber-xp on text content, only forbids it as button fills.
+//   - Inline style={{fontFamily:"Oswald"}} → font-display class.
+//   - 🥯 emoji is the brand "lepinja" rating glyph — content marker,
+//     not chrome. Tagged TODO(icons) for Sprint 27 swap to brand
+//     <Lepinja> SVG. aria-hidden added so screen readers get the
+//     numeric value alone.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { cn } from "@/lib/utils";
 
 interface LepinjaRatingProps {
@@ -22,8 +39,13 @@ export function LepinjaRating({
   const empty = 5 - actualFull - (hasHalf ? 1 : 0);
 
   return (
-    <div className={cn("flex items-center gap-1.5", className)}>
-      <div className={cn("flex items-center gap-0.5", sizes[size])}>
+    <div
+      className={cn("flex items-center gap-1.5", className)}
+      role="img"
+      aria-label={`Ocjena ${clampedRating.toFixed(1)} od 5`}
+    >
+      {/* TODO(icons): swap 🥯 lepinja glyphs for brand <Lepinja> SVG */}
+      <div className={cn("flex items-center gap-0.5", sizes[size])} aria-hidden="true">
         {Array.from({ length: actualFull }).map((_, i) => (
           <span key={`full-${i}`} className="opacity-100">🥯</span>
         ))}
@@ -36,9 +58,9 @@ export function LepinjaRating({
       </div>
       {showNumber && (
         <span className={cn(
-          "font-bold text-burnt-orange-400 tabular-nums",
+          "font-display font-bold text-amber-xp tabular-nums",
           size === "sm" ? "text-xs" : size === "md" ? "text-sm" : "text-base"
-        )} style={{ fontFamily: "Oswald, sans-serif" }}>
+        )}>
           {clampedRating.toFixed(1)}
         </span>
       )}
