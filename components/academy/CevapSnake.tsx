@@ -1,5 +1,35 @@
 "use client";
 
+// ── CevapSnake · academy (Sprint 26ac · DS-migrated) ─────────────────────────
+// 8-bit retro Snake game. Eat ćevapi (+10) and luk (+25 + 5s speed boost).
+// Wall/self collision = game over. Hi-score persisted in localStorage.
+// XP earned = floor(score/50), capped at MAX_XP.
+//
+// Sprint 26ac changes:
+//   - The C palette object is a RETRO-GAME-AESTHETIC EXCEPTION: canvas
+//     rendering passes color strings directly to ctx.fillStyle /
+//     ctx.strokeStyle, and HTML canvas can't read CSS variables. The
+//     8-bit dark-red HUD, neon-green snake, brown grilled-ćevap, and
+//     yellow luk are deliberate visual identity for the game — same
+//     stylistic-theme precedent as the categorical content markers
+//     exception (per-style colors, event tags). Migrating these to DS
+//     tokens would destroy the aesthetic AND wouldn't actually work
+//     (canvas API needs literal CSS color strings).
+//   - Canvas-side: NO color changes. Documented above.
+//   - React-DOM side migrated where possible:
+//     · D-pad center decoration 🥩 emoji tagged TODO(icons) + aria-hidden.
+//     · Canvas border duplicated #6b0000 inline → references C.hudBg
+//       palette entry (DRY, single source of truth for the HUD red).
+//     · rounded-xl canvas + dpad → rounded-chip (DS shape scale).
+//     · Legend keeps inline pixel-font style (Press Start 2P isn't a
+//       Tailwind utility); color: "rgb(var(--muted))" stays since it's
+//       below the canvas on the mode-aware page background, not on the
+//       retro-locked canvas surface.
+//   - Legend 🥩 ĆEVAP / 🧅 LUK emoji are content (game item labels in
+//     a printed instruction string) — kept inline with the pixel font,
+//     same approach as the in-canvas 🔥 BOOST badge.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useEffect, useRef, useCallback, useState } from "react";
 import { GameContainer } from "./GameContainer";
 
@@ -15,7 +45,7 @@ const LUK_PTS     = 25;
 const MAX_XP      = 15;
 const LS_HISCORE  = "chevapp:snake:hiscore";
 
-// ── Retro palette ─────────────────────────────────────────────────────────────
+// ── Retro palette (canvas-aesthetic exception — see header) ───────────────────
 const C = {
   bgDark:      "#100404",
   bgGrid:      "#1e0808",
@@ -492,41 +522,49 @@ function SnakeGame({ onWin }: SnakeGameProps) {
 
   return (
     <div className="flex flex-col items-center gap-3 py-2">
-      {/* Canvas — HUD is drawn inside canvas */}
+      {/* Canvas — HUD is drawn inside canvas. Border references C.hudBg
+          for DRY (was duplicating "#6b0000" inline before Sprint 26ac). */}
       <canvas
         ref={canvasRef}
         width={CW}
         height={CH}
-        className="block rounded-xl overflow-hidden"
+        className="block rounded-chip overflow-hidden"
         style={{
           width:          `min(${CW}px, calc(100vw - 2rem))`,
           aspectRatio:    `${CW} / ${CH}`,
           imageRendering: "pixelated",
           touchAction:    "none",
-          border:         `2px solid #6b0000`,
+          border:         `2px solid ${C.hudBg}`,
           boxShadow:      "0 0 24px rgba(180,0,0,0.4), inset 0 0 40px rgba(0,0,0,0.4)",
         }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
+        aria-label="Ćevap-Zmijica igra"
       />
 
       {/* D-pad — 3×3 grid with UP/LEFT/RIGHT/DOWN in correct positions */}
       <div className="grid grid-cols-3 gap-2 mt-1">
         {/* Row 1 */}
         <div />
-        <DpadBtn label="▲" onPress={() => dpad("UP")} />
+        <DpadBtn label="▲" onPress={() => dpad("UP")} ariaLabel="Gore" />
         <div />
         {/* Row 2 */}
-        <DpadBtn label="◀" onPress={() => dpad("LEFT")} />
-        <div className="w-14 h-14 flex items-center justify-center text-2xl opacity-30 select-none">🥩</div>
-        <DpadBtn label="▶" onPress={() => dpad("RIGHT")} />
+        <DpadBtn label="◀" onPress={() => dpad("LEFT")} ariaLabel="Lijevo" />
+        <div className="w-14 h-14 flex items-center justify-center text-2xl opacity-30 select-none" aria-hidden="true">
+          {/* TODO(icons): swap 🥩 D-pad center decoration for brand <Cevap> */}
+          🥩
+        </div>
+        <DpadBtn label="▶" onPress={() => dpad("RIGHT")} ariaLabel="Desno" />
         {/* Row 3 */}
         <div />
-        <DpadBtn label="▼" onPress={() => dpad("DOWN")} />
+        <DpadBtn label="▼" onPress={() => dpad("DOWN")} ariaLabel="Dolje" />
         <div />
       </div>
 
-      {/* Legend */}
+      {/* Legend — kept inline pixel-font style (Press Start 2P isn't
+          a Tailwind utility); color uses --muted CSS var so the legend
+          adapts to mode (it sits below the retro-locked canvas, on the
+          page surface, not on the canvas itself). */}
       <p
         className="text-xs text-center leading-relaxed opacity-60"
         style={{ fontFamily: "'Press Start 2P', 'Courier New', monospace", fontSize: "7px", color: "rgb(var(--muted))" }}
@@ -540,15 +578,27 @@ function SnakeGame({ onWin }: SnakeGameProps) {
 }
 
 // ── D-pad button ──────────────────────────────────────────────────────────────
-function DpadBtn({ label, onPress }: { label: string; onPress: () => void }) {
+// Inline retro-aesthetic styles (HUD-red bg + border, white pixel text).
+// Same retro-game-aesthetic exception as the canvas C palette — the d-pad
+// is part of the game's visual identity, not app chrome.
+function DpadBtn({
+  label,
+  onPress,
+  ariaLabel,
+}: {
+  label: string;
+  onPress: () => void;
+  ariaLabel: string;
+}) {
   return (
     <button
       onPointerDown={(e) => { e.preventDefault(); onPress(); }}
-      className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold select-none active:scale-90 transition-transform"
+      aria-label={ariaLabel}
+      className="w-14 h-14 rounded-chip flex items-center justify-center text-xl font-bold select-none active:scale-90 transition-transform"
       style={{
-        background:  "#6b0000",
-        border:      "2px solid #9a0000",
-        color:       "#fff",
+        background:  C.hudBg,
+        border:      `2px solid ${C.hudBorder}`,
+        color:       C.hudText,
         fontFamily:  "monospace",
         boxShadow:   "0 4px 0 #3a0000",
         touchAction: "none",
