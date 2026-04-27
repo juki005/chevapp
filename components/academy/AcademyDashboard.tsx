@@ -1,8 +1,14 @@
 "use client";
 
-// ── AcademyDashboard ──────────────────────────────────────────────────────────
+// ── AcademyDashboard · academy (Sprint 26ad · DS-migrated) ────────────────────
 // Education-only view: Word of the Day + Gastro Dictionary.
 // All XP/rank/gamification elements live in the Profile tab.
+//
+// Sprint 26ad changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases (~8 sites).
+//   - Inline style={{fontFamily:"Oswald"}} on the word title → font-display.
+//   - Skeleton bg-[rgb(var(--border)/0.4)] → bg-border/40.
+//   - rounded-2xl → rounded-card; rounded-lg skeleton → rounded-chip.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState } from "react";
@@ -15,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("rounded-lg bg-[rgb(var(--border)/0.4)] animate-pulse", className)} />;
+  return <div className={cn("rounded-chip bg-border/40 animate-pulse", className)} />;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -53,26 +59,23 @@ export function AcademyDashboard() {
 
       {/* ── Gastro riječ dana ─────────────────────────────────────────────── */}
       {word && (
-        <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-5">
+        <div className="rounded-card border border-border bg-surface/40 p-5">
           <div className="flex items-center gap-2 mb-3">
-            <BookOpen className="w-4 h-4 text-[rgb(var(--primary))]" />
-            <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
+            <BookOpen className="w-4 h-4 text-primary" />
+            <p className="text-xs text-muted uppercase tracking-widest font-medium">
               Gastro riječ dana
             </p>
           </div>
-          <p
-            className="text-2xl font-bold text-[rgb(var(--foreground))] mb-1"
-            style={{ fontFamily: "Oswald, sans-serif" }}
-          >
+          <p className="font-display text-2xl font-bold text-foreground mb-1">
             {word.word}
           </p>
-          <p className="text-sm text-[rgb(var(--muted))] leading-relaxed">{word.definition}</p>
+          <p className="text-sm text-muted leading-relaxed">{word.definition}</p>
           {(word.tags ?? []).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3">
               {(word.tags ?? []).map((tag) => (
                 <span
                   key={tag}
-                  className="text-xs px-2 py-0.5 rounded-full bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
+                  className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary"
                 >
                   {tag}
                 </span>
