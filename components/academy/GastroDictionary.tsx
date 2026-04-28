@@ -1,8 +1,23 @@
 "use client";
 
-// ── GastroDictionary ──────────────────────────────────────────────────────────
-// Searchable archive of Balkan gastro terminology.
-// Sits below the "Word of the Day" card in AcademyDashboard.
+// ── GastroDictionary · academy (Sprint 26ae · DS-migrated) ────────────────────
+// Searchable archive of Balkan gastro terminology. Sits below the "Word of
+// the Day" card in AcademyDashboard.
+//
+// Sprint 26ae changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases.
+//   - Inline style={{fontFamily:"Oswald"}} on word term → font-display class.
+//   - Category active state: bg-[rgb(var(--primary))] + text-white →
+//     bg-primary + text-primary-fg (DS rule — semantic fill, hover stays).
+//   - "Did you know" prefix 💡 tagged TODO(icons) + aria-hidden.
+//   - CATEGORIES emojis (📚 🥩 🧄 🔥 🫕) inside chip filters tagged
+//     TODO(icons) + aria-hidden — categorical content markers paired with
+//     text labels.
+//   - Per-word emojis stay as data content (tagged inline with TODO icons
+//     comment at the render site).
+//   - rounded-2xl → rounded-card; rounded-xl/lg → rounded-chip.
+//   - bg-[rgb(var(--primary)/0.06)] "did-you-know" inset → bg-primary/5
+//     (rounded /6 → /5 standard scale).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useMemo, useEffect } from "react";
@@ -157,40 +172,41 @@ export function GastroDictionary() {
   const remaining = filtered.length - visibleCount;
 
   return (
-    <div className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] p-4">
+    <div className="rounded-card border border-border bg-surface/40 p-4">
 
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <BookOpen className="w-4 h-4 text-[rgb(var(--primary))]" />
-        <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
+        <BookOpen className="w-4 h-4 text-primary" />
+        <p className="text-xs text-muted uppercase tracking-widest font-medium">
           Gastro rječnik
         </p>
-        <span className="ml-auto text-xs text-[rgb(var(--muted))] opacity-60">
+        <span className="ml-auto text-xs text-muted opacity-60">
           {filtered.length} / {GASTRO_WORDS.length} pojmova
         </span>
       </div>
 
       {/* Search */}
       <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[rgb(var(--muted))] pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Traži pojam..."
-          className="w-full pl-9 pr-8 py-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-sm text-[rgb(var(--foreground))] placeholder:text-[rgb(var(--muted))] focus:outline-none focus:border-[rgb(var(--primary)/0.5)] transition-colors"
+          className="w-full pl-9 pr-8 py-2 rounded-chip border border-border bg-background text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-primary/50 transition-colors"
         />
         {query && (
           <button
             onClick={() => setQuery("")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] transition-colors"
+            aria-label="Očisti pretragu"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
-      {/* Category chips */}
+      {/* Category chips — emoji are categorical markers paired with text */}
       <div className="flex gap-1.5 flex-wrap mb-4">
         {CATEGORIES.map(({ key, label, emoji }) => (
           <button
@@ -199,11 +215,12 @@ export function GastroDictionary() {
             className={cn(
               "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
               category === key
-                ? "bg-[rgb(var(--primary))] text-white"
-                : "border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-[rgb(var(--primary)/0.4)] hover:text-[rgb(var(--foreground))]",
+                ? "bg-primary text-primary-fg"
+                : "border border-border text-muted hover:border-primary/40 hover:text-foreground",
             )}
           >
-            <span>{emoji}</span>
+            {/* TODO(icons): swap category emoji for brand category SVGs */}
+            <span aria-hidden="true">{emoji}</span>
             {label}
           </button>
         ))}
@@ -211,7 +228,7 @@ export function GastroDictionary() {
 
       {/* Results */}
       {filtered.length === 0 ? (
-        <p className="text-center text-sm text-[rgb(var(--muted))] py-6">
+        <p className="text-center text-sm text-muted py-6">
           Nema rezultata za &ldquo;{query}&rdquo;
         </p>
       ) : (
@@ -219,28 +236,28 @@ export function GastroDictionary() {
           {visible.map((w) => (
             <div
               key={w.term}
-              className="rounded-xl border border-[rgb(var(--border)/0.7)] bg-[rgb(var(--surface)/0.3)] p-3 hover:border-[rgb(var(--primary)/0.25)] transition-colors"
+              className="rounded-chip border border-border/70 bg-surface/30 p-3 hover:border-primary/25 transition-colors"
             >
               <div className="flex items-start gap-2.5">
-                <span className="text-xl leading-none mt-0.5 flex-shrink-0">{w.emoji}</span>
+                {/* TODO(icons): per-word emoji are content data — Sprint 27
+                    may keep emoji or swap for brand glyphs */}
+                <span className="text-xl leading-none mt-0.5 flex-shrink-0" aria-hidden="true">{w.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span
-                      className="text-sm font-bold text-[rgb(var(--foreground))]"
-                      style={{ fontFamily: "Oswald, sans-serif" }}
-                    >
+                    <span className="font-display text-sm font-bold text-foreground">
                       {w.term}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-[rgb(var(--border))] text-[rgb(var(--muted))]">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-border text-muted">
                       {w.category}
                     </span>
                   </div>
-                  <p className="text-xs text-[rgb(var(--muted))] leading-relaxed">
+                  <p className="text-xs text-muted leading-relaxed">
                     {w.definition}
                   </p>
                   {w.didYouKnow && (
-                    <p className="mt-2 text-[11px] text-[rgb(var(--primary)/0.8)] bg-[rgb(var(--primary)/0.06)] rounded-lg px-2.5 py-1.5 leading-relaxed">
-                      💡 <span className="font-semibold">Znaš li?</span> {w.didYouKnow}
+                    <p className="mt-2 text-[11px] text-primary/80 bg-primary/5 rounded-chip px-2.5 py-1.5 leading-relaxed">
+                      {/* TODO(icons): swap 💡 for brand <Tip> / Lightbulb */}
+                      <span aria-hidden="true">💡</span> <span className="font-semibold">Znaš li?</span> {w.didYouKnow}
                     </p>
                   )}
                 </div>
@@ -252,7 +269,7 @@ export function GastroDictionary() {
           {hasMore && (
             <button
               onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 mt-1 rounded-xl border border-[rgb(var(--border)/0.7)] text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.35)] hover:bg-[rgb(var(--primary)/0.04)] transition-all active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 mt-1 rounded-chip border border-border/70 text-xs font-medium text-muted hover:text-foreground hover:border-primary/35 hover:bg-primary/5 transition-all active:scale-[0.98]"
             >
               <ChevronDown className="w-3.5 h-3.5" />
               Učitaj još

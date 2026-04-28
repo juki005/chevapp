@@ -1,5 +1,30 @@
 "use client";
 
+// ── BurnoffCalculator · academy (Sprint 26ae · DS-migrated) ───────────────────
+// "Balkan Workout" calorie-vs-exercise calculator. Shows how long you'd need
+// to do various Balkan-themed activities to burn off N ćevapi worth of meal.
+//
+// Sprint 26ae changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases (~39 sites).
+//   - 5× style={{fontFamily:"Oswald"}} → font-display class (header h2,
+//     ćevap counter, weight readout, calories total, workout time).
+//   - All text-[rgb(var(--foreground)/0.X)] opacity variants → text-foreground/X
+//     (standard Tailwind opacity syntax).
+//   - bg-[rgb(var(--background)/0.4-0.6)] surfaces → bg-background/40 / /60.
+//   - bg-[rgb(var(--border)/0.8)] step buttons → bg-border/80.
+//   - Range slider accent-[rgb(var(--primary))] → accent-primary.
+//   - Progress bar gradient: from-[rgb(var(--primary)/0.8)] +
+//     to-[rgb(var(--primary))] → from-primary/80 + to-primary (gradient on
+//     non-CTA visualisations stays allowed per DS §8 — flat-fill rule only
+//     locks primary CTAs).
+//   - Disclaimer text-[rgb(var(--primary)/0.8)] → text-primary/80.
+//   - Emoji 🍖 🥗 ⚖️ 🏋️ ⚠️ in section labels tagged TODO(icons) +
+//     aria-hidden — section-prefix decorations paired with text labels.
+//   - Extras emojis (🥯 🧅 🧈 🫑) and workout emoji (data-driven) tagged
+//     for icons but kept as content markers.
+//   - rounded-2xl → rounded-card; rounded-xl/lg → rounded-chip.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Flame, Calculator, ChevronUp, ChevronDown } from "lucide-react";
@@ -39,21 +64,18 @@ export function BurnoffCalculator() {
   return (
     <div
       id="burnoff"
-      className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] overflow-hidden"
+      className="rounded-card border border-border bg-surface/40 overflow-hidden"
     >
       {/* ── Title bar ── */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-[rgb(var(--border))] bg-[rgb(var(--primary)/0.05)]">
-        <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.15)] flex items-center justify-center">
-          <Calculator className="w-5 h-5 text-[rgb(var(--primary))]" />
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-border bg-primary/5">
+        <div className="w-10 h-10 rounded-chip bg-primary/15 flex items-center justify-center">
+          <Calculator className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h2
-            className="text-xl font-bold text-[rgb(var(--foreground))]"
-            style={{ fontFamily: "Oswald, sans-serif" }}
-          >
+          <h2 className="font-display text-xl font-bold text-foreground">
             {t("burnoffTitle")}
           </h2>
-          <p className="text-[rgb(var(--foreground)/0.6)] text-xs">{t("burnoffSubtitle")}</p>
+          <p className="text-foreground/60 text-xs">{t("burnoffSubtitle")}</p>
         </div>
       </div>
 
@@ -64,32 +86,32 @@ export function BurnoffCalculator() {
         <div className="space-y-6">
           {/* Ćevap count */}
           <div>
-            <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-3">
-              🍖 {t("cevapCount")}
+            <label className="block text-xs font-semibold text-foreground/80 uppercase tracking-widest mb-3">
+              {/* TODO(icons): swap 🍖 for brand <Cevapi> */}
+              <span aria-hidden="true">🍖</span> {t("cevapCount")}
             </label>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setCevapCount((c) => Math.max(1, c - 1))}
-                className="w-10 h-10 rounded-xl bg-[rgb(var(--border)/0.8)] hover:bg-[rgb(var(--primary)/0.2)] text-[rgb(var(--foreground))] transition-colors flex items-center justify-center"
+                aria-label="Smanji broj ćevapa"
+                className="w-10 h-10 rounded-chip bg-border/80 hover:bg-primary/20 text-foreground transition-colors flex items-center justify-center"
               >
                 <ChevronDown className="w-5 h-5" />
               </button>
 
               <div className="flex-1 text-center">
-                <span
-                  className="text-4xl font-bold text-[rgb(var(--primary))]"
-                  style={{ fontFamily: "Oswald, sans-serif" }}
-                >
+                <span className="font-display text-4xl font-bold text-primary">
                   {cevapCount}
                 </span>
-                <span className="text-[rgb(var(--foreground)/0.6)] text-sm ml-2">
+                <span className="text-foreground/60 text-sm ml-2">
                   kom × {CALORIE_DATA.cevap} kcal
                 </span>
               </div>
 
               <button
                 onClick={() => setCevapCount((c) => Math.min(30, c + 1))}
-                className="w-10 h-10 rounded-xl bg-[rgb(var(--border)/0.8)] hover:bg-[rgb(var(--primary)/0.2)] text-[rgb(var(--foreground))] transition-colors flex items-center justify-center"
+                aria-label="Povećaj broj ćevapa"
+                className="w-10 h-10 rounded-chip bg-border/80 hover:bg-primary/20 text-foreground transition-colors flex items-center justify-center"
               >
                 <ChevronUp className="w-5 h-5" />
               </button>
@@ -102,10 +124,10 @@ export function BurnoffCalculator() {
                   key={n}
                   onClick={() => setCevapCount(n)}
                   className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-medium border transition-colors",
+                    "px-3 py-1 rounded-chip text-xs font-medium border transition-colors",
                     cevapCount === n
-                      ? "border-[rgb(var(--primary)/0.6)] bg-[rgb(var(--primary)/0.2)] text-[rgb(var(--primary))]"
-                      : "border-[rgb(var(--border))] text-[rgb(var(--foreground)/0.6)] hover:text-[rgb(var(--foreground)/0.9)]",
+                      ? "border-primary/60 bg-primary/20 text-primary"
+                      : "border-border text-foreground/60 hover:text-foreground/90",
                   )}
                 >
                   {n} kom
@@ -116,8 +138,9 @@ export function BurnoffCalculator() {
 
           {/* Extras */}
           <div>
-            <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-3">
-              🥗 {t("extras")}
+            <label className="block text-xs font-semibold text-foreground/80 uppercase tracking-widest mb-3">
+              {/* TODO(icons): swap 🥗 for brand <Extras> */}
+              <span aria-hidden="true">🥗</span> {t("extras")}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -130,13 +153,14 @@ export function BurnoffCalculator() {
                   key={key}
                   onClick={() => setExtras((prev) => ({ ...prev, [key]: !prev[key] }))}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm transition-all",
+                    "flex items-center gap-2 px-3 py-2.5 rounded-chip border text-sm transition-all",
                     extras[key]
-                      ? "border-[rgb(var(--primary)/0.6)] bg-[rgb(var(--primary)/0.15)] text-[rgb(var(--primary))]"
-                      : "border-[rgb(var(--border))] text-[rgb(var(--foreground)/0.7)] hover:text-[rgb(var(--foreground)/0.9)] hover:border-[rgb(var(--border)/0.6)]",
+                      ? "border-primary/60 bg-primary/15 text-primary"
+                      : "border-border text-foreground/70 hover:text-foreground/90 hover:border-border/60",
                   )}
                 >
-                  <span>{emoji}</span>
+                  {/* TODO(icons): swap extras emoji for brand <Lepinja>/<Luk>/<Kajmak>/<Ajvar> */}
+                  <span aria-hidden="true">{emoji}</span>
                   <span className="font-medium">{label}</span>
                   <span className="ml-auto text-xs opacity-70">+{cal}</span>
                 </button>
@@ -146,8 +170,9 @@ export function BurnoffCalculator() {
 
           {/* Body weight slider */}
           <div>
-            <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-3">
-              ⚖️ {t("weight")}
+            <label className="block text-xs font-semibold text-foreground/80 uppercase tracking-widest mb-3">
+              {/* TODO(icons): swap ⚖️ for brand <Scale> */}
+              <span aria-hidden="true">⚖️</span> {t("weight")}
             </label>
             <div className="flex items-center gap-3">
               <input
@@ -156,29 +181,24 @@ export function BurnoffCalculator() {
                 max={150}
                 value={weight}
                 onChange={(e) => setWeight(Number(e.target.value))}
-                className="flex-1 accent-[rgb(var(--primary))]"
+                aria-label={`Težina: ${weight} kg`}
+                className="flex-1 accent-primary"
               />
-              <span
-                className="text-xl font-bold text-[rgb(var(--foreground))] w-16 text-right"
-                style={{ fontFamily: "Oswald, sans-serif" }}
-              >
+              <span className="font-display text-xl font-bold text-foreground w-16 text-right">
                 {weight} kg
               </span>
             </div>
           </div>
 
           {/* Live calorie total */}
-          <div className="rounded-xl bg-[rgb(var(--background)/0.6)] border border-[rgb(var(--border))] p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[rgb(var(--foreground)/0.8)] text-sm">
-              <Flame className="w-4 h-4 text-[rgb(var(--primary))]" />
+          <div className="rounded-chip bg-background/60 border border-border p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-foreground/80 text-sm">
+              <Flame className="w-4 h-4 text-primary" />
               {t("totalCalories")}:
             </div>
-            <span
-              className="text-2xl font-bold text-[rgb(var(--primary))]"
-              style={{ fontFamily: "Oswald, sans-serif" }}
-            >
+            <span className="font-display text-2xl font-bold text-primary">
               {totalCalories}{" "}
-              <span className="text-sm font-normal text-[rgb(var(--foreground)/0.6)]">kcal</span>
+              <span className="text-sm font-normal text-foreground/60">kcal</span>
             </span>
           </div>
         </div>
@@ -187,8 +207,9 @@ export function BurnoffCalculator() {
             BALKAN WORKOUT PANEL (real-time)
         ════════════════════════════════════════ */}
         <div>
-          <label className="block text-xs font-semibold text-[rgb(var(--foreground)/0.8)] uppercase tracking-widest mb-4">
-            🏋️ {t("burnoffTitle2")}
+          <label className="block text-xs font-semibold text-foreground/80 uppercase tracking-widest mb-4">
+            {/* TODO(icons): swap 🏋️ for brand <Workout> */}
+            <span aria-hidden="true">🏋️</span> {t("burnoffTitle2")}
           </label>
 
           {/* Workout cards — 1 col on mobile, 2 cols on sm+ */}
@@ -200,38 +221,37 @@ export function BurnoffCalculator() {
               return (
                 <div
                   key={workout.key}
-                  className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--background)/0.4)] p-4 hover:border-[rgb(var(--primary)/0.3)] transition-colors"
+                  className="rounded-card border border-border bg-background/40 p-4 hover:border-primary/30 transition-colors"
                 >
                   {/* Name + time */}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{workout.emoji}</span>
-                      <span className="font-semibold text-[rgb(var(--foreground))] text-sm">
+                      {/* Workout emoji is data — categorical content marker */}
+                      <span className="text-xl" aria-hidden="true">{workout.emoji}</span>
+                      <span className="font-semibold text-foreground text-sm">
                         {workout.name}
                       </span>
                     </div>
-                    <span
-                      className="font-bold text-[rgb(var(--primary))] text-lg tabular-nums"
-                      style={{ fontFamily: "Oswald, sans-serif" }}
-                    >
+                    <span className="font-display font-bold text-primary text-lg tabular-nums">
                       {formatTime(mins)}
                     </span>
                   </div>
 
-                  {/* Progress bar — fills as calories increase */}
-                  <div className="h-2 rounded-full bg-[rgb(var(--border))] overflow-hidden">
+                  {/* Progress bar — fills as calories increase. Gradient on
+                      non-CTA visualisation is allowed per DS §8. */}
+                  <div className="h-2 rounded-full bg-border overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[rgb(var(--primary)/0.8)] to-[rgb(var(--primary))] transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-primary/80 to-primary transition-all duration-500"
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
 
                   {/* Rate chip + fun fact */}
                   <div className="flex items-start justify-between mt-1.5 gap-2">
-                    <p className="text-[rgb(var(--foreground)/0.55)] text-xs italic flex-1 leading-snug">
+                    <p className="text-foreground/55 text-xs italic flex-1 leading-snug">
                       {workout.funFact}
                     </p>
-                    <span className="shrink-0 text-[10px] text-[rgb(var(--foreground)/0.45)] tabular-nums">
+                    <span className="shrink-0 text-[10px] text-foreground/45 tabular-nums">
                       {workout.kcalPerHour} kcal/h
                     </span>
                   </div>
@@ -241,9 +261,10 @@ export function BurnoffCalculator() {
           </div>
 
           {/* Disclaimer — spans full width below the grid */}
-          <div className="rounded-2xl border border-[rgb(var(--primary)/0.2)] bg-[rgb(var(--primary)/0.05)] p-4 text-center mt-1">
-            <p className="text-[rgb(var(--primary)/0.8)] text-xs italic">
-              ⚠️ Ovi izračuni su procjena za osobu od{" "}
+          <div className="rounded-card border border-primary/20 bg-primary/5 p-4 text-center mt-1">
+            <p className="text-primary/80 text-xs italic">
+              {/* TODO(icons): swap ⚠️ for brand <Warning> / <Caution> */}
+              <span aria-hidden="true">⚠️</span> Ovi izračuni su procjena za osobu od{" "}
               <span className="font-semibold not-italic">{weight} kg</span>.
               Konsultiraj liječnika, ne aplikaciju za ćevape.
             </p>
