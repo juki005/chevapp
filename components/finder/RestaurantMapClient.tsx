@@ -1,5 +1,27 @@
 "use client";
 
+// ── RestaurantMapClient · finder (Sprint 26ah · DS-migrated) ──────────────────
+// react-leaflet-based map for restaurant pins. Loaded only via dynamic
+// import (ssr: false) from RestaurantMap.tsx — Leaflet reads `window` on
+// import.
+//
+// Sprint 26ah changes:
+//   - All rgb(var(--token)) Tailwind classes → semantic aliases.
+//   - Inline <style> block CSS-var fallbacks removed (rgb(var(--surface,
+//     30 27 24)) etc.) — same latent mode-mismatch fix as GastroMapClient
+//     Sprint 26v and SafeMap Sprint 26ag. Hardcoded hex was Ugljen-only.
+//   - Tag chip primary/0.15 + /text-primary → primary/15 + text-primary
+//     (semantic aliases, same opacity).
+//   - Source badge "via Foursquare" blue-400 kept as documented external-
+//     source categorical marker (precedent: Foursquare blue in SafeMap
+//     Sprint 26ag, TripAdvisor green, Spotify green).
+//   - "Mapa →" link text-blue-400 → text-blue-400 kept (deliberate
+//     external-link-affordance hue, matching the source-badge palette).
+//   - 🗺️ empty-state + 📍 / 🔥 popup emoji tagged TODO(icons) +
+//     aria-hidden where appropriate.
+//   - rounded-2xl → rounded-card.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ⚠️  This file is ONLY loaded via dynamic import (ssr: false) from RestaurantMap.tsx
 // Never import it directly — Leaflet accesses `window` on import.
 
@@ -14,7 +36,6 @@ import {
 import L from "leaflet";
 // ✅ Critical: without this Leaflet renders a 0-height white box
 import "leaflet/dist/leaflet.css";
-import type { Restaurant } from "@/types";
 import { LepinjaRating } from "@/components/ui/LepinjaRating";
 
 // ── Fix Leaflet's default icon path (broken by webpack asset hashing) ───────
@@ -107,21 +128,24 @@ export default function RestaurantMapClient({
   return (
     <div
       style={{ height, width: "100%" }}
-      className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] relative z-0"
+      className="rounded-card overflow-hidden border border-border relative z-0"
     >
-      {/* Inline style to tint markers — no extra CSS file needed */}
+      {/* Inline style: marker tints + popup theme. CSS variables are
+          guaranteed defined by globals.css — fallbacks removed (Sprint
+          26v / 26ag pattern, were Ugljen-only and a latent mode-mismatch
+          trap if they ever fired). */}
       <style>{`
         .leaflet-marker-orange { filter: hue-rotate(168deg) saturate(2) brightness(1.1); }
         .leaflet-marker-fsq    { filter: hue-rotate(200deg) saturate(0.7) brightness(0.9); opacity: 0.75; }
         .leaflet-popup-content-wrapper {
-          background: rgb(var(--surface, 30 27 24));
-          color: rgb(var(--foreground, 240 235 225));
-          border: 1px solid rgb(var(--border, 60 55 50));
+          background: rgb(var(--surface));
+          color: rgb(var(--foreground));
+          border: 1px solid rgb(var(--border));
           border-radius: 12px;
           box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
-        .leaflet-popup-tip { background: rgb(var(--surface, 30 27 24)); }
-        .leaflet-popup-close-button { color: rgb(var(--muted, 120 113 108)) !important; }
+        .leaflet-popup-tip { background: rgb(var(--surface)); }
+        .leaflet-popup-close-button { color: rgb(var(--muted)) !important; }
       `}</style>
 
       <MapContainer
@@ -152,9 +176,9 @@ export default function RestaurantMapClient({
             >
               <Popup maxWidth={240}>
                 <div className="p-1 min-w-[180px]">
-                  {/* Header */}
+                  {/* Header — TODO(icons): swap 📍 / 🔥 for brand <Pin> / <Vatra> */}
                   <div className="flex items-start gap-2 mb-1.5">
-                    <span className="text-lg leading-none">
+                    <span className="text-lg leading-none" aria-hidden="true">
                       {isFsq ? "📍" : "🔥"}
                     </span>
                     <div>
@@ -186,7 +210,7 @@ export default function RestaurantMapClient({
                       {r.tags.slice(0, 3).map((tag) => (
                         <span
                           key={tag}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgb(var(--primary)/0.15)] text-[rgb(var(--primary))]"
+                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary"
                         >
                           {tag}
                         </span>
@@ -194,13 +218,14 @@ export default function RestaurantMapClient({
                     </div>
                   )}
 
-                  {/* Source badge */}
+                  {/* Source badge — Foursquare blue is a documented external-
+                      source categorical marker (Sprint 26ag precedent). */}
                   <div className="flex items-center justify-between mt-1">
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
                         isFsq
                           ? "border-blue-400/30 text-blue-400"
-                          : "border-[rgb(var(--primary)/0.4)] text-[rgb(var(--primary))]"
+                          : "border-primary/40 text-primary"
                       }`}
                     >
                       {isFsq ? "via Foursquare" : "✓ Verificiran"}
@@ -223,12 +248,13 @@ export default function RestaurantMapClient({
 
       {/* Empty state overlay */}
       {mapped.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgb(var(--surface)/0.85)] z-[1000] rounded-2xl">
-          <span className="text-5xl mb-3">🗺️</span>
-          <p className="text-[rgb(var(--foreground))] font-semibold text-base">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/85 z-[1000] rounded-card">
+          {/* TODO(icons): swap 🗺️ for brand <Karta> */}
+          <span className="text-5xl mb-3" aria-hidden="true">🗺️</span>
+          <p className="text-foreground font-semibold text-base">
             Nema lokacija za prikaz
           </p>
-          <p className="text-[rgb(var(--muted))] text-sm mt-1 text-center max-w-xs px-4">
+          <p className="text-muted text-sm mt-1 text-center max-w-xs px-4">
             Pokrenite Seed ili pretražite grad iznad da se učitaju markeri.
           </p>
         </div>

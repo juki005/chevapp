@@ -1,6 +1,6 @@
 "use client";
 
-// ── RouteMapClient.tsx ────────────────────────────────────────────────────────
+// ── RouteMapClient · finder (Sprint 26ah · DS-migrated) ──────────────────────
 // Google Maps component for the Gastro Route Planner.
 //
 // Features:
@@ -18,6 +18,35 @@
 //   - Falls back to straight-line if Directions API returns an error
 //
 // Loaded via dynamic({ ssr: false }) from RouteMap.tsx.
+//
+// Sprint 26ah changes (DS migration):
+//   - CHARCOAL_STYLE Google Maps style array kept as Ugljen-locked
+//     stylistic theme — Google Maps doesn't read CSS variables, the
+//     hex values are baked into the API config. Same retro-game-aesthetic
+//     exception precedent as CevapSnake's C palette (Sprint 26ac). The
+//     map is intentionally dark in both Ugljen and Somun modes so the
+//     route line + markers stay visible against a consistent backdrop.
+//   - Pin colors (#22c55e green origin, #ef4444 red destination, #e65100
+//     orange restaurant + #bf360c border) kept inline — Google Pin
+//     component takes raw hex strings, not Tailwind classes. These are
+//     categorical positional markers paired with the dark map theme.
+//   - Polyline #e65100 stroke kept inline (same — Google Polyline API).
+//   - InfoWindow CSS overrides kept dark-locked to match the dark map.
+//     Documented exception (same as the CHARCOAL_STYLE).
+//   - "Otvori na Google Maps →" link kept #4285f4 (Google brand blue,
+//     matches the InfoWindow's external-link affordance).
+//   - API-key-missing fallback panel: amber-500 family → zar-red token
+//     family (DS admin-attention pattern, consistent with StatsTab
+//     "Pending" card Sprint 26n and other warning surfaces).
+//   - Directions-error banner: bg-amber-500/90 → bg-zar-red (warning
+//     state, white text on red for guaranteed contrast).
+//   - Hint overlay: bg-[rgb(var(--surface)/0.88)] → bg-surface/90;
+//     broken text-fg / text-fg-muted aliases (silently fell back to
+//     defaults) → text-foreground / text-muted (correct DS tokens).
+//   - 2× inline Oswald → font-display.
+//   - 🗺️ hint emoji + ⚠️ error banner emoji tagged TODO(icons) +
+//     aria-hidden.
+//   - rounded-2xl → rounded-card; rounded-xl → rounded-chip.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from "react";
@@ -38,6 +67,9 @@ import type { Restaurant } from "@/types";
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 // ── Charcoal dark map style (matches the rest of the app) ─────────────────────
+// STYLISTIC-THEME EXCEPTION: Google Maps style API takes hex strings, can't
+// read CSS variables. Same precedent as CevapSnake's retro C palette (26ac).
+// Map stays dark-locked in both Ugljen and Somun modes for marker readability.
 const CHARCOAL_STYLE: google.maps.MapTypeStyle[] = [
   { elementType: "geometry",            stylers: [{ color: "#1e1b18" }] },
   { elementType: "labels.text.stroke",  stylers: [{ color: "#1e1b18" }] },
@@ -148,7 +180,9 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
 
       const path = decodePolyline(encoded);
 
-      // Draw the orange route polyline
+      // Draw the orange route polyline. Hex baked because Google Polyline
+      // API takes a hex strokeColor — same map-API-takes-hex pattern as the
+      // CHARCOAL_STYLE config and Pin background colors.
       const poly = new google.maps.Polyline({
         path,
         geodesic:      true,
@@ -196,18 +230,9 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
       radius:   number,
     ) {
       // ── 1. Pass the FULL decoded path to the parent ───────────────────────
-      // The parent uses this for distanceToPolylineKm on Places API results.
       onRoutePoints?.(path);
 
       // ── 2. Filter DB restaurants against the actual road polyline ─────────
-      //
-      // Gold path: google.maps.geometry.poly.isLocationOnEdge
-      //   tolerance is expressed in degrees; 1° ≈ 111.32 km
-      //   This method uses great-circle math and follows road curves exactly.
-      //
-      // Fallback: pure-JS distanceToPolylineKm (Cartesian approximation)
-      //   Used when geometry lib hasn't loaded yet or in test environments.
-      //
       const geom = geometryRef.current;
       const toleranceDeg = radius / 111.32;
 
@@ -219,7 +244,6 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
 
         let onRoute: boolean;
         if (geom) {
-          // Curved-road filter — the search "tunnel" follows the decoded polyline
           const gmPoly = new google.maps.Polyline({ path });
           onRoute = geom.poly.isLocationOnEdge(
             new google.maps.LatLng(r.latitude, r.longitude),
@@ -227,15 +251,11 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
             toleranceDeg,
           );
         } else {
-          // Pure-JS fallback
           onRoute = distanceToPolylineKm(r.latitude, r.longitude, path) <= radius;
         }
 
         if (onRoute) {
           seen.add(r.id);
-          // ── 3. Accurate perpendicular distance for display ─────────────────
-          // Always use distanceToPolylineKm — gives the exact "closest road" km
-          // regardless of whether isLocationOnEdge or the fallback was used.
           const distKm = distanceToPolylineKm(r.latitude, r.longitude, path);
           filtered.push({ ...r, distanceKm: Math.round(distKm * 10) / 10 });
         }
@@ -252,7 +272,7 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
       setRestaurants(filtered);
       onSearchComplete(filtered);
 
-      // ── 4. Auto-zoom ──────────────────────────────────────────────────────
+      // ── 3. Auto-zoom ──────────────────────────────────────────────────────
       const fitBounds = new google.maps.LatLngBounds();
       fitBounds.union(bounds);
       filtered.forEach((r) => {
@@ -272,31 +292,34 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
 
   return (
     <>
-      {/* Directions API error banner — rendered as a DOM overlay, not a Maps overlay */}
+      {/* Directions API error banner — DS admin-attention zar-red token,
+          fully-saturated for a visible warning state (not the soft /5 tint
+          used for passive pending-status). */}
       {directionsErr && (
         <div
           style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/90 text-white text-xs font-semibold shadow-lg pointer-events-none"
+          className="flex items-center gap-2 px-3 py-2 rounded-chip bg-zar-red/90 text-white text-xs font-semibold shadow-soft-xl pointer-events-none"
         >
-          ⚠️ Directions API: <code className="font-mono">{directionsErr}</code> — provjeri Browser konzolu za detalje
+          {/* TODO(icons): swap ⚠️ for brand <Warning> */}
+          <span aria-hidden="true">⚠️</span> Directions API: <code className="font-mono">{directionsErr}</code> — provjeri Browser konzolu za detalje
         </div>
       )}
 
-      {/* Origin marker — green */}
+      {/* Origin marker — green (categorical positional, dark-map-locked) */}
       {searchArgs && (
         <AdvancedMarker position={{ lat: searchArgs.coordsA[0], lng: searchArgs.coordsA[1] }} title="Polazište">
           <Pin background="#22c55e" borderColor="#16a34a" glyphColor="#ffffff" />
         </AdvancedMarker>
       )}
 
-      {/* Destination marker — red */}
+      {/* Destination marker — red (categorical positional, dark-map-locked) */}
       {searchArgs && (
         <AdvancedMarker position={{ lat: searchArgs.coordsB[0], lng: searchArgs.coordsB[1] }} title="Odredište">
           <Pin background="#ef4444" borderColor="#dc2626" glyphColor="#ffffff" />
         </AdvancedMarker>
       )}
 
-      {/* Restaurant markers — orange */}
+      {/* Restaurant markers — orange (matches CHARCOAL_STYLE map theme) */}
       {restaurants.map((r) =>
         r.latitude != null && r.longitude != null ? (
           <AdvancedMarker
@@ -343,22 +366,26 @@ function RouteMapInner({ searchArgs, onSearchComplete, onRoutePoints }: Omit<Pro
 // ── Public component ──────────────────────────────────────────────────────────
 export default function RouteMapClient({ height = "420px", searchArgs, onSearchComplete, onRoutePoints }: Props) {
   if (!API_KEY) {
+    // API-key-missing fallback: zar-red admin-attention pattern
+    // (consistent with StatsTab "Pending" Sprint 26n and other warning
+    // surfaces — DS has no warning-amber slot since amber-xp is locked
+    // to gamification).
     return (
       <div
         style={{ height }}
-        className="rounded-2xl border border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center gap-3 text-center px-6"
+        className="rounded-card border border-zar-red/30 bg-zar-red/5 flex flex-col items-center justify-center gap-3 text-center px-6"
       >
-        <MapPin className="w-10 h-10 text-amber-400 opacity-60" />
-        <p className="font-semibold text-amber-300" style={{ fontFamily: "Oswald, sans-serif" }}>
+        <MapPin className="w-10 h-10 text-zar-red opacity-60" />
+        <p className="font-display font-semibold text-zar-red">
           Google Maps API ključ nije postavljen
         </p>
-        <p className="text-xs text-[rgb(var(--muted))] max-w-xs leading-relaxed">
+        <p className="text-xs text-muted max-w-xs leading-relaxed">
           Dodaj{" "}
-          <code className="px-1 rounded bg-[rgb(var(--surface))] text-amber-300">
+          <code className="px-1 rounded bg-surface text-zar-red">
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=…
           </code>{" "}
           u{" "}
-          <code className="px-1 rounded bg-[rgb(var(--surface))] text-amber-300">.env.local</code>.
+          <code className="px-1 rounded bg-surface text-zar-red">.env.local</code>.
           Pretraga radi i bez karte (Haversine, ravna linija).
         </p>
       </div>
@@ -368,9 +395,12 @@ export default function RouteMapClient({ height = "420px", searchArgs, onSearchC
   return (
     <div
       style={{ height, width: "100%" }}
-      className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] relative z-0"
+      className="rounded-card overflow-hidden border border-border relative z-0"
     >
-      {/* Dark InfoWindow chrome override */}
+      {/* Dark InfoWindow chrome override. DOCUMENTED EXCEPTION: matches the
+          dark-locked CHARCOAL_STYLE map theme. InfoWindow floats over the
+          map so it inherits the dark visual context regardless of host
+          page mode. */}
       <style>{`
         .gm-style-iw-c {
           background: #1e1b18 !important;
@@ -390,12 +420,13 @@ export default function RouteMapClient({ height = "420px", searchArgs, onSearchC
 
       {/* Hint overlay shown before first search */}
       {!searchArgs && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgb(var(--surface)/0.88)] z-10 rounded-2xl pointer-events-none">
-          <span className="text-5xl mb-3">🗺️</span>
-          <p className="text-fg font-semibold" style={{ fontFamily: "Oswald, sans-serif" }}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/90 z-10 rounded-card pointer-events-none">
+          {/* TODO(icons): swap 🗺️ for brand <Karta> */}
+          <span className="text-5xl mb-3" aria-hidden="true">🗺️</span>
+          <p className="font-display text-foreground font-semibold">
             Unesi gradove za pretragu
           </p>
-          <p className="text-fg-muted text-sm mt-1 max-w-xs text-center px-4 leading-relaxed">
+          <p className="text-muted text-sm mt-1 max-w-xs text-center px-4 leading-relaxed">
             Ruta se crta po cestama. Ćevapnice uz rutu pojavljuju se kao markeri.
           </p>
         </div>
