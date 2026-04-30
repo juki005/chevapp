@@ -1,9 +1,38 @@
 "use client";
 
+// ── AcademyPage · app-route (Sprint 26aj · DS-migrated) ──────────────────────
+// 4-tab academy hub: Dashboard / Games / Quiz / Burnoff. Lazy-loads the
+// 4 academy games via next/dynamic. Pulls quiz list from DB with hardcoded
+// fallback.
+//
+// Sprint 26aj changes:
+//   - All rgb(var(--token)) arbitrary classes → semantic aliases (~26 sites).
+//   - 4× style={{fontFamily:"Oswald"}} (h1, GameCard h3, fallback quiz card,
+//     DB quiz card) → font-display class.
+//   - DIFF_STYLE map remapped to DS semantic tokens (same call as RecipeModal
+//     Sprint 26t difficulty palette):
+//       beginner     emerald-400 family → ember-green family (DS confirm)
+//       intermediate amber-400 family   → amber-xp family    (passive tier
+//                                                              marker —
+//                                                              chip badge,
+//                                                              not a button,
+//                                                              DS gamification
+//                                                              token applies)
+//       expert       red-400 family     → zar-red family     (DS alert)
+//   - "🚧 U pripremi" placeholder badge: rgb(var(--token)) → semantic aliases.
+//   - Game emoji 🔪 / 🥩 / 🗺️ / 🐍 in GameCards kept as data content
+//     (passed as prop) — same approach as game emoji in CevapMemory PAIRS
+//     and EditProfileModal AVATARS.
+//   - 🧠 quiz card emoji + ⚡ XP badge marker tagged TODO(icons) +
+//     aria-hidden. ⚡ in badge text is contained (could swap to <Zap>
+//     Lucide later but kept as text emoji here for inline simplicity).
+//   - rounded-2xl → rounded-card; rounded-lg → rounded-chip.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { GraduationCap, Calculator, Brain, LayoutDashboard, Gamepad2, Loader2, Star, Zap, ArrowLeft } from "lucide-react";
+import { GraduationCap, Calculator, Brain, LayoutDashboard, Gamepad2, Loader2, Zap, ArrowLeft } from "lucide-react";
 import { BurnoffCalculator } from "@/components/academy/BurnoffCalculator";
 import { QuizSystem } from "@/components/academy/QuizSystem";
 import { AcademyDashboard } from "@/components/academy/AcademyDashboard";
@@ -22,7 +51,7 @@ interface DbQuiz {
 
 const GameLoader = () => (
   <div className="flex items-center justify-center py-20">
-    <Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" />
+    <Loader2 className="w-8 h-8 animate-spin text-primary" />
   </div>
 );
 
@@ -49,20 +78,19 @@ function GameCard({ emoji, title, description, xpReward, xpLabel, onClick }: Gam
   return (
     <button
       onClick={onClick}
-      className="text-left w-full rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all active:scale-[0.99] group"
+      className="text-left w-full rounded-card border border-border bg-surface/50 p-5 hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-[0.99] group"
     >
       <div className="flex items-start gap-4">
-        <span className="text-4xl mt-0.5">{emoji}</span>
+        {/* Game emoji is data content — categorical marker for the game */}
+        <span className="text-4xl mt-0.5" aria-hidden="true">{emoji}</span>
         <div className="flex-1 min-w-0">
-          <h3
-            className="text-lg font-bold text-[rgb(var(--foreground))] group-hover:text-[rgb(var(--primary))] transition-colors"
-            style={{ fontFamily: "Oswald, sans-serif" }}
-          >
+          <h3 className="font-display text-lg font-bold text-foreground group-hover:text-primary transition-colors">
             {title}
           </h3>
-          <p className="text-sm text-[rgb(var(--muted))] mt-0.5 leading-relaxed">{description}</p>
-          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgb(var(--primary)/0.1)] border border-[rgb(var(--primary)/0.25)] text-[rgb(var(--primary))] text-xs font-semibold">
-            ⚡ {badgeText}
+          <p className="text-sm text-muted mt-0.5 leading-relaxed">{description}</p>
+          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-semibold">
+            {/* TODO(icons): swap ⚡ for <Zap> Lucide */}
+            <span aria-hidden="true">⚡</span> {badgeText}
           </div>
         </div>
       </div>
@@ -70,11 +98,13 @@ function GameCard({ emoji, title, description, xpReward, xpLabel, onClick }: Gam
   );
 }
 
-// ── Difficulty badge ──────────────────────────────────────────────────────────
+// ── Difficulty badge — DS semantic mapping (same as RecipeModal Sprint 26t) ──
+// beginner = ember-green confirm, intermediate = amber-xp passive tier marker,
+// expert = zar-red alert.
 const DIFF_STYLE: Record<string, string> = {
-  beginner:     "text-emerald-400 bg-emerald-400/10 border-emerald-400/30",
-  intermediate: "text-amber-400 bg-amber-400/10 border-amber-400/30",
-  expert:       "text-red-400 bg-red-400/10 border-red-400/30",
+  beginner:     "text-ember-green bg-ember-green/10 border-ember-green/30",
+  intermediate: "text-amber-xp    bg-amber-xp/10    border-amber-xp/30",
+  expert:       "text-zar-red     bg-zar-red/10     border-zar-red/30",
 };
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -89,6 +119,7 @@ export default function AcademyPage() {
   // Fetch quizzes from DB on mount
   useEffect(() => {
     const supabase = createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from("quizzes") as any)
       .select("id, slug, title, description, difficulty, xp_reward")
       .eq("is_active", true)
@@ -109,22 +140,19 @@ export default function AcademyPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <div className="border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.6)]">
+      <div className="border-b border-border bg-surface/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.15)] flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-[rgb(var(--primary))]" />
+            <div className="w-10 h-10 rounded-chip bg-primary/15 flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1
-                className="text-3xl md:text-4xl font-bold uppercase tracking-wide text-[rgb(var(--foreground))]"
-                style={{ fontFamily: "Oswald, sans-serif" }}
-              >
+              <h1 className="font-display text-3xl md:text-4xl font-bold uppercase tracking-wide text-foreground">
                 {t("title")}
               </h1>
-              <p className="text-[rgb(var(--muted))] text-sm mt-0.5">{t("subtitle")}</p>
+              <p className="text-muted text-sm mt-0.5">{t("subtitle")}</p>
             </div>
           </div>
         </div>
@@ -139,10 +167,10 @@ export default function AcademyPage() {
               key={key}
               onClick={() => { setActiveTab(key); setActiveGame(null); }}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
+                "flex items-center gap-2 px-4 py-2 rounded-chip text-sm font-medium border transition-colors",
                 activeTab === key
-                  ? "border-[rgb(var(--primary)/0.5)] bg-[rgb(var(--primary)/0.1)] text-[rgb(var(--primary))]"
-                  : "border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]"
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-border text-muted hover:text-foreground"
               )}
             >
               {icon}
@@ -160,7 +188,7 @@ export default function AcademyPage() {
                 {/* Back to list */}
                 <button
                   onClick={() => setSelectedQuiz(null)}
-                  className="flex items-center gap-1.5 text-xs text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] mb-5 transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-muted hover:text-foreground mb-5 transition-colors"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   {t("quizBack")}
@@ -169,12 +197,12 @@ export default function AcademyPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
+                <p className="text-xs text-muted uppercase tracking-widest font-medium">
                   {t("quizzes")}
                 </p>
 
                 {quizLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-[rgb(var(--muted))] py-4">
+                  <div className="flex items-center gap-2 text-sm text-muted py-4">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     {t("quizLoading")}
                   </div>
@@ -182,17 +210,18 @@ export default function AcademyPage() {
                   // No DB quizzes — show the fallback hardcoded quiz as a single card
                   <button
                     onClick={() => setSelectedQuiz({ id: "fallback", slug: "cevapi-masterclass", title: t("quizTitle"), description: null, difficulty: "beginner", xp_reward: 50 })}
-                    className="text-left w-full rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all group"
+                    className="text-left w-full rounded-card border border-border bg-surface/50 p-5 hover:border-primary/40 hover:bg-primary/5 transition-all group"
                   >
                     <div className="flex items-start gap-4">
-                      <span className="text-4xl">🧠</span>
+                      {/* TODO(icons): swap 🧠 for brand <Brain> / Lucide already imported */}
+                      <span className="text-4xl" aria-hidden="true">🧠</span>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-bold text-[rgb(var(--foreground))] group-hover:text-[rgb(var(--primary))] transition-colors" style={{ fontFamily: "Oswald, sans-serif" }}>
+                        <h3 className="font-display text-lg font-bold text-foreground group-hover:text-primary transition-colors">
                           {t("quizTitle")}
                         </h3>
                         <div className="flex items-center gap-2 mt-2">
                           <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", DIFF_STYLE.beginner)}>{t("quizDiffBeginner")}</span>
-                          <span className="flex items-center gap-1 text-xs text-[rgb(var(--primary))] font-semibold"><Zap className="w-3 h-3" /> +50 XP</span>
+                          <span className="flex items-center gap-1 text-xs text-primary font-semibold"><Zap className="w-3 h-3" /> +50 XP</span>
                         </div>
                       </div>
                     </div>
@@ -205,23 +234,23 @@ export default function AcademyPage() {
                       <button
                         key={quiz.id}
                         onClick={() => setSelectedQuiz(quiz)}
-                        className="text-left w-full rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.5)] p-5 hover:border-[rgb(var(--primary)/0.4)] hover:bg-[rgb(var(--primary)/0.04)] transition-all group"
+                        className="text-left w-full rounded-card border border-border bg-surface/50 p-5 hover:border-primary/40 hover:bg-primary/5 transition-all group"
                       >
                         <div className="flex items-start gap-4">
-                          <span className="text-4xl mt-0.5">🧠</span>
+                          <span className="text-4xl mt-0.5" aria-hidden="true">🧠</span>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-[rgb(var(--foreground))] group-hover:text-[rgb(var(--primary))] transition-colors leading-snug" style={{ fontFamily: "Oswald, sans-serif" }}>
+                            <h3 className="font-display text-lg font-bold text-foreground group-hover:text-primary transition-colors leading-snug">
                               {quiz.title}
                             </h3>
                             {quiz.description && (
-                              <p className="text-sm text-[rgb(var(--muted))] mt-1 leading-relaxed">{quiz.description}</p>
+                              <p className="text-sm text-muted mt-1 leading-relaxed">{quiz.description}</p>
                             )}
                             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                               <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", DIFF_STYLE[diffKey] ?? DIFF_STYLE.beginner)}>
                                 {diffLabel}
                               </span>
                               {(quiz.xp_reward ?? 0) > 0 && (
-                                <span className="flex items-center gap-1 text-xs text-[rgb(var(--primary))] font-semibold">
+                                <span className="flex items-center gap-1 text-xs text-primary font-semibold">
                                   <Zap className="w-3 h-3" />
                                   +{quiz.xp_reward} XP
                                 </span>
@@ -256,8 +285,9 @@ export default function AcademyPage() {
                     />
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] text-[rgb(var(--muted))] text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm">
-                      🚧 U pripremi
+                    <span className="bg-surface border border-border text-muted text-xs font-semibold px-3 py-1.5 rounded-full shadow-soft-md">
+                      {/* TODO(icons): swap 🚧 for brand <Construction> */}
+                      <span aria-hidden="true">🚧</span> U pripremi
                     </span>
                   </div>
                 </div>
