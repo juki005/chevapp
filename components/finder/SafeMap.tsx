@@ -1,6 +1,6 @@
 "use client";
 
-// ── SafeMap.tsx ───────────────────────────────────────────────────────────────
+// ── SafeMap.tsx · finder (Sprint 26ag · DS-migrated) ──────────────────────────
 // Raw Leaflet (NOT react-leaflet) implementation with a singleton guard.
 //
 // Why raw Leaflet?
@@ -13,6 +13,23 @@
 //   new `.map()` call, so remounts are always safe.
 //
 // Exported via dynamic({ ssr: false }) — Leaflet reads `window` on import.
+//
+// Sprint 26ag changes:
+//   - All rgb(var(--token)) Tailwind classes → semantic aliases.
+//   - Inline <style> block CSS-var fallbacks removed (rgb(var(--surface,
+//     30 27 24)) etc.) — same latent mode-mismatch fix as GastroMapClient
+//     Sprint 26v. The hardcoded hex fallbacks were Ugljen-only and would
+//     render mismatched on Somun if they ever fired (they don't in
+//     practice, variables always defined in globals.css).
+//   - buildPopupHtml() raw HTML strings: brand-orange #e65100 hex →
+//     rgb(var(--primary)) (Leaflet popup is in the React tree, CSS vars
+//     work). Foursquare blue #60a5fa kept as documented external-source
+//     categorical marker (same precedent as TripAdvisor green, Spotify
+//     green) — DS has no blue and "via Foursquare" is a passive data-
+//     source readout, not app chrome.
+//   - 🗺️ empty-state emoji + 📍 / 🔥 / 🩶 popup emoji tagged TODO(icons)
+//     where appropriate.
+//   - rounded-2xl → rounded-card.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef } from "react";
@@ -68,19 +85,25 @@ const FSQ_ICON = new L.Icon({
 });
 
 // ── Popup HTML builder ────────────────────────────────────────────────────────
+// Foursquare blue (#60a5fa) is a documented external-source categorical marker
+// — DS has no blue and "via Foursquare" is a passive data-origin readout, not
+// app chrome (same precedent as TripAdvisor green, Spotify green).
+const FSQ_BLUE = "#60a5fa";
+
 function buildPopupHtml(r: MapRestaurant): string {
   const isFsq    = r.source === "foursquare";
+  // TODO(icons): swap 📍 / 🔥 / 🩶 for brand <Pin> / <Vatra> SVG
   const emoji    = isFsq ? "📍" : "🔥";
   const badge    = isFsq
-    ? `<span style="color:#60a5fa;border:1px solid rgba(96,165,250,.3)">via Foursquare</span>`
-    : `<span style="color:#e65100;border:1px solid rgba(230,81,0,.4)">✓ Verificiran</span>`;
+    ? `<span style="color:${FSQ_BLUE};border:1px solid ${FSQ_BLUE}33">via Foursquare</span>`
+    : `<span style="color:rgb(var(--primary));border:1px solid rgb(var(--primary) / 0.4)">✓ Verificiran</span>`;
   const mapsUrl  = `https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`;
   const flames   = r.lepinja_rating
     ? "🔥".repeat(r.lepinja_rating) + "🩶".repeat(5 - r.lepinja_rating)
     : "";
 
   const tagHtml = (r.tags ?? []).slice(0, 3)
-    .map((t) => `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(230,81,0,.15);color:#e65100">${t}</span>`)
+    .map((t) => `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgb(var(--primary) / 0.15);color:rgb(var(--primary))">${t}</span>`)
     .join("");
 
   return `
@@ -98,7 +121,7 @@ function buildPopupHtml(r: MapRestaurant): string {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
         <span style="font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid transparent">${badge}</span>
         <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer"
-           style="font-size:10px;color:#60a5fa;text-decoration:none">
+           style="font-size:10px;color:${FSQ_BLUE};text-decoration:none">
           Mapa →
         </a>
       </div>
@@ -179,21 +202,23 @@ export default function SafeMap({ restaurants, height = "500px" }: Props) {
   return (
     <div
       style={{ height, width: "100%" }}
-      className="rounded-2xl overflow-hidden border border-[rgb(var(--border))] relative z-0"
+      className="rounded-card overflow-hidden border border-border relative z-0"
     >
-      {/* Inline CSS: marker tints + popup theme */}
+      {/* Inline CSS: marker tints + popup theme. CSS variables guaranteed
+          defined by globals.css — fallbacks removed (Sprint 26v pattern,
+          they were Ugljen-only and a latent mode-mismatch trap). */}
       <style>{`
         .safemap-marker-orange { filter: hue-rotate(168deg) saturate(2) brightness(1.1); }
         .safemap-marker-fsq    { filter: hue-rotate(200deg) saturate(.7) brightness(.9); opacity:.75; }
         .leaflet-popup-content-wrapper {
-          background: rgb(var(--surface, 30 27 24));
-          color: rgb(var(--foreground, 240 235 225));
-          border: 1px solid rgb(var(--border, 60 55 50));
+          background: rgb(var(--surface));
+          color: rgb(var(--foreground));
+          border: 1px solid rgb(var(--border));
           border-radius: 12px;
           box-shadow: 0 8px 24px rgba(0,0,0,.4);
         }
-        .leaflet-popup-tip { background: rgb(var(--surface, 30 27 24)); }
-        .leaflet-popup-close-button { color: rgb(var(--muted, 120 113 108)) !important; }
+        .leaflet-popup-tip { background: rgb(var(--surface)); }
+        .leaflet-popup-close-button { color: rgb(var(--muted)) !important; }
       `}</style>
 
       {/* The raw DOM node Leaflet attaches to */}
@@ -201,12 +226,13 @@ export default function SafeMap({ restaurants, height = "500px" }: Props) {
 
       {/* Empty-state overlay */}
       {restaurants.filter((r) => r.latitude != null).length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgb(var(--surface)/0.85)] z-[1000] rounded-2xl pointer-events-none">
-          <span className="text-5xl mb-3">🗺️</span>
-          <p className="text-[rgb(var(--foreground))] font-semibold text-base">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/85 z-[1000] rounded-card pointer-events-none">
+          {/* TODO(icons): swap 🗺️ for brand <Karta> */}
+          <span className="text-5xl mb-3" aria-hidden="true">🗺️</span>
+          <p className="text-foreground font-semibold text-base">
             Nema lokacija za prikaz
           </p>
-          <p className="text-[rgb(var(--muted))] text-sm mt-1 text-center max-w-xs px-4">
+          <p className="text-muted text-sm mt-1 text-center max-w-xs px-4">
             Pokrenite Seed ili pretražite grad iznad da se učitaju markeri.
           </p>
         </div>

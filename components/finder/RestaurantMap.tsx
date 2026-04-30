@@ -1,10 +1,16 @@
 "use client";
 
-// ── SSR-safe wrapper ─────────────────────────────────────────────────────────
+// ── RestaurantMap · finder (Sprint 26ag · DS-migrated) ────────────────────────
+// SSR-safe wrapper around GoogleCevapMap.
 // @vis.gl/react-google-maps accesses `window` on import — crashes Next.js SSR.
 // dynamic({ ssr: false }) ensures it only loads in the browser.
 //
 // Import THIS file everywhere; never import GoogleCevapMap directly.
+//
+// Sprint 26ag changes:
+//   - Loading skeleton rgb(var(--token)) chains → semantic aliases
+//     (bg-surface/40, border-border, text-primary, text-muted).
+//   - rounded-2xl → rounded-card.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import dynamic from "next/dynamic";
@@ -17,11 +23,11 @@ const GoogleCevapMap = dynamic(
     ssr: false,
     loading: () => (
       <div
-        className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] flex flex-col items-center justify-center gap-3"
+        className="rounded-card border border-border bg-surface/40 flex flex-col items-center justify-center gap-3"
         style={{ height: "500px" }}
       >
-        <Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" />
-        <p className="text-sm text-[rgb(var(--muted))]">Učitavanje Google Maps karte...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm text-muted">Učitavanje Google Maps karte...</p>
       </div>
     ),
   }
