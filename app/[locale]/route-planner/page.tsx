@@ -1,5 +1,44 @@
 "use client";
 
+// ── RoutePlannerPage · app-route (Sprint 26ak · DS-migrated) ─────────────────
+// "Gastro Route Planner" — input two cities, get ćevapnice along the route.
+// Uses Google Directions API, Places API for waypoints, and Supabase DB.
+//
+// Sprint 26ak changes:
+//   - Normalised globals.css utility aliases to Tailwind semantic tokens for
+//     consistency with the rest of the migration:
+//       bg-app          → bg-background
+//       text-fg         → text-foreground
+//       text-fg-muted   → text-muted
+//       text-accent     → text-primary
+//     (Both resolve to the same rgb(var(--token)) — keeping one source of
+//     truth avoids parallel naming conventions across the codebase.)
+//   - All rgb(var(--token)) Tailwind classes → semantic aliases.
+//   - 6× style={{fontFamily:"Oswald"}} → font-display class.
+//   - BUG FIX: <div className="page-header"> was undefined in globals.css —
+//     silently rendering empty. Replaced with the same border-b + bg-surface
+//     pattern used by AcademyPage / JukeboxPage / FinderPage headers.
+//   - Result-row cards used inline style={{ background: "rgb(var(--token))" }}
+//     for the index pill + style emoji wrapper — converted to className.
+//   - Empty-results CTA "Povećaj radijus →": bg-primary + hover:bg-primary/0.85
+//     + text-white → bg-primary + hover:bg-vatra-hover + text-primary-fg
+//     (DS rule — explicit hover token, semantic fill).
+//   - "Na ruti" green-500 badge → ember-green token family (DS confirm).
+//   - "Google" blue-500 badge KEPT as documented external-source categorical
+//     marker (precedent: Foursquare blue in SafeMap 26ag).
+//   - TripAdvisor green emerald-500 hex KEPT as external-brand exception
+//     (precedent: TripAdvisor green in FinderFilterBar 26j).
+//   - Star rating amber-400 → amber-xp (DS gamification family — same as
+//     ReviewList stars Sprint 26i, ModerationTab review stars 26q).
+//   - Error block red-500 family → zar-red token family (DS alert).
+//   - 🟢 / 🔴 / 🚗 / 🗺️ / 😢 / ⭐ emoji + STYLE_EMOJIS map tagged TODO(icons)
+//     where appropriate; STYLE_EMOJIS kept as categorical content markers.
+//   - Geolocation button green-500 hex kept as "origin marker" pair with
+//     red-500 destination — same categorical pair as RouteMapClient pin
+//     colours (Sprint 26ah).
+//   - rounded-xl → rounded-chip; rounded-2xl → rounded-card.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
@@ -22,11 +61,11 @@ const RouteMap = dynamic(() => import("@/components/finder/RouteMapClient"), {
   ssr: false,
   loading: () => (
     <div
-      className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.4)] flex flex-col items-center justify-center gap-3"
+      className="rounded-card border border-border bg-surface/40 flex flex-col items-center justify-center gap-3"
       style={{ height: "420px" }}
     >
-      <Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" />
-      <p className="text-sm text-fg-muted">Učitavanje karte…</p>
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <p className="text-sm text-muted">Učitavanje karte…</p>
     </div>
   ),
 });
@@ -39,45 +78,22 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 // Extend RouteRestaurant with an optional source tag
 type AnyRouteRestaurant = RouteRestaurant & { source?: "db" | "places" | "waypoint" };
 
-// All country names that appear in Google Places formatted_address strings.
-// Used to detect cross-border results without false-positives on addresses
-// that don't mention a country at all (e.g. short city-only addresses).
 const KNOWN_COUNTRIES = [
   "Croatia", "Bosnia and Herzegovina", "Serbia", "Montenegro",
   "Slovenia", "North Macedonia", "Kosovo", "Albania",
   "Hungary", "Austria", "Italy", "Greece", "Romania", "Bulgaria",
 ];
 
-/**
- * Returns true ONLY when the address explicitly names a country that is NOT
- * in the expected set. Addresses with no country mention are kept (returned false).
- */
 function isCrossBorder(address: string, expected: Set<string>): boolean {
-  if (expected.size === 0) return false; // unknown route — no filtering
+  if (expected.size === 0) return false;
   for (const country of KNOWN_COUNTRIES) {
     if (address.includes(country)) {
-      // We found a named country — block it only if it's not expected
       return !expected.has(country);
     }
   }
-  // No known country in address → keep the result
   return false;
 }
 
-/**
- * Fetch ćevapi near a single lat/lng waypoint (coordinate-based Places search).
- * Uses the user's full selected radius (no hard cap).
- * If primary search returns 0 results, retries once at +50% radius ("deep search").
- *
- * Distance is calculated as the true perpendicular distance to the nearest segment
- * of the decoded polyline (distanceToPolylineKm) — not haversine to a sample point
- * and not straight-line A→B. This is the same geometry the map uses, so the "X km
- * from route" value on cards is accurate even on curved mountain roads.
- *
- * A final sanity check discards any result whose polyline distance exceeds
- * `corridorKm` — this eliminates ghost results that slipped past the Places API
- * radius bias (e.g. a restaurant in Bosnia showing up on a Zagreb–Split search).
- */
 async function fetchPlacesForWaypoint(
   lat: number,
   lng: number,
@@ -89,9 +105,6 @@ async function fetchPlacesForWaypoint(
   routePoints: Array<{ lat: number; lng: number }> = [],
 ): Promise<AnyRouteRestaurant[]> {
   const toRouteResult = (p: PlaceResult): AnyRouteRestaurant => {
-    // True perpendicular distance to the nearest polyline segment.
-    // Falls back to straight-line A→B only when we don't have the decoded path yet
-    // (first search before the map has finished loading).
     const distKm = routePoints.length >= 2
       ? distanceToPolylineKm(p.latitude!, p.longitude!, routePoints)
       : distanceToSegmentKm(p.latitude!, p.longitude!, coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
@@ -129,15 +142,9 @@ async function fetchPlacesForWaypoint(
         .filter((p) => p.latitude != null && p.longitude != null)
         .filter((p) => !isCrossBorder(p.address, expectedCountries))
         .map(toRouteResult)
-        // Primary corridor filter using true polyline distance
         .filter((r) => r.distanceKm <= radius)
-        // ── Sanity check ──────────────────────────────────────────────────
-        // Even if a result survived the radius filter (possible when routePoints
-        // is empty and we fell back to straight-line distance), re-validate
-        // against the full polyline if we have it. Eliminates ghost results
-        // that sit on the far side of a mountain range or national border.
         .filter((r) => {
-          if (routePoints.length < 2) return true; // no polyline yet — trust the API
+          if (routePoints.length < 2) return true;
           const trueDist = distanceToPolylineKm(r.latitude!, r.longitude!, routePoints);
           return trueDist <= corridorKm;
         })
@@ -148,19 +155,11 @@ async function fetchPlacesForWaypoint(
     }
   };
 
-  // Primary search with user-selected radius
   const primary = await runFetch(corridorKm);
   if (primary.length > 0) return primary;
-
-  // Deep-search fallback: +50% radius — finds the nearest town if the road is sparse
   return runFetch(corridorKm * 1.5);
 }
 
-/**
- * Build waypoints from actual road sample points (from RouteMapClient polyline).
- * Falls back to straight-line interpolation when the map hasn't loaded yet.
- * Spacing adapts to the chosen radius: tighter radius = more waypoints.
- */
 function buildWaypointsFromRoad(
   roadPoints: Array<{ lat: number; lng: number }>,
   coordsA:    [number, number],
@@ -168,18 +167,16 @@ function buildWaypointsFromRoad(
   radiusKm:   number,
   edgeKm = 30,
 ): Array<[number, number]> {
-  // High-density spacing: at 5km radius every ~12km, at 10km every ~15km, at 20km every ~20km
   const spacingKm = radiusKm <= 5 ? 12 : radiusKm <= 10 ? 15 : 20;
 
   if (roadPoints.length >= 3) {
-    // Use actual road points, thinned to `spacingKm` intervals
     const kept: Array<[number, number]> = [];
     let lastKept: [number, number] = [roadPoints[0].lat, roadPoints[0].lng];
 
     for (const p of roadPoints) {
       const dA = haversineKm(p.lat, p.lng, coordsA[0], coordsA[1]);
       const dB = haversineKm(p.lat, p.lng, coordsB[0], coordsB[1]);
-      if (dA <= edgeKm || dB <= edgeKm) continue; // skip near endpoints
+      if (dA <= edgeKm || dB <= edgeKm) continue;
       const distFromLast = haversineKm(p.lat, p.lng, lastKept[0], lastKept[1]);
       if (kept.length === 0 || distFromLast >= spacingKm) {
         kept.push([p.lat, p.lng]);
@@ -189,7 +186,6 @@ function buildWaypointsFromRoad(
     return kept;
   }
 
-  // Fallback: straight-line interpolation
   const totalKm = haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
   if (totalKm < edgeKm * 2 + spacingKm) return [];
   const tMin  = edgeKm / totalKm;
@@ -203,7 +199,6 @@ function buildWaypointsFromRoad(
   return pts;
 }
 
-/** Merge DB results (priority) with Places results, deduplicate by name+city. */
 function mergeResults(
   db:     AnyRouteRestaurant[],
   places: AnyRouteRestaurant[],
@@ -228,19 +223,13 @@ export default function RoutePlannerPage() {
   const [resolvedB,    setResolvedB]    = useState<string | null>(null);
   const [searchArgs,   setSearchArgs]   = useState<SearchArgs | null>(null);
 
-  // Coordinates resolved from Google Places Autocomplete selection.
-  // When set, these take precedence over the resolveCityCoords() lookup table.
   const [autoCoordA, setAutoCoordA] = useState<[number, number] | null>(null);
   const [autoCoordB, setAutoCoordB] = useState<[number, number] | null>(null);
 
-  // Cached restaurants from the last Supabase fetch (avoid re-fetching when
-  // the user just changes the radius on an existing route).
   const [cachedRestaurants, setCachedRestaurants] = useState<Restaurant[]>([]);
   const [cachedPlaces,      setCachedPlaces]      = useState<AnyRouteRestaurant[]>([]);
-  // Actual road sample points received from RouteMapClient polyline decode
   const [routePoints,       setRoutePoints]       = useState<Array<{ lat: number; lng: number }>>([]);
 
-  // ── Geolocation for City A ────────────────────────────────────────────────
   const [geolocating, setGeolocating] = useState(false);
   const handleGeolocateA = useCallback(() => {
     if (!("geolocation" in navigator)) return;
@@ -264,7 +253,6 @@ export default function RoutePlannerPage() {
     );
   }, []);
 
-  // ── Search handler ────────────────────────────────────────────────────────
   const handleSearch = useCallback(async (overrideRadius?: RadiusKm) => {
     const activeRadius = overrideRadius ?? radius;
 
@@ -273,7 +261,6 @@ export default function RoutePlannerPage() {
     setResolvedA(null);
     setResolvedB(null);
 
-    // Prefer coordinates from Google Places Autocomplete; fall back to lookup table
     const coordsA: [number, number] | null = autoCoordA ?? resolveCityCoords(cityA);
     const coordsB: [number, number] | null = autoCoordB ?? resolveCityCoords(cityB);
 
@@ -292,29 +279,21 @@ export default function RoutePlannerPage() {
 
     try {
       const totalKm = haversineKm(coordsA[0], coordsA[1], coordsB[0], coordsB[1]);
-
-      // Dynamic exclusion zone: 20km each end, or 15% of total on short routes
       const edgeKm = totalKm < 60
         ? Math.round(totalKm * 0.15)
         : 20;
 
-      // Normalised city names for address filtering (strip accents for loose match)
       const originToken = cityA.trim().toLowerCase();
       const destToken   = cityB.trim().toLowerCase();
 
-      /** True if a result is from one of the endpoint cities — should be hidden */
       const isEndpointCity = (r: AnyRouteRestaurant) => {
         const addr = (r.address + " " + r.city).toLowerCase();
         return addr.includes(originToken) || addr.includes(destToken);
       };
 
-      // Determine which countries are valid for this route
       const expectedCountries = resolveExpectedCountries([cityA, cityB]);
-
-      // Waypoints ONLY in the middle zone (edgeKm excluded from each end)
       const waypoints = buildWaypointsFromRoad(routePoints, coordsA, coordsB, activeRadius, edgeKm);
 
-      // Fetch Supabase DB + waypoint Places only — no city-level city searches
       const supabase = createClient();
       const [dbRes, ...waypointResults] = await Promise.all([
         supabase.from("restaurants").select("*").order("lepinja_rating", { ascending: false }),
@@ -328,7 +307,6 @@ export default function RoutePlannerPage() {
       const all = (dbRes.data ?? []) as Restaurant[];
       setCachedRestaurants(all);
 
-      // Merge, deduplicate, then strip endpoint-city noise
       const allPlaces = waypointResults.flat()
         .filter((r) => !isCrossBorder(r.address, expectedCountries));
       const placesMerged = allPlaces
@@ -339,7 +317,6 @@ export default function RoutePlannerPage() {
         .filter((r) => !isEndpointCity(r));
 
       if (!API_KEY) {
-        // No Maps key → straight-line Haversine filter for DB rows, also exclude endpoints
         const dbFiltered = (filterByRoute(
           all, coordsA[0], coordsA[1], coordsB[0], coordsB[1], activeRadius,
         ) as RouteRestaurant[]).filter((r) => {
@@ -353,7 +330,6 @@ export default function RoutePlannerPage() {
         return;
       }
 
-      // With Maps key: hand off route filtering to RouteMapClient, merge Places after callback.
       setCachedPlaces(placesMerged);
       setSearchArgs({ coordsA, coordsB, radiusKm: activeRadius, allRestaurants: all });
     } catch (err) {
@@ -362,11 +338,9 @@ export default function RoutePlannerPage() {
     }
   }, [cityA, cityB, radius, autoCoordA, autoCoordB, routePoints]);
 
-  // ── Callback from RouteMapClient once Directions + filtering is done ────────
   const handleSearchComplete = useCallback((restaurants: RouteRestaurant[]) => {
     const originToken = cityA.trim().toLowerCase();
     const destToken   = cityB.trim().toLowerCase();
-    // Prefer autocomplete coords — same source used in handleSearch
     const coordsA: [number, number] | null = autoCoordA ?? resolveCityCoords(cityA);
     const coordsB: [number, number] | null = autoCoordB ?? resolveCityCoords(cityB);
     const totalKm = coordsA && coordsB
@@ -375,10 +349,8 @@ export default function RoutePlannerPage() {
     const edgeKm = totalKm < 60 ? Math.round(totalKm * 0.15) : 20;
 
     const filtered = (restaurants as AnyRouteRestaurant[]).filter((r) => {
-      // Strip endpoint-city noise
       const addr = (r.address + " " + r.city).toLowerCase();
       if (addr.includes(originToken) || addr.includes(destToken)) return false;
-      // Strip results within the edge exclusion zone
       if (r.latitude == null || r.longitude == null) return true;
       if (!coordsA || !coordsB) return true;
       const dA = haversineKm(r.latitude, r.longitude, coordsA[0], coordsA[1]);
@@ -390,15 +362,10 @@ export default function RoutePlannerPage() {
     setLoading(false);
   }, [cachedPlaces, cityA, cityB, autoCoordA, autoCoordB]);
 
-  // ── Actual road sample points from the decoded polyline ───────────────────
   const handleRoutePoints = useCallback((pts: Array<{ lat: number; lng: number }>) => {
     setRoutePoints(pts);
   }, []);
 
-  // ── Increase-radius re-search ─────────────────────────────────────────────
-  // If we already have a route (searchArgs set), just rebuild searchArgs with
-  // the new radius — the map will re-filter without calling Directions API again
-  // because the origin/dest didn't change (a new object triggers useEffect).
   const handleIncreaseRadius = (bigger: RadiusKm) => {
     setRadius(bigger);
     if (searchArgs && cachedRestaurants.length > 0) {
@@ -415,28 +382,26 @@ export default function RoutePlannerPage() {
     }
   };
 
-  const btnBase   = "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all";
-  const btnActive = "border-[rgb(var(--primary)/0.6)] bg-[rgb(var(--primary)/0.12)] text-[rgb(var(--primary))]";
-  const btnIdle   = "border-[rgb(var(--border))] text-fg-muted hover:text-fg";
+  const btnBase   = "px-3 py-1.5 rounded-chip text-xs font-medium border transition-all";
+  const btnActive = "border-primary/60 bg-primary/10 text-primary";
+  const btnIdle   = "border-border text-muted hover:text-foreground";
 
   return (
-    <div className="min-h-screen bg-app text-fg">
+    <div className="min-h-screen bg-background text-foreground">
 
-      {/* Header */}
-      <div className="page-header">
+      {/* Header — pattern matches AcademyPage / FinderPage. Replaces broken
+          .page-header global utility (was undefined, silently rendering empty). */}
+      <div className="border-b border-border bg-surface/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.15)] flex items-center justify-center">
-              <Route className="w-5 h-5 text-accent" />
+            <div className="w-10 h-10 rounded-chip bg-primary/15 flex items-center justify-center">
+              <Route className="w-5 h-5 text-primary" />
             </div>
-            <h1
-              className="text-3xl md:text-4xl font-bold text-fg uppercase tracking-wide"
-              style={{ fontFamily: "Oswald, sans-serif" }}
-            >
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground uppercase tracking-wide">
               {tNav("routePlanner")}
             </h1>
           </div>
-          <p className="text-fg-muted pl-[52px]">Planiraj gastro rutu između dva grada.</p>
+          <p className="text-muted pl-[52px]">Planiraj gastro rutu između dva grada.</p>
         </div>
       </div>
 
@@ -445,10 +410,11 @@ export default function RoutePlannerPage() {
         {/* Route form */}
         <div className="card p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            {/* City A */}
+            {/* City A — green-500 marker, paired categorical with red-500 destination */}
             <div>
-              <label className="block text-xs text-fg-muted font-semibold mb-2 uppercase tracking-widest">
-                🟢 Polazište (A)
+              <label className="block text-xs text-muted font-semibold mb-2 uppercase tracking-widest">
+                {/* TODO(icons): swap 🟢 for brand <Origin> */}
+                <span aria-hidden="true">🟢</span> Polazište (A)
               </label>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -464,12 +430,13 @@ export default function RoutePlannerPage() {
                     leadingIcon={<MapPin className="w-4 h-4 text-green-500" />}
                   />
                 </div>
-                {/* 📍 Geolocation button */}
+                {/* Geolocation — green-500 categorical pair with red destination */}
                 <button
                   onClick={handleGeolocateA}
                   disabled={geolocating}
                   title="Koristi moju lokaciju kao polazište"
-                  className="flex-shrink-0 flex items-center justify-center w-[44px] rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-green-500/50 hover:text-green-500 hover:bg-green-500/5 transition-all disabled:opacity-50"
+                  aria-label="Koristi moju lokaciju kao polazište"
+                  className="flex-shrink-0 flex items-center justify-center w-[44px] rounded-chip border border-border text-muted hover:border-green-500/50 hover:text-green-500 hover:bg-green-500/5 transition-all disabled:opacity-50"
                 >
                   {geolocating
                     ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -485,10 +452,11 @@ export default function RoutePlannerPage() {
               )}
             </div>
 
-            {/* City B */}
+            {/* City B — red-500 destination marker */}
             <div>
-              <label className="block text-xs text-fg-muted font-semibold mb-2 uppercase tracking-widest">
-                🔴 Odredište (B)
+              <label className="block text-xs text-muted font-semibold mb-2 uppercase tracking-widest">
+                {/* TODO(icons): swap 🔴 for brand <Destination> */}
+                <span aria-hidden="true">🔴</span> Odredište (B)
               </label>
               <CityAutocomplete
                 value={cityB}
@@ -512,7 +480,7 @@ export default function RoutePlannerPage() {
 
           {/* Radius */}
           <div className="flex items-center gap-3 mb-5 flex-wrap">
-            <label className="text-xs text-fg-muted uppercase tracking-widest font-medium">
+            <label className="text-xs text-muted uppercase tracking-widest font-medium">
               Radijus od rute:
             </label>
             <div className="flex gap-2">
@@ -529,7 +497,7 @@ export default function RoutePlannerPage() {
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-red-400 text-sm mb-4">
+            <div role="alert" className="flex items-start gap-2 p-3 rounded-chip border border-zar-red/30 bg-zar-red/5 text-zar-red text-sm mb-4">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <p>{error}</p>
             </div>
@@ -548,7 +516,7 @@ export default function RoutePlannerPage() {
           </button>
         </div>
 
-        {/* ── Map (always rendered when API key is set) ─────────────────────── */}
+        {/* Map (always rendered when API key is set) */}
         {API_KEY && (
           <div suppressHydrationWarning>
             <RouteMap
@@ -560,21 +528,19 @@ export default function RoutePlannerPage() {
           </div>
         )}
 
-        {/* ── Initial hint (no API key + nothing searched yet) ─────────────── */}
+        {/* Initial hint (no API key + nothing searched yet) */}
         {!API_KEY && results === null && !loading && !error && (
           <div className="text-center py-10">
-            <div className="text-5xl mb-4">🗺️</div>
-            <h3
-              className="text-lg font-semibold text-fg-muted mb-2"
-              style={{ fontFamily: "Oswald, sans-serif" }}
-            >
+            {/* TODO(icons): swap 🗺️ for brand <Karta> */}
+            <div className="text-5xl mb-4" aria-hidden="true">🗺️</div>
+            <h3 className="font-display text-lg font-semibold text-muted mb-2">
               Kako funkcionira?
             </h3>
-            <p className="text-fg-muted text-sm max-w-md mx-auto leading-relaxed">
+            <p className="text-muted text-sm max-w-md mx-auto leading-relaxed">
               Unesi polazni i dolazni grad. Uzorkujemo stvarnu rutu po cestama i
               pronalazimo sve restorane unutar odabranog radijusa.
             </p>
-            <div className="mt-5 flex justify-center flex-wrap gap-4 text-xs text-fg-muted">
+            <div className="mt-5 flex justify-center flex-wrap gap-4 text-xs text-muted">
               <span>✅ Google Directions API</span>
               <span>✅ Polyline sampling (svakih 5 km)</span>
               <span>✅ Supabase baza</span>
@@ -582,27 +548,28 @@ export default function RoutePlannerPage() {
           </div>
         )}
 
-        {/* ── Results ──────────────────────────────────────────────────────── */}
+        {/* Results */}
         {results !== null && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-fg" style={{ fontFamily: "Oswald, sans-serif" }}>
+              <h2 className="font-display text-xl font-bold text-foreground">
                 {results.length === 0
                   ? "Stanice na putu (Izvan polazišta i cilja)"
                   : `Stanice na putu (${results.length}) — Izvan polazišta i cilja`}
               </h2>
-              <span className="text-xs text-fg-muted bg-surface px-2 py-1 rounded-lg">
+              <span className="text-xs text-muted bg-surface px-2 py-1 rounded-chip">
                 {cityA} → {cityB} · ±{radius} km
               </span>
             </div>
 
             {results.length === 0 ? (
               <div className="card p-10 text-center">
-                <span className="text-5xl block mb-3">😢</span>
-                <p className="text-fg font-semibold mb-1" style={{ fontFamily: "Oswald, sans-serif" }}>
+                {/* TODO(icons): swap 😢 for brand <Sad> / empty-state SVG */}
+                <span className="text-5xl block mb-3" aria-hidden="true">😢</span>
+                <p className="font-display text-foreground font-semibold mb-1">
                   Nismo pronašli ništa na samoj ruti
                 </p>
-                <p className="text-fg-muted text-sm mb-6">
+                <p className="text-muted text-sm mb-6">
                   Nema ćevapnica između <strong>{cityA}</strong> i <strong>{cityB}</strong> unutar <strong>{radius} km</strong> od ceste.
                   Pokušaj povećati radijus pretrage.
                 </p>
@@ -611,15 +578,14 @@ export default function RoutePlannerPage() {
                     <button
                       key={bigger}
                       onClick={() => handleIncreaseRadius(bigger)}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white font-bold text-sm hover:bg-[rgb(var(--primary)/0.85)] transition-colors"
-                      style={{ fontFamily: "Oswald, sans-serif" }}
+                      className="font-display flex items-center gap-2 px-5 py-2.5 rounded-chip bg-primary text-primary-fg font-bold text-sm hover:bg-vatra-hover transition-colors"
                     >
                       <Navigation className="w-4 h-4" />
                       Povećaj radijus → {bigger} km
                     </button>
                   ))}
                   {radius === (Math.max(...RADIUS_OPTIONS) as RadiusKm) && (
-                    <p className="text-fg-muted text-xs">
+                    <p className="text-muted text-xs">
                       Već si na max radijusu ({radius} km). Provjeri nazive gradova.
                     </p>
                   )}
@@ -640,6 +606,8 @@ export default function RoutePlannerPage() {
 }
 
 // ── Result row card ───────────────────────────────────────────────────────────
+// STYLE_EMOJIS — categorical content markers per cevap-style (same precedent
+// as RestaurantCard, QuickLogModal, GoogleCevapMap STYLE_PILLS).
 const STYLE_EMOJIS: Record<string, string> = {
   Sarajevski: "🕌", "Banjalučki": "🌊", "Travnički": "⛰️", "Leskovački": "🌶️", Ostalo: "🔥",
 };
@@ -652,27 +620,23 @@ function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant;
   const taUrl      = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(`${restaurant.name} ${restaurant.city}`)}`;
   return (
     <div className="card p-4 flex items-center gap-4">
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold"
-        style={{ background: "rgb(var(--primary)/0.15)", color: "rgb(var(--primary))", fontFamily: "Oswald,sans-serif" }}
-      >
+      <div className="font-display w-8 h-8 rounded-chip flex items-center justify-center flex-shrink-0 text-sm font-bold bg-primary/15 text-primary">
         {index}
       </div>
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-        style={{ background: "rgb(var(--surface))" }}
-      >
-        {STYLE_EMOJIS[restaurant.style ?? ""] ?? "🔥"}
+      <div className="w-10 h-10 rounded-chip flex items-center justify-center text-xl flex-shrink-0 bg-surface">
+        {/* TODO(icons): per-style emoji are categorical content markers */}
+        <span aria-hidden="true">{STYLE_EMOJIS[restaurant.style ?? ""] ?? "🔥"}</span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="font-bold text-fg text-sm truncate" style={{ fontFamily: "Oswald,sans-serif" }}>
+          <h3 className="font-display font-bold text-foreground text-sm truncate">
             {restaurant.name}
           </h3>
-          {restaurant.is_verified && <CheckCircle className="w-3.5 h-3.5 text-accent flex-shrink-0" />}
+          {restaurant.is_verified && <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
           {isWaypoint && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-green-500/30 bg-green-500/10 text-green-400 flex-shrink-0">
-              🚗 Na ruti
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-ember-green/30 bg-ember-green/10 text-ember-green flex-shrink-0">
+              {/* TODO(icons): swap 🚗 for brand <Car> / <Route> */}
+              <span aria-hidden="true">🚗</span> Na ruti
             </span>
           )}
           {isPlaces && (
@@ -681,19 +645,22 @@ function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant;
             </span>
           )}
         </div>
-        <p className="text-xs text-fg-muted truncate">{restaurant.city} · {restaurant.address}</p>
+        <p className="text-xs text-muted truncate">{restaurant.city} · {restaurant.address}</p>
         {isGoogle
           ? restaurant.lepinja_rating > 0 && (
-              <p className="text-xs text-amber-400 mt-1">⭐ {restaurant.lepinja_rating.toFixed(1)} / 5</p>
+              <p className="text-xs text-amber-xp mt-1">
+                {/* TODO(icons): swap ⭐ for <Star> Lucide */}
+                <span aria-hidden="true">⭐</span> {restaurant.lepinja_rating.toFixed(1)} / 5
+              </p>
             )
           : <LepinjaRating rating={restaurant.lepinja_rating} size="sm" className="mt-1" />
         }
       </div>
       <div className="text-right flex-shrink-0">
-        <div className="text-sm font-bold text-accent" style={{ fontFamily: "Oswald,sans-serif" }}>
+        <div className="font-display text-sm font-bold text-primary">
           {restaurant.distanceKm.toFixed(1)} km
         </div>
-        <div className="text-xs text-fg-muted">od rute</div>
+        <div className="text-xs text-muted">od rute</div>
       </div>
       <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
         <DirectionsButton
@@ -708,7 +675,7 @@ function RouteResultRow({ restaurant, index }: { restaurant: AnyRouteRestaurant;
           target="_blank"
           rel="noopener noreferrer"
           title={t("tripAdvisor")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 text-xs font-medium hover:bg-emerald-500/15 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-chip border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/15 transition-colors whitespace-nowrap"
         >
           <ExternalLink className="w-3 h-3 flex-shrink-0" />
           <span className="hidden sm:inline">TripAdvisor</span>
