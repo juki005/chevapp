@@ -1,5 +1,39 @@
 "use client";
 
+// ── FinderPage · app-route (Sprint 26al · DS-migrated) ───────────────────────
+// Cevap Finder — DB restaurants + Google Places nearby search, grid + map
+// views, favorites, style filter, location filter, review modals, journal,
+// rulet, submit-place. The biggest single page in the app.
+//
+// Sprint 26al changes:
+//   - All rgb(var(--token)) Tailwind classes → semantic aliases (~58 sites).
+//   - 6× style={{fontFamily:"Oswald"}} → font-display class.
+//   - Stale-filter notice + places-error notice: amber-400 family → zar-red
+//     token family (admin-attention pattern, consistent with RouteMapClient
+//     26ah and StatsTab 26n).
+//   - Seed-success banner green-500 family → ember-green family (DS confirm).
+//   - Seed-error + dbError banners red-500 family → zar-red token family
+//     (DS alert).
+//   - Favorites heart red-400 → zar-red (DS alert family — heart for favorite
+//     fits alert/passion semantic pair, consistent with Sprint 26j
+//     FinderFilterBar favorites toggle).
+//   - Google Places "G" badge + #4285f4 chrome KEPT as documented external-
+//     source categorical marker (precedent: Foursquare blue in SafeMap
+//     26ag, RestaurantMapClient 26ah).
+//   - "Učitaj još Google rezultata" button: hardcoded #FF6B00 (vatra-hover
+//     hex) → vatra-hover token class. Same brand orange, semantic source.
+//   - DB "Učitaj još" + Seed CTAs: bg-primary + text-white +
+//     hover:bg-primary/0.85 → bg-primary + text-primary-fg + hover:
+//     bg-vatra-hover (DS rule — explicit hover token, semantic fill).
+//   - rounded-[14px] → rounded-chip (12px, 2px delta imperceptible).
+//   - rounded-2xl → rounded-card; rounded-xl/lg → rounded-chip.
+//   - 🗺️ / 🍖 / 🔍 / 🥩 / ⚠️ / ❤️ emoji tagged TODO(icons) + aria-hidden.
+//   - Stat-row "filtrirano" badge text-primary kept (semantic).
+//   - Hero banner gradient bg-gradient-to-br from rgb(var(--surface)/0.9)
+//     to rgb(var(--surface)/0.3) → from-surface/90 to-surface/30 (semantic
+//     aliases). Decorative blur-3xl orbs use bg-primary/5 + bg-primary/10.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -11,7 +45,6 @@ import { useDebounce } from "@/lib/hooks/useDebounce";
 import { usePlacesNearby } from "@/lib/hooks/usePlacesNearby";
 import { syncPlacesToSupabase } from "@/lib/actions/harvest";
 import { APIProvider } from "@vis.gl/react-google-maps";
-import { StyleFilter } from "@/components/finder/StyleFilter";
 import { RestaurantCard } from "@/components/finder/RestaurantCard";
 import { RestaurantGridSkeleton } from "@/components/finder/RestaurantCardSkeleton";
 import { RestaurantDetailModal, type ProfileTarget } from "@/components/finder/RestaurantDetailModal";
@@ -30,10 +63,9 @@ import type { MapRestaurant } from "@/components/finder/RestaurantMap";
 
 const RestaurantMap = dynamic(
   () => import("@/components/finder/RestaurantMap").then(m => ({ default: m.RestaurantMap })),
-  { ssr: false, loading: () => <div className="flex items-center justify-center h-[500px]"><Loader2 className="w-8 h-8 animate-spin text-[rgb(var(--primary))]" /></div> }
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-[500px]"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div> }
 );
 
-import { DirectionsButton } from "@/components/finder/DirectionsButton";
 import type { Restaurant, CevapStyle } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -58,14 +90,11 @@ function toMapPin(r: Restaurant): MapRestaurant {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-// FinderPageInner contains all logic; it must live inside <APIProvider> so that
-// usePlacesNearby (which calls useMapsLibrary) can access the Maps context.
 function FinderPageInner() {
   const t = useTranslations("finder");
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
-  // ── DB restaurants ─────────────────────────────────────────────────────────
   const [dbRestaurants, setDbRestaurants] = useState<Restaurant[]>([]);
   const [dbLoading,     setDbLoading]     = useState(true);
   const [dbError,       setDbError]       = useState<string | null>(null);
@@ -73,19 +102,15 @@ function FinderPageInner() {
   const [page,          setPage]          = useState(0);
   const [loadingMore,   setLoadingMore]   = useState(false);
 
-  // ── Filters ────────────────────────────────────────────────────────────────
   const [searchTerm,    setSearchTerm]    = useState("");
   const [locationValue, setLocationValue] = useState<LocationValue>({ country: "", city: "" });
   const [activeStyle,   setActiveStyle]   = useState<CevapStyle | "">("");
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [staleFilters,  setStaleFilters]  = useState(false);
 
-  // Convenience aliases used by DB query and derived state below
   const selectedCountry = locationValue.country;
   const selectedCity    = locationValue.city;
 
-  // Restore searchTerm + activeStyle from localStorage on mount
-  // (location is restored inside LocationFilter itself)
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("chevapp:finder_state") ?? "{}");
@@ -94,22 +119,16 @@ function FinderPageInner() {
     } catch { /* ignore */ }
   }, []);
 
-  // Persist searchTerm + activeStyle (location persisted by LocationFilter)
   useEffect(() => {
     localStorage.setItem("chevapp:finder_state", JSON.stringify({ searchTerm, activeStyle }));
   }, [searchTerm, activeStyle]);
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  // ── Review averages ────────────────────────────────────────────────────────
   const [avgRatings, setAvgRatings] = useState<Record<string, number>>({});
 
-  // ── Google Places (client-side NearbySearch) ───────────────────────────────
-  // onHarvest: silently upsert new Google discoveries to Supabase so the DB
-  // grows over time and future searches serve from our own data first.
   const harvestCallback = useCallback(
     (places: import("@/types/places").PlaceResult[], cityName: string) => {
-      // Fire-and-forget — do not await, never show errors to user
       syncPlacesToSupabase(places, cityName).catch(() => {/* silent */});
     },
     [],
@@ -123,26 +142,14 @@ function FinderPageInner() {
     searchNearby, loadMorePlaces, appendByCoords, clearPlaces,
   } = usePlacesNearby({ onHarvest: harvestCallback });
 
-  // ── Profile modal ──────────────────────────────────────────────────────────
   const [selectedRestaurant, setSelectedRestaurant] = useState<ProfileTarget | null>(null);
-
-  // ── Quick Journal Log ──────────────────────────────────────────────────────
   const [quickLogRestaurant, setQuickLogRestaurant] = useState<Restaurant | null>(null);
-
-  // ── Review modal target ────────────────────────────────────────────────────
   const [reviewTarget, setReviewTarget] = useState<{ placeId: string; placeName: string } | null>(null);
-
-  // ── Submit-place modal ─────────────────────────────────────────────────────
   const [submitPlaceOpen, setSubmitPlaceOpen] = useState(false);
 
-  // ── Review stats cache (Sprint 19 — inline card badges) ───────────────────
-  // Keyed by place_id as used in place_reviews. For DB restaurants we prefer
-  // google_place_id and fall back to restaurants.id — the same convention the
-  // review modal uses when writing.
   const [reviewStats,     setReviewStats]     = useState<Record<string, PlaceReviewStats>>({});
   const [reviewStatsBump, setReviewStatsBump] = useState(0);
 
-  // ── Ćevap-Rulet ───────────────────────────────────────────────────────────
   const [ruletOpen, setRuletOpen] = useState(false);
   const [userId,    setUserId]    = useState<string | null>(null);
 
@@ -163,7 +170,6 @@ function FinderPageInner() {
     return () => window.removeEventListener("chevapp:open_rulet", handler);
   }, []);
 
-  // ── Favorites filter ───────────────────────────────────────────────────────
   const [favOnly,      setFavOnly]      = useState(false);
   const [favPlaceKeys, setFavPlaceKeys] = useState<string[]>([]);
   const [favDbIds,     setFavDbIds]     = useState<string[]>([]);
@@ -182,7 +188,6 @@ function FinderPageInner() {
     });
   }, []);
 
-  // ── Map ↔ List selection sync ──────────────────────────────────────────────
   const [selectedMapKey, setSelectedMapKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -190,11 +195,9 @@ function FinderPageInner() {
     document.getElementById(`card-${selectedMapKey}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [selectedMapKey, viewMode]);
 
-  // ── Seed helper ────────────────────────────────────────────────────────────
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // ── City list + review averages ────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient();
     supabase.from("restaurants").select("city").then(({ data }) => {
@@ -212,9 +215,6 @@ function FinderPageInner() {
     });
   }, []);
 
-  // ── Batch review-stats fetch for all visible places ────────────────────────
-  // Cheap & infrequent: one roundtrip per filter/page change (not per card).
-  // Stored as Record<place_id, { avg, count }>.
   useEffect(() => {
     const ids = [
       ...dbRestaurants.map((r) => r.google_place_id ?? r.id).filter(Boolean),
@@ -226,12 +226,9 @@ function FinderPageInner() {
       if (!cancelled) setReviewStats(stats);
     });
     return () => { cancelled = true; };
-  // We intentionally key on array length + the bump counter so this doesn't
-  // re-fire on every render when the array identities change but contents don't.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbRestaurants.length, placeResults.length, reviewStatsBump]);
 
-  // Cities in the selected country — used for DB "country filter without city"
   const citiesForCountry = useMemo(() => {
     if (!selectedCountry) return availableCities;
     const fullName = COUNTRY_CONFIG[selectedCountry]?.fullName ?? "";
@@ -240,17 +237,6 @@ function FinderPageInner() {
     );
   }, [availableCities, selectedCountry]);
 
-  // ── DB pagination fetch ────────────────────────────────────────────────────
-  // Single effect handles both filter resets and load-more to avoid the
-  // two-effect race condition where `setPage(0)` schedules a re-render but the
-  // fetch effect in the same commit still sees the old page value, causing a
-  // spurious append before the correct replace.
-  //
-  // Strategy (filterKeyRef):
-  //   • When filters change AND page > 0: reset page and return early.
-  //     The resulting re-render (page=0) triggers the actual fetch.
-  //   • When filters change AND page === 0: fetch page 0 (replace).
-  //   • When only page changes (Load More): fetch that page (append).
   const filterKeyRef = useRef("");
 
   useEffect(() => {
@@ -262,8 +248,6 @@ function FinderPageInner() {
     if (filtersChanged) {
       filterKeyRef.current = filterKey;
       setStaleFilters(false);
-      // If already past page 0, reset — the re-render will re-run this effect
-      // with page=0 and filtersChanged=false, doing the real fetch cleanly.
       if (page !== 0) {
         setPage(0);
         return;
@@ -343,8 +327,6 @@ function FinderPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, selectedCountry, selectedCity, activeStyle, page]);
 
-
-  // ── Tagged place IDs (crowdsourced style sync) ─────────────────────────────
   const [taggedPlaceIds, setTaggedPlaceIds] = useState<Set<string>>(new Set());
 
   const refreshTaggedIds = useCallback(() => {
@@ -366,7 +348,6 @@ function FinderPageInner() {
     return () => window.removeEventListener("chevapp:restaurant_tagged", handler);
   }, [refreshTaggedIds]);
 
-  // ── Derived ────────────────────────────────────────────────────────────────
   const hasActiveFilters = !!(searchTerm || selectedCountry || selectedCity || activeStyle || favOnly);
 
   const visibleDbRestaurants = favOnly
@@ -379,8 +360,6 @@ function FinderPageInner() {
       : placeResults;
     if (activeStyle && taggedPlaceIds.size > 0)
       results = results.filter((r) => taggedPlaceIds.has(r.place_id));
-    // Local name filter — no extra API call; text search drives DB via SQL,
-    // Google results are filtered here in-memory for instant response.
     if (debouncedSearch.trim())
       results = results.filter((r) =>
         r.name.toLowerCase().includes(debouncedSearch.toLowerCase())
@@ -400,26 +379,8 @@ function FinderPageInner() {
 
   const hasMore = dbRestaurants.length < totalCount;
 
-  // ── Map center — static lookup first, geocode fallback for diaspora cities ──
-  // resolveCityCoords covers all Balkan cities instantly (no API call).
-  // For cities not in the static map (Vienna, Berlin, Amsterdam, etc.) we
-  // geocode via getCoordsFromCity so the map still zooms to the right place.
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
 
-  // ── Single effect: resolve city coords + search ───────────────────────────────
-  // Previously split into two effects (mapCenter resolver + search trigger)
-  // coupled through mapCenter state.  The race: search effect fired on the
-  // first render with the OLD city's mapCenter, set prevSearchCityRef to the new
-  // city, then was blocked when the correct coords finally arrived.
-  //
-  // Fix: one effect owns the full A→B transition atomically:
-  //   1. Clear old results immediately (cards vanish at once)
-  //   2. Resolve coords for the new city (static lookup or async geocode)
-  //   3. Set mapCenter (for the map component)
-  //   4. Call searchNearby with the correct coords
-  //
-  // No prevSearchCityRef needed — the effect depends only on [selectedCity,
-  // selectedCountry], so setMapCenter inside never re-triggers it.
   useEffect(() => {
     if (!selectedCity) {
       clearPlaces();
@@ -427,14 +388,11 @@ function FinderPageInner() {
       return;
     }
 
-    // Wipe previous city's results instantly — generation counter in the hook
-    // discards any still-in-flight callbacks for the old city.
     clearPlaces();
 
     let cancelled = false;
 
     const run = async () => {
-      // Fast path — static lookup (covers all Balkan + main diaspora cities)
       const staticCoords = resolveCityCoords(selectedCity);
       if (staticCoords) {
         if (cancelled) return;
@@ -444,7 +402,6 @@ function FinderPageInner() {
         return;
       }
 
-      // Slow path — geocode via Google (cities not in static map)
       try {
         const geocoded = await getCoordsFromCity(
           `${selectedCity}${selectedCountry ? `, ${COUNTRY_CONFIG[selectedCountry]?.fullName ?? ""}` : ""}`,
@@ -454,22 +411,15 @@ function FinderPageInner() {
         setMapCenter(center);
         searchNearby(center, selectedCity);
       } catch {
-        // Geocode failed — map stays at default; no Google Places search
+        /* geocode failed — map stays at default */
       }
     };
 
     run();
     return () => { cancelled = true; };
-  // searchNearby + clearPlaces are stable — safe to omit from deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCity, selectedCountry]);
 
-  // Map pins — DB + Google Places (deduped by proximity).
-  // useMemo gives a stable array reference: ImperativeMarkers only rebuilds
-  // markers when the underlying data changes, not on every unrelated render.
-  // Map pins = verified DB + Google city results (Iron Walled) + map area pins.
-  // appendedPins come from "Pretraži ovo područje" and may span multiple cities
-  // — they only appear on the map, never in the list view (Iron Wall).
   const toGooglePin = useCallback((r: import("@/types/places").PlaceResult): MapRestaurant => ({
     fsq_id:    r.place_id,
     name:      r.name,
@@ -483,7 +433,6 @@ function FinderPageInner() {
   const mapPins = useMemo<MapRestaurant[]>(() => {
     const dbPins = dbRestaurants.map(toMapPin);
 
-    // Combine city-results + map-area appends, dedupe by proximity to DB pins
     const googleCandidates = [
       ...(placesSearched ? placeResults : []),
       ...appendedPins,
@@ -496,7 +445,6 @@ function FinderPageInner() {
           Math.abs((db.longitude ?? 0) - (gp.longitude ?? 999)) < 0.002,
       ));
 
-    // Dedupe within google results by place_id
     const seen = new Set<string>();
     const uniqueGoogle = dedupedGoogle.filter((r) => {
       if (seen.has(r.place_id)) return false;
@@ -529,20 +477,20 @@ function FinderPageInner() {
   };
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
+    <div className="min-h-screen bg-background text-foreground">
 
       {/* Header */}
-      <div className="border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.6)]">
+      <div className="border-b border-border bg-surface/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[rgb(var(--primary)/0.15)] flex items-center justify-center flex-shrink-0">
-              <MapPin className="w-5 h-5 text-[rgb(var(--primary))]" />
+            <div className="w-10 h-10 rounded-chip bg-primary/15 flex items-center justify-center flex-shrink-0">
+              <MapPin className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-[rgb(var(--foreground))] uppercase tracking-wide" style={{ fontFamily: "Oswald, sans-serif" }}>
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground uppercase tracking-wide">
                 {t("title")}
               </h1>
-              <p className="text-[rgb(var(--muted))] text-sm mt-0.5">{t("subtitle")}</p>
+              <p className="text-muted text-sm mt-0.5">{t("subtitle")}</p>
             </div>
           </div>
         </div>
@@ -563,30 +511,39 @@ function FinderPageInner() {
           onOpenRulet={() => setRuletOpen(true)}
         />
 
-        {/* Stale filter notice */}
+        {/* Stale filter notice — admin-attention zar-red (DS pattern) */}
         {staleFilters && (
-          <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-400/30 bg-amber-400/8 text-sm mb-4">
-            <span className="text-amber-400">⚠️</span>
-            <span className="text-amber-300">Sačuvani filteri ne daju rezultate. Provjeri grad ili</span>
-            <button onClick={clearFilters} className="text-amber-400 font-semibold hover:underline">poništi filtere</button>
+          <div className="flex items-center gap-2 px-4 py-3 rounded-chip border border-zar-red/30 bg-zar-red/5 text-sm mb-4">
+            {/* TODO(icons): swap ⚠️ for brand <Warning> */}
+            <span aria-hidden="true" className="text-zar-red">⚠️</span>
+            <span className="text-zar-red">Sačuvani filteri ne daju rezultate. Provjeri grad ili</span>
+            <button onClick={clearFilters} className="text-zar-red font-semibold hover:underline">poništi filtere</button>
           </div>
         )}
 
-        {/* Alerts */}
+        {/* Seed result alert — ember-green confirm OR zar-red alert */}
         {seedMsg && (
-          <div className={cn("flex items-center gap-2 px-4 py-3 rounded-xl border text-sm mb-4", seedMsg.ok ? "border-green-500/40 bg-green-500/8 text-green-300" : "border-red-500/40 bg-red-500/8 text-red-300")}>
+          <div className={cn("flex items-center gap-2 px-4 py-3 rounded-chip border text-sm mb-4",
+            seedMsg.ok
+              ? "border-ember-green/40 bg-ember-green/10 text-ember-green"
+              : "border-zar-red/40 bg-zar-red/10 text-zar-red")}>
             {seedMsg.ok ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <XCircle className="w-4 h-4 flex-shrink-0" />}
             <span>{seedMsg.text}</span>
-            <button onClick={() => setSeedMsg(null)} className="ml-auto text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))]">×</button>
+            <button
+              onClick={() => setSeedMsg(null)}
+              aria-label="Zatvori"
+              className="ml-auto text-muted hover:text-foreground"
+            >×</button>
           </div>
         )}
 
+        {/* Google Places info banner — kept #4285f4 as documented external-source marker */}
         {placesSearched && !placesLoading && placeResults.length > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#4285f4]/25 bg-[#4285f4]/5 text-sm mb-4">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-chip border border-[#4285f4]/25 bg-[#4285f4]/5 text-sm mb-4">
             <span className="text-[#4285f4] text-base font-bold">G</span>
-            <span className="text-[rgb(var(--muted))]">
+            <span className="text-muted">
               Google Places:{" "}
-              <span className="text-[rgb(var(--foreground))] font-medium">
+              <span className="text-foreground font-medium">
                 {placeResults.length} lokacija
               </span>{" "}
               pronađeno za &ldquo;{selectedCity}&rdquo;
@@ -599,36 +556,39 @@ function FinderPageInner() {
           </div>
         )}
 
+        {/* Places API error — admin-attention zar-red */}
         {placesError && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-400/30 bg-amber-400/5 text-sm mb-4">
-            <span className="text-amber-400">⚠️</span>
-            <span className="text-amber-300">{placesError}</span>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-chip border border-zar-red/30 bg-zar-red/5 text-sm mb-4">
+            {/* TODO(icons): swap ⚠️ for brand <Warning> */}
+            <span aria-hidden="true" className="text-zar-red">⚠️</span>
+            <span className="text-zar-red">{placesError}</span>
           </div>
         )}
 
+        {/* DB error — destructive zar-red */}
         {dbError && (
-          <div className="flex items-start gap-3 px-4 py-4 rounded-xl border border-red-500/30 bg-red-500/5 mb-5">
-            <ServerCrash className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div role="alert" className="flex items-start gap-3 px-4 py-4 rounded-chip border border-zar-red/30 bg-zar-red/5 mb-5">
+            <ServerCrash className="w-5 h-5 text-zar-red flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-red-300">{dbError}</p>
-              <p className="text-xs text-[rgb(var(--muted))] mt-1">Provjeri Vercel → Settings → Environment Variables i Supabase → Authentication → Policies.</p>
+              <p className="text-sm text-zar-red">{dbError}</p>
+              <p className="text-xs text-muted mt-1">Provjeri Vercel → Settings → Environment Variables i Supabase → Authentication → Policies.</p>
             </div>
           </div>
         )}
 
         {/* Stats row */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <div className="flex items-center gap-4 text-xs text-[rgb(var(--muted))]">
+          <div className="flex items-center gap-4 text-xs text-muted">
             {dbLoading ? (
               <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Učitavanje...</span>
             ) : (
               <>
                 <span>
-                  <span className="text-[rgb(var(--foreground))] font-medium">{dbRestaurants.length}</span>
+                  <span className="text-foreground font-medium">{dbRestaurants.length}</span>
                   {totalCount > dbRestaurants.length && (
-                    <span className="text-[rgb(var(--muted))]"> / {totalCount}</span>
+                    <span className="text-muted"> / {totalCount}</span>
                   )} verificiranih lokacija
-                  {hasActiveFilters && <span className="text-[rgb(var(--primary))] ml-1">(filtrirano)</span>}
+                  {hasActiveFilters && <span className="text-primary ml-1">(filtrirano)</span>}
                 </span>
                 {placesSearched && (
                   <span>+ <span className="text-[#4285f4] font-medium">{placeResults.length}</span> Google Places</span>
@@ -638,17 +598,19 @@ function FinderPageInner() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Predloži novo mjesto — always available for signed-in users */}
             <button
               onClick={() => setSubmitPlaceOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgb(var(--primary)/0.4)] text-[rgb(var(--primary))] text-xs font-semibold hover:bg-[rgb(var(--primary)/0.08)] transition-colors"
-              style={{ fontFamily: "Oswald, sans-serif" }}
+              className="font-display flex items-center gap-1.5 px-3 py-1.5 rounded-chip border border-primary/40 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors"
             >
               + Predloži mjesto
             </button>
 
             {!dbLoading && dbRestaurants.length === 0 && !dbError && !hasActiveFilters && (
-              <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgb(var(--primary))] text-white text-xs font-semibold hover:bg-[rgb(var(--primary)/0.85)] transition-colors disabled:opacity-60">
+              <button
+                onClick={handleSeed}
+                disabled={seeding}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-chip bg-primary text-primary-fg text-xs font-semibold hover:bg-vatra-hover transition-colors disabled:opacity-60"
+              >
                 {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                 {seeding ? "Seeding..." : "Seed bazu podataka"}
               </button>
@@ -677,12 +639,13 @@ function FinderPageInner() {
               }}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-2xl border border-dashed border-[rgb(var(--border))]">
-              <span className="text-5xl">🗺️</span>
-              <p className="font-semibold text-[rgb(var(--foreground))]" style={{ fontFamily: "Oswald, sans-serif" }}>
+            <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-card border border-dashed border-border">
+              {/* TODO(icons): swap 🗺️ for brand <Karta> */}
+              <span className="text-5xl" aria-hidden="true">🗺️</span>
+              <p className="font-display font-semibold text-foreground">
                 Odaberi grad za prikaz mape
               </p>
-              <p className="text-sm text-[rgb(var(--muted))]">Upiši grad ili odaberi stil ćevapa iznad.</p>
+              <p className="text-sm text-muted">Upiši grad ili odaberi stil ćevapa iznad.</p>
             </div>
           )
         )}
@@ -695,10 +658,15 @@ function FinderPageInner() {
 
             ) : visibleDbRestaurants.length === 0 && !placesSearched && !hasActiveFilters ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <span className="text-6xl">🍖</span>
-                <p className="text-[rgb(var(--foreground))] font-semibold text-lg" style={{ fontFamily: "Oswald, sans-serif" }}>Nema restorana u bazi</p>
-                <p className="text-[rgb(var(--muted))] text-sm text-center max-w-sm">Klikni ispod za automatsko punjenje baze s 6 legendarnih mjesta, ili upiši grad iznad.</p>
-                <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-2 mt-2 px-5 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-white font-semibold text-sm hover:bg-[rgb(var(--primary)/0.85)] transition-colors disabled:opacity-60">
+                {/* TODO(icons): swap 🍖 for brand <Cevapi> */}
+                <span className="text-6xl" aria-hidden="true">🍖</span>
+                <p className="font-display text-foreground font-semibold text-lg">Nema restorana u bazi</p>
+                <p className="text-muted text-sm text-center max-w-sm">Klikni ispod za automatsko punjenje baze s 6 legendarnih mjesta, ili upiši grad iznad.</p>
+                <button
+                  onClick={handleSeed}
+                  disabled={seeding}
+                  className="flex items-center gap-2 mt-2 px-5 py-2.5 rounded-chip bg-primary text-primary-fg font-semibold text-sm hover:bg-vatra-hover transition-colors disabled:opacity-60"
+                >
                   {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   {seeding ? "Seeding..." : "Seed 6 legendarnih restorana"}
                 </button>
@@ -706,44 +674,48 @@ function FinderPageInner() {
 
             ) : visibleDbRestaurants.length === 0 && hasActiveFilters && !(placesSearched && visiblePlaceResults.length > 0) ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <span className="text-5xl">🔍</span>
-                <p className="text-[rgb(var(--foreground))] font-semibold" style={{ fontFamily: "Oswald, sans-serif" }}>Nema rezultata</p>
-                <p className="text-[rgb(var(--muted))] text-sm text-center max-w-xs">Nijedan restoran ne odgovara odabranim filterima.</p>
-                <button onClick={clearFilters} className="mt-1 text-xs text-[rgb(var(--primary))] hover:underline">Obriši filtere</button>
+                {/* TODO(icons): swap 🔍 for <Search> Lucide */}
+                <span className="text-5xl" aria-hidden="true">🔍</span>
+                <p className="font-display text-foreground font-semibold">Nema rezultata</p>
+                <p className="text-muted text-sm text-center max-w-xs">Nijedan restoran ne odgovara odabranim filterima.</p>
+                <button onClick={clearFilters} className="mt-1 text-xs text-primary hover:underline">Obriši filtere</button>
               </div>
 
             ) : (
               <>
-                {/* ── Hero banner — idle state (no filters) ─────────────── */}
+                {/* Hero banner — idle state (no filters) */}
                 {!hasActiveFilters && !placesSearched && (
-                  <div className="py-16 px-6 rounded-2xl border border-[rgb(var(--border))] bg-gradient-to-br from-[rgb(var(--surface)/0.9)] to-[rgb(var(--surface)/0.3)] text-center relative overflow-hidden">
-                    <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.08)] blur-3xl pointer-events-none" />
-                    <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-[rgb(var(--primary)/0.05)] blur-3xl pointer-events-none" />
+                  <div className="py-16 px-6 rounded-card border border-border bg-gradient-to-br from-surface/90 to-surface/30 text-center relative overflow-hidden">
+                    <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
                     <div className="relative z-10">
-                      <div className="text-5xl mb-4">🥩</div>
-                      <h2
-                        className="text-3xl md:text-4xl font-bold text-[rgb(var(--foreground))] mb-3"
-                        style={{ fontFamily: "Oswald, sans-serif" }}
-                      >
+                      {/* TODO(icons): swap 🥩 for brand <Cevapi> */}
+                      <div className="text-5xl mb-4" aria-hidden="true">🥩</div>
+                      <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-3">
                         {t("heroTitle")}
                       </h2>
-                      <p className="text-[rgb(var(--muted))] max-w-md mx-auto text-sm leading-relaxed mb-6">
+                      <p className="text-muted max-w-md mx-auto text-sm leading-relaxed mb-6">
                         {t("heroSubtitle")}
                       </p>
-                      <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium">
+                      <p className="text-xs text-muted uppercase tracking-widest font-medium">
                         ↑ Upiši grad ili odaberi stil ćevapa iznad da počneš
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* ── Full verified grid — only shown when filters are active */}
+                {/* Verified DB grid */}
                 {(hasActiveFilters || placesSearched) && visibleDbRestaurants.length > 0 && (
                   <div className="mb-8">
-                    <p className="text-xs text-[rgb(var(--muted))] uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
+                    <p className="text-xs text-muted uppercase tracking-widest font-medium mb-3 flex items-center gap-1.5">
                       <SlidersHorizontal className="w-3 h-3" />
                       Verificirani restorani ({dbRestaurants.length}{totalCount > dbRestaurants.length ? ` / ${totalCount}` : ""})
-                      {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
+                      {favOnly && (
+                        <span className="text-zar-red ml-1">
+                          {/* TODO(icons): swap ❤️ for <Heart> Lucide */}
+                          · Samo favoriti <span aria-hidden="true">❤️</span>
+                        </span>
+                      )}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {visibleDbRestaurants.map((r) => (
@@ -751,7 +723,10 @@ function FinderPageInner() {
                           key={r.id}
                           id={`card-${r.id}`}
                           onClick={() => setSelectedMapKey(r.id === selectedMapKey ? null : r.id)}
-                          className={cn("rounded-2xl transition-all cursor-pointer", selectedMapKey === r.id ? "ring-2 ring-[rgb(var(--primary))] ring-offset-2 ring-offset-[rgb(var(--background))]" : "")}
+                          className={cn(
+                            "rounded-card transition-all cursor-pointer",
+                            selectedMapKey === r.id && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                          )}
                         >
                           <RestaurantCard
                             restaurant={r}
@@ -765,13 +740,13 @@ function FinderPageInner() {
                       ))}
                     </div>
 
-                    {/* ── Load More ──────────────────────────────────────── */}
+                    {/* Load More */}
                     {hasMore && (
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={() => setPage((p) => p + 1)}
                           disabled={loadingMore}
-                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[rgb(var(--border))] text-sm font-semibold text-[rgb(var(--foreground))] hover:border-[rgb(var(--primary)/0.5)] hover:text-[rgb(var(--primary))] transition-all disabled:opacity-50 active:scale-95"
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-chip border border-border text-sm font-semibold text-foreground hover:border-primary/50 hover:text-primary transition-all disabled:opacity-50 active:scale-95"
                         >
                           {loadingMore ? (
                             <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam…</>
@@ -792,16 +767,16 @@ function FinderPageInner() {
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {[1, 2, 3].map((i) => (
-                        <div key={i} className="rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 animate-pulse">
+                        <div key={i} className="rounded-card border border-[#4285f4]/20 bg-surface/40 p-5 animate-pulse">
                           <div className="flex items-start gap-3 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-[rgb(var(--border))]" />
+                            <div className="w-8 h-8 rounded-full bg-border" />
                             <div className="flex-1 space-y-2">
-                              <div className="h-4 bg-[rgb(var(--border))] rounded w-3/4" />
-                              <div className="h-3 bg-[rgb(var(--border))] rounded w-1/2" />
+                              <div className="h-4 bg-border rounded w-3/4" />
+                              <div className="h-3 bg-border rounded w-1/2" />
                             </div>
                           </div>
-                          <div className="h-3 bg-[rgb(var(--border))] rounded w-full mb-2" />
-                          <div className="h-3 bg-[rgb(var(--border))] rounded w-2/3" />
+                          <div className="h-3 bg-border rounded w-full mb-2" />
+                          <div className="h-3 bg-border rounded w-2/3" />
                         </div>
                       ))}
                     </div>
@@ -815,7 +790,11 @@ function FinderPageInner() {
                       <span className="font-bold">G</span>
                       Google Places — &ldquo;{selectedCity}&rdquo; ({placeResults.length})
                       {loadingMorePlaces && <Loader2 className="w-3 h-3 animate-spin" />}
-                      {favOnly && <span className="text-red-400 ml-1">· Samo favoriti ❤️</span>}
+                      {favOnly && (
+                        <span className="text-zar-red ml-1">
+                          · Samo favoriti <span aria-hidden="true">❤️</span>
+                        </span>
+                      )}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {visiblePlaceResults.map((r) => (
@@ -831,27 +810,27 @@ function FinderPageInner() {
                       ))}
                       {/* Skeleton cards while Load More is in-flight */}
                       {loadingMorePlaces && [1, 2, 3].map((i) => (
-                        <div key={`lm-skeleton-${i}`} className="rounded-2xl border border-[#4285f4]/20 bg-[rgb(var(--surface)/0.4)] p-5 animate-pulse">
+                        <div key={`lm-skeleton-${i}`} className="rounded-card border border-[#4285f4]/20 bg-surface/40 p-5 animate-pulse">
                           <div className="flex items-start gap-3 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-[rgb(var(--border))]" />
+                            <div className="w-8 h-8 rounded-full bg-border" />
                             <div className="flex-1 space-y-2">
-                              <div className="h-4 bg-[rgb(var(--border))] rounded w-3/4" />
-                              <div className="h-3 bg-[rgb(var(--border))] rounded w-1/2" />
+                              <div className="h-4 bg-border rounded w-3/4" />
+                              <div className="h-3 bg-border rounded w-1/2" />
                             </div>
                           </div>
-                          <div className="h-3 bg-[rgb(var(--border))] rounded w-full mb-2" />
-                          <div className="h-3 bg-[rgb(var(--border))] rounded w-2/3" />
+                          <div className="h-3 bg-border rounded w-full mb-2" />
+                          <div className="h-3 bg-border rounded w-2/3" />
                         </div>
                       ))}
                     </div>
 
-                    {/* ── Load More button ───────────────────────────────── */}
+                    {/* Load More — uses vatra-hover (the brighter brand orange) */}
                     {hasMorePlaces && (
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={loadMorePlaces}
                           disabled={!tokenReady || loadingMorePlaces}
-                          className="flex items-center gap-2 px-6 py-2.5 rounded-[14px] border border-[#FF6B00]/30 text-sm font-semibold text-[#FF6B00] hover:bg-[#FF6B00]/8 transition-all disabled:opacity-40 active:scale-95"
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-chip border border-vatra-hover/30 text-sm font-semibold text-vatra-hover hover:bg-vatra-hover/10 transition-all disabled:opacity-40 active:scale-95"
                         >
                           {loadingMorePlaces ? (
                             <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam jos…</>
@@ -867,8 +846,8 @@ function FinderPageInner() {
                 )}
 
                 {placesSearched && placeResults.length === 0 && !placesLoading && (
-                  <div className="mt-6 rounded-xl border border-dashed border-[rgb(var(--border))] p-8 text-center">
-                    <p className="text-[rgb(var(--muted))] text-sm">
+                  <div className="mt-6 rounded-chip border border-dashed border-border p-8 text-center">
+                    <p className="text-muted text-sm">
                       Google Places nije pronašao rezultate za &ldquo;{selectedCity}&rdquo;. Provjeri grad ili proširi pretragu.
                     </p>
                   </div>
@@ -922,9 +901,6 @@ function FinderPageInner() {
 }
 
 // ── Root export — wraps everything in APIProvider ─────────────────────────────
-// APIProvider loads the Google Maps JS SDK once. FinderPageInner uses
-// useMapsLibrary("places") which requires this context to be present.
-// The map view also benefits because GoogleCevapMap reuses the same loaded SDK.
 export default function FinderPage() {
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}>
